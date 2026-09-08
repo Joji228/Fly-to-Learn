@@ -14,7 +14,6 @@
   <div id="hud" class="hidden">
     <div class="hud-left">
       <div class="hud-stat"><span class="hud-label">DISTANCE</span><span class="hud-value" id="hud-dist">0 m</span></div>
-      <div class="hud-stat speed" id="hud-speed-card"><span class="hud-label">SPEED</span><span class="hud-value" id="hud-speed">0 km/h</span></div>
     </div>
     <div class="hud-center">
       <div id="record-banner" class="hidden">★ NEW RECORD! ★</div>
@@ -42,6 +41,21 @@
     <button id="tc-up" class="tc-btn">▲<span>NOSE UP</span></button>
     <button id="tc-boost" class="tc-btn boost">🔥<span>BOOST</span></button>
     <button id="tc-down" class="tc-btn">▼<span>NOSE DOWN</span></button>
+  </div>
+
+  <!-- speedometer -->
+  <div id="speedometer" class="hidden">
+    <svg id="sp-svg" viewBox="0 0 180 180" aria-hidden="true">
+      <circle class="sp-dial" cx="90" cy="90" r="86"/>
+      <path id="sp-track" class="sp-track" d="" pathLength="100"/>
+      <path id="sp-red" class="sp-red" d="" pathLength="100"/>
+      <path id="sp-prog" class="sp-prog" d="" pathLength="100"/>
+      <g id="sp-ticks"></g>
+      <line id="sp-needle" x1="90" y1="90" x2="90" y2="36"/>
+      <circle class="sp-cap" cx="90" cy="90" r="9"/>
+    </svg>
+    <div id="sp-number">0</div>
+    <div id="sp-unit">km/h</div>
   </div>
 
   <!-- speed vignette -->

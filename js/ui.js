@@ -8,6 +8,7 @@ function $(id){ return document.getElementById(id); }
 function init(s){
   save = s;
   bindButtons();
+  buildSpeedo();
   renderShop();
   refreshMenu();
   applySettingsToInputs();
@@ -98,13 +99,13 @@ var subReturn = "menu";
 function showMenu(){
   window.DA.Game.phase = "menu";
   hideAll(); $("screen-menu").classList.remove("hidden");
-  $("hud").classList.add("hidden"); $("touch-controls").classList.add("hidden"); $("pitch-hint").classList.add("hidden");
+  $("hud").classList.add("hidden"); setSpeedoVisible(false); $("touch-controls").classList.add("hidden"); $("pitch-hint").classList.add("hidden");
   refreshMenu();
 }
 function showShop(){
   window.DA.Game.phase = "shop";
   hideAll(); $("screen-shop").classList.remove("hidden");
-  $("hud").classList.add("hidden"); $("touch-controls").classList.add("hidden"); $("pitch-hint").classList.add("hidden");
+  $("hud").classList.add("hidden"); setSpeedoVisible(false); $("touch-controls").classList.add("hidden"); $("pitch-hint").classList.add("hidden");
   renderShop();
 }
 function showStats(){ subReturn = window.DA.Game.phase==="shop"?"shop":"menu"; hideAll(); $("screen-stats").classList.remove("hidden"); renderStats(); }
@@ -136,6 +137,7 @@ function refreshMenu(){
 function showFlight(){
   hideAll();
   $("hud").classList.remove("hidden");
+  setSpeedoVisible(true);
   $("touch-controls").classList.remove("hidden");
   if(window.innerWidth>700) $("pitch-hint").classList.remove("hidden");
   var id = runId;
@@ -148,20 +150,7 @@ function updateHUD(){
   if(!G.S) return;
   $("hud-dist").textContent = window.DA.Physics.fmtDist(Math.max(0,G.S.x));
   $("hud-alt").textContent = Math.max(0,G.S.y).toFixed(0)+" m";
-  var spdKmh = Math.round((G.S.speed||0)*3.6);
-  var spdEl = $("hud-speed");
-  spdEl.textContent = spdKmh+" km/h";
-  // redline: speed readout heats up as the glider strains past comfort
-  if(G.P && (G.S.speed||0) > G.P.top) spdEl.style.color = "#ff5d5d";
-  else if(G.P && (G.S.speed||0) > G.P.comfort) spdEl.style.color = "#ffb703";
-  else spdEl.style.color = "#fff";
-  var sc = $("hud-speed-card");
-  if(sc) sc.classList.toggle("hot", !!(G.P && (G.S.speed||0) > G.P.comfort));
-  // punch the speed number on rapid gains (dopamine for diving/boosting)
-  if(G._lastSpd !== undefined && spdKmh - G._lastSpd > 6 && (G.phase==="fly")){
-    spdEl.classList.remove("punch"); void spdEl.offsetWidth; spdEl.classList.add("punch");
-  }
-  G._lastSpd = spdKmh;
+  updateSpeedo(G);
   var hasBooster = !!(G.P && G.P.thrust > 0);
   var f = (G.S.fuelMax>0 && hasBooster) ? G.S.fuel/G.S.fuelMax : 0;
   var fill = $("fuel-fill");
@@ -203,6 +192,104 @@ function onRecord(){
   if(hb){ hb.classList.remove("bestflash"); void hb.offsetWidth; hb.classList.add("bestflash"); }
   window.DA.Audio.SFX.record();
   toast("🎉 NEW RECORD!");
+}
+
+/* ---------- SPEEDOMETER (bottom-right arcade gauge) ---------- */
+var SP_MAX = 400; // gauge face range; numbers never clamp, needle pins instead
+var spBuilt = false, spRedKey = "";
+function spAngle(frac){ return (135 + 270 * Math.max(0, Math.min(1, frac))) * Math.PI / 180; }
+function spPoint(frac, r){
+  var a = spAngle(frac);
+  return [90 + r * Math.cos(a), 90 + r * Math.sin(a)];
+}
+function spArcD(f0, f1, r){
+  var p0 = spPoint(f0, r), p1 = spPoint(f1, r);
+  var large = (f1 - f0) > 0.5 ? 1 : 0;
+  return "M " + p0[0].toFixed(1) + " " + p0[1].toFixed(1) +
+         " A " + r + " " + r + " 0 " + large + " 1 " +
+         p1[0].toFixed(1) + " " + p1[1].toFixed(1);
+}
+function setSpeedoVisible(on){
+  var el = $("speedometer");
+  if(el) el.classList.toggle("hidden", !on);
+}
+function buildSpeedo(){
+  if(spBuilt) return;
+  spBuilt = true;
+  var NS = "http://www.w3.org/2000/svg";
+  var ticks = $("sp-ticks");
+  if(ticks && ticks.appendChild){
+    for(var v=0; v<=SP_MAX; v+=20){
+      var major = (v % 100 === 0);
+      var p0 = spPoint(v/SP_MAX, major ? 66 : 70), p1 = spPoint(v/SP_MAX, 78);
+      var ln = document.createElementNS ? document.createElementNS(NS, "line") : null;
+      if(!ln || !ln.setAttribute) continue;
+      ln.setAttribute("x1", p0[0]); ln.setAttribute("y1", p0[1]);
+      ln.setAttribute("x2", p1[0]); ln.setAttribute("y2", p1[1]);
+      ln.setAttribute("class", major ? "sp-tick major" : "sp-tick");
+      ticks.appendChild(ln);
+      if(major){
+        var lp = spPoint(v/SP_MAX, 54);
+        var tx = document.createElementNS(NS, "text");
+        if(!tx.setAttribute) continue;
+        tx.setAttribute("x", lp[0]); tx.setAttribute("y", lp[1] + 3.5);
+        tx.setAttribute("class", "sp-lab");
+        tx.textContent = String(v);
+        ticks.appendChild(tx);
+      }
+    }
+  }
+  var track = $("sp-track"), prog = $("sp-prog");
+  if(track && track.setAttribute) track.setAttribute("d", spArcD(0, 1, 64));
+  if(prog && prog.setAttribute) prog.setAttribute("d", spArcD(0, 1, 64));
+}
+function updateSpeedo(G){
+  var box = $("speedometer");
+  if(!box) return;
+  var spdKmh = Math.round((G.S.speed||0)*3.6);
+  var num = $("sp-number");
+  if(num){
+    num.textContent = String(spdKmh);
+    // punch the number on rapid gains (dopamine for diving/boosting)
+    if(G._lastSpd !== undefined && spdKmh - G._lastSpd > 6 && G.phase === "fly"){
+      num.classList.remove("punch"); void num.offsetWidth; num.classList.add("punch");
+    }
+  }
+  G._lastSpd = spdKmh;
+  // smoothed needle (mechanical feel, still immediate)
+  var disp = (G._spdDisp === undefined) ? spdKmh : G._spdDisp + (spdKmh - G._spdDisp) * 0.3;
+  if(!isFinite(disp)) disp = spdKmh;
+  G._spdDisp = disp;
+  var frac = Math.max(0, Math.min(1, disp / SP_MAX));
+  var boosting = !!G.S.boosting;
+  var needle = $("sp-needle");
+  if(needle && needle.setAttribute){
+    var deg = -135 + 270 * frac;
+    if(boosting && disp > 40) deg += (Math.random()-0.5) * 2.4; // faint boost tremble
+    needle.setAttribute("transform", "rotate(" + deg.toFixed(1) + " 90 90)");
+  }
+  var prog = $("sp-prog");
+  if(prog && prog.setAttribute) prog.setAttribute("stroke-dasharray", (frac*100).toFixed(1) + " 100");
+  // redline zone follows the equipped glider (rebuilt only when it changes)
+  if(G.P){
+    var key = G.P.comfort.toFixed(1) + "|" + G.P.top.toFixed(1);
+    if(key !== spRedKey){
+      spRedKey = key;
+      var red = $("sp-red");
+      if(red && red.setAttribute) red.setAttribute("d", spArcD(G.P.comfort/SP_MAX, Math.min(1, G.P.top/SP_MAX), 64));
+    }
+  }
+  // visual states: fast -> redline -> extreme, plus boost glow
+  var overTop = !!(G.P && (G.S.speed||0) > G.P.top);
+  var overMax = (G.S.speed||0)*3.6 > SP_MAX;
+  var fast = !!(G.P && (G.S.speed||0) > G.P.comfort);
+  box.classList.toggle("fast", fast && !overTop);
+  box.classList.toggle("redline", overTop);
+  box.classList.toggle("extreme", overMax);
+  box.classList.toggle("boosting", boosting);
+  if(num){
+    num.style.color = overTop ? "#ff5d5d" : fast ? "#ffb703" : "#fff";
+  }
 }
 // launch moment: punchy whoosh (the ramp sound already played at release)
 function onLaunch(){ window.DA.Audio.ensure(); window.DA.Audio.SFX.whoosh(); }
@@ -486,7 +573,7 @@ function onRunStart(){ runId++; }
 function showResults(res){
   var id = runId;
   hideAll();
-  $("hud").classList.add("hidden"); $("touch-controls").classList.add("hidden");
+  $("hud").classList.add("hidden"); setSpeedoVisible(false); $("touch-controls").classList.add("hidden");
   var st = res.stats, rw = res.rewards;
   var crashed = res.crash || {};
   var sev = crashed.severity || "crash";

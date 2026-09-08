@@ -40,14 +40,39 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--ink);
 .hud-label{display:block;font-size:var(--hud-label);font-weight:700;letter-spacing:2.5px;color:var(--muted);}
 .hud-value{display:block;font-weight:900;font-size:var(--hud-value);line-height:1.15;color:#fff;
   text-shadow:0 2px 6px rgba(0,0,0,.5);font-variant-numeric:tabular-nums;}
-.hud-stat.speed .hud-value{font-size:var(--hud-speed);}
 .hud-stat.speed{min-width:118px;}
 .hud-stat.fuel{min-width:150px;}
 .hud-stat.hot{animation:hotpulse 1s ease infinite;border-color:var(--accent);}
 @keyframes hotpulse{0%,100%{box-shadow:0 4px 14px rgba(0,0,0,.35)}50%{box-shadow:var(--glow-amber)}}
-#hud-speed{display:inline-block;}
-#hud-speed.punch{animation:spunch .3s ease;}
-@keyframes spunch{0%{transform:scale(1)}35%{transform:scale(1.3);color:var(--accent)}100%{transform:scale(1)}}
+.hud-stat.hot{animation:hotpulse 1s ease infinite;border-color:var(--accent);}
+@keyframes hotpulse{0%,100%{box-shadow:0 4px 14px rgba(0,0,0,.35)}50%{box-shadow:var(--glow-amber)}}
+
+/* ============ SPEEDOMETER (bottom-right arcade gauge) ============ */
+#speedometer{position:absolute;right:26px;bottom:26px;width:186px;height:186px;z-index:5;pointer-events:none;
+  filter:drop-shadow(0 8px 22px rgba(0,0,0,.55));}
+#sp-svg{width:100%;height:100%;display:block;}
+.sp-dial{fill:rgba(8,18,36,.82);stroke:rgba(255,255,255,.22);stroke-width:2;}
+.sp-track{fill:none;stroke:rgba(255,255,255,.14);stroke-width:11;stroke-linecap:round;}
+.sp-red{fill:none;stroke:#fb8500;stroke-width:11;stroke-linecap:butt;opacity:.85;}
+.sp-prog{fill:none;stroke:#5aa9e6;stroke-width:11;stroke-linecap:round;
+  filter:drop-shadow(0 0 5px rgba(90,169,230,.8));transition:stroke .2s;}
+.sp-tick{stroke:rgba(255,255,255,.5);stroke-width:2;}
+.sp-tick.major{stroke:#fff;stroke-width:3;}
+.sp-lab{fill:#9db4d0;font-size:10px;font-weight:700;text-anchor:middle;font-family:inherit;}
+#sp-needle{stroke:#ff5d5d;stroke-width:4;stroke-linecap:round;filter:drop-shadow(0 0 4px rgba(255,93,93,.8));}
+.sp-cap{fill:#22395f;stroke:#fff;stroke-width:2.5;}
+#sp-number{position:absolute;left:0;right:0;top:53%;text-align:center;font-weight:900;font-size:34px;
+  color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.7);font-variant-numeric:tabular-nums;line-height:1;}
+#sp-number.punch{animation:spunch .3s ease;}
+@keyframes spunch{0%{transform:scale(1)}35%{transform:scale(1.25);color:var(--accent)}100%{transform:scale(1)}}
+#sp-unit{position:absolute;left:0;right:0;top:53%;margin-top:36px;text-align:center;font-size:11px;
+  font-weight:700;letter-spacing:3px;color:var(--muted);}
+#speedometer.fast .sp-prog{stroke:#ffb703;filter:drop-shadow(0 0 7px rgba(255,183,3,.85));}
+#speedometer.redline .sp-prog{stroke:#ff5d5d;filter:drop-shadow(0 0 9px rgba(255,93,93,.9));}
+#speedometer.redline{animation:redpulse 1s ease infinite;}
+@keyframes redpulse{0%,100%{filter:drop-shadow(0 8px 22px rgba(0,0,0,.55))}50%{filter:drop-shadow(0 0 18px rgba(255,93,93,.55))}}
+#speedometer.extreme{animation:redpulse .5s ease infinite;}
+#speedometer.boosting .sp-dial{stroke:rgba(255,183,3,.65);}
 #hud-best.bestflash{animation:bestflash .8s ease 2;}
 @keyframes bestflash{0%,100%{background:rgba(8,18,36,.72)}50%{background:rgba(255,183,3,.85)}}
 #fuel-bar{height:10px;background:#0a1526;border-radius:6px;margin-top:5px;overflow:hidden;
@@ -302,6 +327,9 @@ kbd{background:#050b18;border:1px solid #4a5a7a;border-bottom-width:3px;border-r
   .mini-btn{font-size:13px;padding:5px 7px;}
   .tc-btn{width:84px;height:68px;font-size:19px;}
   .tc-btn.boost{width:96px;}
+  #speedometer{width:118px;height:118px;right:10px;bottom:102px;}
+  #sp-number{font-size:22px;}
+  #sp-unit{font-size:8px;margin-top:23px;letter-spacing:2px;}
   #hangar-preview{flex-direction:column;}
   .shop-card{padding:14px;}
   .big-btn{font-size:19px;padding:13px 24px;}
@@ -352,6 +380,8 @@ kbd{background:#050b18;border:1px solid #4a5a7a;border-bottom-width:3px;border-r
   .pause-card{max-width:600px;padding:40px 44px;}
   .pause-card h2{font-size:48px;}
   .pause-sub{font-size:15px;}
+  #speedometer{width:208px;height:208px;right:30px;bottom:30px;}
+  #sp-number{font-size:38px;}
   .stat-box b{font-size:21px;}
   .set-row{font-size:16px;}
   .cheat-btn{font-size:18px;}
