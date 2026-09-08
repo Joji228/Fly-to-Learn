@@ -27,6 +27,18 @@ function bindButtons(){
   $("btn-to-menu").onclick = function(){ click(); showMenu(); };
   $("btn-stats-back").onclick = function(){ click(); goBackFromSub(); };
   $("btn-settings-back").onclick = function(){ click(); goBackFromSub(); };
+  $("btn-cheats").onclick = function(){ click(); showCheats(); };
+  $("btn-cheats-back").onclick = function(){ click(); goBackFromSub(); };
+  $("btn-cheat-1k").onclick = function(){ giveMoney(1000); };
+  $("btn-cheat-10k").onclick = function(){ giveMoney(10000); };
+  $("btn-cheat-50k").onclick = function(){ giveMoney(50000); };
+  $("btn-cheat-zero").onclick = function(){
+    click();
+    save.money = 0;
+    window.DA.Save.save(save);
+    refreshMenu(); renderShop();
+    toast("💸 Wallet emptied. Bold strategy.");
+  };
   $("btn-resume").onclick = function(){ click(); window.DA.pauseGame(false); };
   $("btn-quit").onclick = function(){ click(); $("screen-pause").classList.add("hidden"); window.DA.abandonRun(); };
   $("btn-pause").onclick = function(){ click(); window.DA.pauseGame(true); };
@@ -55,6 +67,16 @@ function bindButtons(){
 }
 
 function click(){ window.DA.Audio.ensure(); window.DA.Audio.SFX.click(); }
+/* Cheat menu: instant local money. Save + every visible wallet refresh now. */
+function giveMoney(n){
+  click();
+  save.money += n;
+  window.DA.Save.save(save);
+  refreshMenu();
+  if(!$("screen-shop").classList.contains("hidden")) renderShop();
+  floatText("+$" + n.toLocaleString() + "!", "#c77dff");
+  toast("🎮 +$" + n.toLocaleString() + " added. Spend it wisely-ish.");
+}
 function updateMuteBtn(){ $("btn-mute-hud").textContent = save.settings.sfx ? "🔊" : "🔇"; }
 function applySettingsToInputs(){
   $("set-sfx").checked = save.settings.sfx;
@@ -79,8 +101,13 @@ function showShop(){
 }
 function showStats(){ subReturn = window.DA.Game.phase==="shop"?"shop":"menu"; hideAll(); $("screen-stats").classList.remove("hidden"); renderStats(); }
 function showSettings(){ subReturn = window.DA.Game.phase==="shop"?"shop":"menu"; hideAll(); $("screen-settings").classList.remove("hidden"); }
-function goBackFromSub(){ hideAll(); if(subReturn==="shop") showShop(); else showMenu(); }
-function hideAll(){ ["screen-menu","screen-shop","screen-results","screen-stats","screen-settings","screen-pause"].forEach(function(id){ $(id).classList.add("hidden"); }); }
+function showCheats(){
+  subReturn = window.DA.Game.phase==="shop" ? "shop" : "menu";
+  if(!$("screen-settings").classList.contains("hidden")) subReturn = "settings";
+  hideAll(); $("screen-cheats").classList.remove("hidden");
+}
+function goBackFromSub(){ hideAll(); if(subReturn==="shop") showShop(); else if(subReturn==="settings") showSettings(); else showMenu(); }
+function hideAll(){ ["screen-menu","screen-shop","screen-results","screen-stats","screen-settings","screen-cheats","screen-pause"].forEach(function(id){ $(id).classList.add("hidden"); }); }
 
 function refreshMenu(){
   $("menu-best-dist").textContent = "Best: " + window.DA.Physics.fmtDist(save.best.dist);
@@ -110,6 +137,8 @@ function updateHUD(){
   if(G.P && (G.S.speed||0) > G.P.top) spdEl.style.color = "#ff5d5d";
   else if(G.P && (G.S.speed||0) > G.P.comfort) spdEl.style.color = "#ffb703";
   else spdEl.style.color = "#fff";
+  var sc = $("hud-speed-card");
+  if(sc) sc.classList.toggle("hot", !!(G.P && (G.S.speed||0) > G.P.comfort));
   // punch the speed number on rapid gains (dopamine for diving/boosting)
   if(G._lastSpd !== undefined && spdKmh - G._lastSpd > 6 && (G.phase==="fly")){
     spdEl.classList.remove("punch"); void spdEl.offsetWidth; spdEl.classList.add("punch");

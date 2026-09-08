@@ -13,21 +13,20 @@
   <!-- HUD -->
   <div id="hud" class="hidden">
     <div class="hud-left">
-      <div class="hud-item"><span class="hud-label">DIST</span><span id="hud-dist">0 m</span></div>
-      <div class="hud-item"><span class="hud-label">ALT</span><span id="hud-alt">0 m</span></div>
-      <div class="hud-item"><span class="hud-label">SPEED</span><span id="hud-speed">0 km/h</span></div>
+      <div class="hud-stat"><span class="hud-label">DISTANCE</span><span class="hud-value" id="hud-dist">0 m</span></div>
+      <div class="hud-stat speed" id="hud-speed-card"><span class="hud-label">SPEED</span><span class="hud-value" id="hud-speed">0 km/h</span></div>
     </div>
     <div class="hud-center">
       <div id="record-banner" class="hidden">★ NEW RECORD! ★</div>
-      <div id="phase-label">RAMP</div>
-      <div id="pitch-label">→ 0°</div>
+      <div class="status-pill"><span id="phase-label">RAMP</span><span id="pitch-label">→ 0°</span></div>
       <div id="loadout-label">🪂 — • 🚀 —</div>
     </div>
     <div class="hud-right">
-      <div class="hud-item fuel-wrap"><span class="hud-label" id="fuel-label">FUEL</span>
+      <div class="hud-stat"><span class="hud-label">ALTITUDE</span><span class="hud-value" id="hud-alt">0 m</span></div>
+      <div class="hud-stat fuel"><span class="hud-label" id="fuel-label">FUEL</span>
         <div id="fuel-bar"><div id="fuel-fill"></div></div>
       </div>
-      <div class="hud-item"><span class="hud-label">BEST</span><span id="hud-best">0 m</span></div>
+      <div class="hud-stat best"><span class="hud-label">BEST</span><span class="hud-value" id="hud-best">0 m</span></div>
       <div class="hud-btns">
         <button id="btn-pause" class="mini-btn" title="Pause">⏸</button>
         <button id="btn-mute-hud" class="mini-btn" title="Mute">🔊</button>
@@ -58,13 +57,14 @@
       <div class="menu-best"><span id="menu-best-dist">Best: 0 m</span><span id="menu-flights">Flights: 0</span><span id="menu-cash">$0</span></div>
       <button id="btn-fly" class="big-btn">🛷 &nbsp;LAUNCH!</button>
       <div class="menu-row">
-        <button id="btn-shop" class="btn">🔧 Hangar / Shop</button>
+        <button id="btn-shop" class="btn">🔧 Hangar</button>
         <button id="btn-stats" class="btn">📊 Stats</button>
         <button id="btn-settings" class="btn">⚙ Settings</button>
       </div>
       <div class="howto">
-        <b>HOW TO FLY:</b> <kbd>A</kbd>/<kbd>◀</kbd> nose up • <kbd>D</kbd>/<kbd>▶</kbd> nose down • <kbd>SPACE</kbd> booster.
-        Dive to gain speed, pull up to trade speed for altitude. Don't stall!
+        <div class="step"><span><kbd>A</kbd> <kbd>◀</kbd></span><span><b>Nose up</b> — trade speed for altitude</span></div>
+        <div class="step"><span><kbd>D</kbd> <kbd>▶</kbd></span><span><b>Nose down</b> — dive to gain speed</span></div>
+        <div class="step"><span><kbd>SPACE</kbd></span><span><b>Booster</b> — thrust where you point</span></div>
       </div>
     </div>
   </section>
@@ -132,8 +132,26 @@
       <label class="set-row"><input type="checkbox" id="set-shake" checked> Screen shake</label>
       <label class="set-row"><input type="checkbox" id="set-particles" checked> Particles</label>
       <div class="menu-row">
+        <button id="btn-cheats" class="btn">🎮 Cheats</button>
         <button id="btn-reset-save" class="btn danger">🗑 Reset save</button>
         <button id="btn-settings-back" class="btn">← Back</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- CHEATS -->
+  <section id="screen-cheats" class="screen hidden">
+    <div class="menu-card narrow">
+      <h2>🎮 Cheat Menu</h2>
+      <div class="cheat-warn">Local fun menu — free money, zero judgment, no achievements were harmed.</div>
+      <div class="cheat-grid">
+        <button id="btn-cheat-1k" class="cheat-btn">+$1,000</button>
+        <button id="btn-cheat-10k" class="cheat-btn">+$10,000</button>
+        <button id="btn-cheat-50k" class="cheat-btn">+$50,000</button>
+        <button id="btn-cheat-zero" class="cheat-btn zero">$0 wallet</button>
+      </div>
+      <div class="menu-row">
+        <button id="btn-cheats-back" class="btn">← Back</button>
       </div>
     </div>
   </section>

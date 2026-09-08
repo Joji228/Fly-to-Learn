@@ -155,7 +155,7 @@ function startRun(){
 }
 
 function hideAllScreens(){
-  ["screen-menu","screen-shop","screen-results","screen-stats","screen-settings","screen-pause"].forEach(function(id){
+  ["screen-menu","screen-shop","screen-results","screen-stats","screen-settings","screen-cheats","screen-pause"].forEach(function(id){
     document.getElementById(id).classList.add("hidden");
   });
 }
