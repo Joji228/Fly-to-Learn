@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dodo Airways — Flight of the Ridiculous</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="game-wrap">
+  <canvas id="game"></canvas>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div class="hud-left">
+      <div class="hud-item"><span class="hud-label">DIST</span><span id="hud-dist">0 m</span></div>
+      <div class="hud-item"><span class="hud-label">ALT</span><span id="hud-alt">0 m</span></div>
+      <div class="hud-item"><span class="hud-label">SPEED</span><span id="hud-speed">0 km/h</span></div>
+    </div>
+    <div class="hud-center">
+      <div id="record-banner" class="hidden">★ NEW RECORD! ★</div>
+      <div id="phase-label">RAMP</div>
+    </div>
+    <div class="hud-right">
+      <div class="hud-item fuel-wrap"><span class="hud-label">FUEL</span>
+        <div id="fuel-bar"><div id="fuel-fill"></div></div>
+      </div>
+      <div class="hud-item"><span class="hud-label">BEST</span><span id="hud-best">0 m</span></div>
+      <div class="hud-btns">
+        <button id="btn-pause" class="mini-btn" title="Pause">⏸</button>
+        <button id="btn-mute-hud" class="mini-btn" title="Mute">🔊</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- pitch indicator -->
+  <div id="pitch-hint" class="hidden">◀ A / D ▶ &nbsp;•&nbsp; SPACE = boost</div>
+
+  <!-- touch controls -->
+  <div id="touch-controls" class="hidden">
+    <button id="tc-up" class="tc-btn">▲<span>NOSE UP</span></button>
+    <button id="tc-boost" class="tc-btn boost">🔥<span>BOOST</span></button>
+    <button id="tc-down" class="tc-btn">▼<span>NOSE DOWN</span></button>
+  </div>
+
+  <!-- speed vignette -->
+  <div id="speed-fx"></div>
+  <div id="flash"></div>
+
+  <!-- MAIN MENU -->
+  <section id="screen-menu" class="screen">
+    <div class="menu-card">
+      <div class="logo-sub">100% ORIGINAL • 0% AERODYNAMIC</div>
+      <h1 class="logo">DODO<br><span>AIRWAYS</span></h1>
+      <p class="tagline">Dennis the dodo can't fly. He disagrees.<br>Help him become an <b>extreme long-distance pilot</b>.</p>
+      <div class="menu-best"><span id="menu-best-dist">Best: 0 m</span><span id="menu-flights">Flights: 0</span><span id="menu-cash">$0</span></div>
+      <button id="btn-fly" class="big-btn">🛷 &nbsp;LAUNCH!</button>
+      <div class="menu-row">
+        <button id="btn-shop" class="btn">🔧 Hangar / Shop</button>
+        <button id="btn-stats" class="btn">📊 Stats</button>
+        <button id="btn-settings" class="btn">⚙ Settings</button>
+      </div>
+      <div class="howto">
+        <b>HOW TO FLY:</b> <kbd>A</kbd>/<kbd>◀</kbd> nose up • <kbd>D</kbd>/<kbd>▶</kbd> nose down • <kbd>SPACE</kbd> booster.
+        Dive to gain speed, pull up to trade speed for altitude. Don't stall!
+      </div>
+    </div>
+  </section>
+
+  <!-- SHOP -->
+  <section id="screen-shop" class="screen hidden">
+    <div class="shop-card">
+      <div class="shop-head">
+        <div><h2>🔧 THE HANGAR</h2><div id="shop-cash" class="cash">$0</div></div>
+        <div class="shop-head-btns">
+          <button id="btn-shop-fly" class="big-btn small">🛷 LAUNCH!</button>
+          <button id="btn-shop-back" class="btn">← Menu</button>
+        </div>
+      </div>
+      <div id="hangar-preview">
+        <canvas id="preview-canvas" width="360" height="150"></canvas>
+        <div id="preview-text">Dennis judges your spending.</div>
+      </div>
+      <div id="shop-grid"></div>
+      <div class="shop-foot">Early parts are cheap — grab something after almost every flight. Late parts get gloriously stupid.</div>
+    </div>
+  </section>
+
+  <!-- RESULTS -->
+  <section id="screen-results" class="screen hidden">
+    <div class="results-card">
+      <h2 id="results-title">💥 Wipeout!</h2>
+      <div id="results-quote" class="quote">"Gravity remains undefeated."</div>
+      <div class="results-grid">
+        <div class="rstat"><label>DISTANCE</label><b id="r-dist">0 m</b><span id="r-dist-best"></span></div>
+        <div class="rstat"><label>MAX ALTITUDE</label><b id="r-alt">0 m</b></div>
+        <div class="rstat"><label>TOP SPEED</label><b id="r-speed">0 km/h</b></div>
+        <div class="rstat"><label>AIRTIME</label><b id="r-time">0.0 s</b></div>
+      </div>
+      <div id="results-breakdown"></div>
+      <div id="results-objectives"></div>
+      <div class="total-row"><span>TOTAL EARNED</span><b id="results-total">$0</b></div>
+      <div class="results-btns">
+        <button id="btn-again" class="big-btn">🛷 PLAY AGAIN</button>
+        <button id="btn-to-shop" class="btn">🔧 Shop</button>
+        <button id="btn-to-menu" class="btn">Menu</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section id="screen-stats" class="screen hidden">
+    <div class="menu-card narrow">
+      <h2>📊 Flight Records</h2>
+      <div id="stats-list"></div>
+      <h3>🏆 Bonus Objectives</h3>
+      <div id="objectives-list"></div>
+      <button id="btn-stats-back" class="btn">← Back</button>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="screen-settings" class="screen hidden">
+    <div class="menu-card narrow">
+      <h2>⚙ Settings</h2>
+      <label class="set-row"><input type="checkbox" id="set-sfx" checked> Sound effects</label>
+      <label class="set-row"><input type="checkbox" id="set-music" checked> Music</label>
+      <label class="set-row"><input type="checkbox" id="set-shake" checked> Screen shake</label>
+      <label class="set-row"><input type="checkbox" id="set-particles" checked> Particles</label>
+      <div class="menu-row">
+        <button id="btn-reset-save" class="btn danger">🗑 Reset save</button>
+        <button id="btn-settings-back" class="btn">← Back</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAUSE -->
+  <section id="screen-pause" class="screen hidden">
+    <div class="menu-card narrow">
+      <h2>⏸ Paused</h2>
+      <p>Dennis is holding his breath.</p>
+      <div class="menu-row">
+        <button id="btn-resume" class="big-btn small">▶ Resume</button>
+        <button id="btn-quit" class="btn">Abandon flight</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="toast-wrap"></div>
+  <div id="float-wrap"></div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/save.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/physics.js"></script>
+<script src="js/world.js"></script>
+<script src="js/particles.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
