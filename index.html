@@ -158,12 +158,21 @@
 
   <!-- PAUSE -->
   <section id="screen-pause" class="screen hidden">
-    <div class="menu-card narrow">
-      <h2>⏸ Paused</h2>
-      <p>Dennis is holding his breath.</p>
-      <div class="menu-row">
-        <button id="btn-resume" class="big-btn small">▶ Resume</button>
-        <button id="btn-quit" class="btn">Abandon flight</button>
+    <div class="menu-card pause-card">
+      <h2>⏸ PAUSED</h2>
+      <div class="pause-sub">Dennis is holding his breath.</div>
+      <div class="pause-stats">
+        <div class="rstat"><label>DISTANCE</label><b id="pause-stat-dist">0 m</b></div>
+        <div class="rstat"><label>SPEED</label><b id="pause-stat-speed">0 km/h</b></div>
+        <div class="rstat"><label>ALTITUDE</label><b id="pause-stat-alt">0 m</b></div>
+      </div>
+      <div class="pause-btns">
+        <button id="btn-resume" class="big-btn">▶ RESUME</button>
+        <div class="pause-row">
+          <button id="btn-restart" class="btn">↻ Restart flight</button>
+          <button id="btn-pause-settings" class="btn">⚙ Settings</button>
+          <button id="btn-quit" class="btn">Quit to menu</button>
+        </div>
       </div>
     </div>
   </section>

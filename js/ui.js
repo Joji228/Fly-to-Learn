@@ -40,6 +40,14 @@ function bindButtons(){
     toast("💸 Wallet emptied. Bold strategy.");
   };
   $("btn-resume").onclick = function(){ click(); window.DA.pauseGame(false); };
+  $("btn-restart").onclick = function(){
+    click();
+    window.DA.pauseGame(false);
+    $("screen-pause").classList.add("hidden");
+    window.DA.abandonRun(); // drops the current attempt without banking it
+    window.DA.startRun();   // ...and launches a fresh one immediately
+  };
+  $("btn-pause-settings").onclick = function(){ click(); showSettingsFromPause(); };
   $("btn-quit").onclick = function(){ click(); $("screen-pause").classList.add("hidden"); window.DA.abandonRun(); };
   $("btn-pause").onclick = function(){ click(); window.DA.pauseGame(true); };
   $("btn-mute-hud").onclick = function(){
@@ -106,7 +114,17 @@ function showCheats(){
   if(!$("screen-settings").classList.contains("hidden")) subReturn = "settings";
   hideAll(); $("screen-cheats").classList.remove("hidden");
 }
-function goBackFromSub(){ hideAll(); if(subReturn==="shop") showShop(); else if(subReturn==="settings") showSettings(); else showMenu(); }
+function showSettingsFromPause(){
+  subReturn = "pause"; // back button returns to the paused game, still paused
+  hideAll(); $("screen-settings").classList.remove("hidden");
+}
+function goBackFromSub(){
+  hideAll();
+  if(subReturn==="shop") showShop();
+  else if(subReturn==="settings") showSettings();
+  else if(subReturn==="pause"){ $("screen-pause").classList.remove("hidden"); }
+  else showMenu();
+}
 function hideAll(){ ["screen-menu","screen-shop","screen-results","screen-stats","screen-settings","screen-cheats","screen-pause"].forEach(function(id){ $(id).classList.add("hidden"); }); }
 
 function refreshMenu(){
@@ -155,6 +173,11 @@ function updateHUD(){
   var fb = $("fuel-bar");
   if(fb) fb.classList.toggle("burning", !!G.S.boosting && hasBooster);
   $("hud-best").textContent = window.DA.Physics.fmtDist(save.best.dist);
+  // pause panel run readout (kept fresh live; shown only when paused)
+  var pd = $("pause-stat-dist"), ps2 = $("pause-stat-speed"), pa = $("pause-stat-alt");
+  if(pd) pd.textContent = window.DA.Physics.fmtDist(Math.max(0,G.S.x));
+  if(ps2) ps2.textContent = Math.round((G.S.speed||0)*3.6)+" km/h";
+  if(pa) pa.textContent = Math.max(0,G.S.y).toFixed(0)+" m";
   $("phase-label").textContent = G.phase==="ramp" ? "🛷 RAMP!" : (G.S.boosting?"🔥 BOOST!":(G.S.stalled?"⚠ STALL":"🕊️ FLY"));
   if(G.S.boosting) $("phase-label").style.color = "#ffb703"; else $("phase-label").style.color = "#fff";
   // pitch indicator: arrow + degrees, one glance tells where the nose (and booster) points
