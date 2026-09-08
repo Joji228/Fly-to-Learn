@@ -12,20 +12,17 @@ function priceOf(key, level){ // level = current level, price for next
 // Ramp: better launch geometry (higher lip, steeper exit) + base speed.
 function launchSpeed(rampLvl, sledLvl){
   var r = rampLvl || 0, s = sledLvl || 0;
-  return 20 + r * 5.0 + s * 1.6;
+  return 28 + r * 2.5 + s * 1.0;
 }
 function launchAngleDeg(rampLvl){ return 9 + (rampLvl || 0) * 1.5; } // == ramp exit tangent, see World.rampY
 function rampLipY(rampLvl){ return 14 + (rampLvl || 0) * 1.8; }       // lip height in m, matches ramp track
-// Sled: faster ride down the ramp (accel feel) + small launch bonus.
+// Sled: FASTER ride (impatience is a virtue) + small launch bonus.
 function sledMult(l){ return 1 + l * 0.28; }
-function rampRideTime(sledLvl){ return Math.max(1.1, 2.3 / sledMult(sledLvl || 0)); }
-// Wings: bigger lifting surface, better trim, slower + gentler stall,
-// less induced drag. Gravity is gravity — wings earn glide honestly.
-function liftArea(l){ return 0.15 + l * 0.022; }
-function wingTrim(l){ return 0.07 + l * 0.003; }
-function stallSpeed(l){ return 12 - l * 0.4; }                        // m/s
-function stallAoa(l){ return 0.55 + l * 0.008; }                      // rad, wings let go later
-function wingInduced(l){ return 1 - 0.06 * l; }                       // induced-drag multiplier x1 -> x0.52
+function rampRideTime(sledLvl){ return Math.max(0.8, 1.2 - (sledLvl || 0) * 0.05); }
+// Booster: nothing at level 0 (SPACE does nothing until you buy one!),
+// then big exact-along-the-nose thrust.
+function boosterThrust(l){ return l <= 0 ? 0 : 38 + (l - 1) * 16; }
+function fuelTime(l){ return 2.0 + l * 0.5; }                         // seconds of burn
 // Aero: less parasite drag + less induced drag (keeps speed in maneuvers).
 function dragCoef(l){ return Math.max(0.016, 0.055 - l * 0.005); }
 function kindCoef(l){ return 0.22 - l * 0.011; }
@@ -43,30 +40,23 @@ var UPGRADES = {
   },
   sled: {
     name: "Waddle Sled", icon: "🛷",
-    blurb: "Greased runners. Shorter ride, snappier accel, bonus launch speed.",
+    blurb: "Greased runners. Shorter ride, snappier launch.",
     max: 8, base: 230, growth: 2.0,
-    desc: function(l){ return "Ride " + rampRideTime(l).toFixed(1) + "s • +" + (l*1.6).toFixed(1) + " m/s launch"; },
-    next: function(l){ return l>=8 ? "MAXED — frictionless nonsense" : "→ ride " + rampRideTime(l+1).toFixed(1) + "s • +" + ((l+1)*1.6).toFixed(1) + " m/s launch"; }
-  },
-  wings: {
-    name: "Wings (cardboard→titanium)", icon: "🪽",
-    blurb: "More lift, cleaner glide, later stall. The best way to stay up.",
-    max: 8, base: 300, growth: 2.1,
-    desc: function(l){ return "Lift " + liftArea(l).toFixed(2) + " • stall " + Math.round(stallSpeed(l)*3.6) + " km/h • induced x" + wingInduced(l).toFixed(2); },
-    next: function(l){ return l>=8 ? "MAXED — basically an albatross" : "→ lift " + liftArea(l+1).toFixed(2) + " • stall " + Math.round(stallSpeed(l+1)*3.6) + " km/h • induced x" + wingInduced(l+1).toFixed(2); }
+    desc: function(l){ return "Ride " + rampRideTime(l).toFixed(1) + "s • +" + (l*1.0).toFixed(1) + " m/s launch"; },
+    next: function(l){ return l>=8 ? "MAXED — frictionless nonsense" : "→ ride " + rampRideTime(l+1).toFixed(1) + "s • +" + ((l+1)*1.0).toFixed(1) + " m/s launch"; }
   },
   aero: {
     name: "Aerodynamics", icon: "💨",
-    blurb: "Pointier helmet, slicker belly. Keeps speed through every maneuver.",
+    blurb: "Pointier helmet, slicker belly. Less drag, higher redline.",
     max: 8, base: 300, growth: 2.0,
-    desc: function(l){ return "Drag " + (dragCoef(l)*1000).toFixed(1) + " • induced " + kindCoef(l).toFixed(2); },
-    next: function(l){ return l>=8 ? "MAXED — soap-bar dodo" : "→ drag " + (dragCoef(l+1)*1000).toFixed(1) + " • induced " + kindCoef(l+1).toFixed(2); }
+    desc: function(l){ return "Drag x" + (1-0.055*l).toFixed(2) + " • top +" + (l*2) + " m/s"; },
+    next: function(l){ return l>=8 ? "MAXED — soap-bar dodo" : "→ drag x" + (1-0.055*(l+1)).toFixed(2) + " • top +" + ((l+1)*2) + " m/s"; }
   },
   booster: {
     name: "Sardine Booster", icon: "🔥",
-    blurb: "Hold SPACE for thrust along your nose. Points where you point.",
+    blurb: "Hold SPACE for thrust along your nose. Useless until owned!",
     max: 8, base: 340, growth: 2.1,
-    desc: function(l){ return "Thrust " + boosterThrust(l).toFixed(0) + " m/s² along nose"; },
+    desc: function(l){ return l<=0 ? "No booster. SPACE does nothing. Tragic." : "Thrust " + boosterThrust(l).toFixed(0) + " m/s² along nose"; },
     next: function(l){ return l>=8 ? "MAXED — illegal in 12 countries" : "→ thrust " + boosterThrust(l+1).toFixed(0) + " m/s² along nose"; }
   },
   fuel: {
@@ -154,11 +144,6 @@ window.DA.launchAngleDeg = launchAngleDeg;
 window.DA.rampLipY = rampLipY;
 window.DA.sledMult = sledMult;
 window.DA.rampRideTime = rampRideTime;
-window.DA.liftArea = liftArea;
-window.DA.wingTrim = wingTrim;
-window.DA.stallSpeed = stallSpeed;
-window.DA.stallAoa = stallAoa;
-window.DA.wingInduced = wingInduced;
 window.DA.dragCoef = dragCoef;
 window.DA.kindCoef = kindCoef;
 window.DA.boosterThrust = boosterThrust;

@@ -26,16 +26,18 @@ var Game = {
 
 function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
 
-function derivedParams(up){
+function derivedParams(up, gliderId){
   var DA = window.DA;
+  var G = (DA.GLIDERS && DA.GLIDERS[gliderId]) || DA.GLIDERS[0] ||
+    { control:1.5, drag:0.06, turnK:0.12, comfort:28, top:45, stall:11 };
+  var aero = up.aero || 0;
   return {
-    liftArea: DA.liftArea(up.wings),
-    trim: DA.wingTrim(up.wings),
-    stallSpeed: DA.stallSpeed(up.wings),
-    stallAoa: DA.stallAoa(up.wings),
-    wings: up.wings,
-    cd0: DA.dragCoef(up.aero),
-    kInd: DA.kindCoef(up.aero),
+    control: G.control,
+    drag: G.drag * (1 - 0.055 * aero), // aero shaves body drag, honestly stacked
+    turnK: G.turnK,
+    comfort: G.comfort + aero * 1.5,
+    top: G.top + aero * 2,
+    stall: G.stall,
     thrust: DA.boosterThrust(up.booster),
     fuelMax: DA.fuelTime(up.fuel),
     launchSpeed: DA.launchSpeed(up.ramp, up.sled),
@@ -111,7 +113,8 @@ function isFlyKey(c){ return c==="ArrowLeft"||c==="ArrowRight"||c==="KeyA"||c===
 
 function startRun(){
   var up = Game.save.upgrades;
-  Game.P = derivedParams(up);
+  var gid = Game.save.glider.equipped;
+  Game.P = derivedParams(up, gid);
   Game.rampLvl = up.ramp;
   window.DA.World.setRampLevel(up.ramp);
   Game.S = {
@@ -119,7 +122,8 @@ function startRun(){
     vx: 0, vy: 0, pitch: Math.atan(window.DA.World.rampSlopeY(-60)), pitchVel: 0, speed: 0,
     fuel: Game.P.fuelMax, fuelMax: Game.P.fuelMax,
     airTime: 0,
-    sledLvl: up.sled, wingsLvl: up.wings, boosterLvl: up.booster, aeroLvl: up.aero,
+    glider: gid,
+    sledLvl: up.sled, boosterLvl: up.booster, aeroLvl: up.aero,
     boosting: false, stalled: false
   };
   Game.rampT = 0;
@@ -266,6 +270,9 @@ function update(dt){
     // audio
     DA.Audio.setWind(Game.S.speed, res.boosting);
     if(res.boosting) DA.Audio.startBoost(); else DA.Audio.stopBoost();
+    // tiny camera kick the instant the booster lights (juice, not motion)
+    if(res.boosting && !Game.wasBoost && Game.save.settings.shake) Game.shake = Math.max(Game.shake, 0.12);
+    Game.wasBoost = res.boosting;
 
     updateCamera(dt, false);
 
@@ -296,8 +303,8 @@ function update(dt){
         life:0.7, size:3+Math.random()*3, color: Math.random()<0.5?"#caf0f8":"#ffffff", grav:300});
     }
     updateCamera(dt, false);
-    var doneT = ci.water ? 1.2 : 2.0;
-    if(Game.crashTimer > doneT || (!ci.water && Math.abs(Game.S.vx) < 1.5 && Game.crashTimer > 0.6)){
+    var doneT = ci.water ? 1.0 : 1.8;
+    if(Game.crashTimer > doneT || (!ci.water && Math.abs(Game.S.vx) < 2.5 && Game.crashTimer > 0.5)){
       finishRun();
     }
   }
@@ -493,7 +500,7 @@ function render(){
   window.DA.World.drawScene(g, W, H, Game.cam, z, {
     x:S.x, y:S.y, vx:S.vx, vy:S.vy, pitch:S.pitch,
     boosting:!!S.boosting, stalled:!!S.stalled,
-    sledLvl:S.sledLvl, wingsLvl:S.wingsLvl, boosterLvl:S.boosterLvl, aeroLvl:S.aeroLvl
+    glider:S.glider||0, sledLvl:S.sledLvl, boosterLvl:S.boosterLvl, aeroLvl:S.aeroLvl
   }, { particles:Game.particles, crashSpin:Game.crashSpin, crashed:crashed, playerScale:playerScale });
   // directional speed lines: streak along the actual motion direction
   if(S && sp > 30 && Game.phase==="fly"){
@@ -534,7 +541,8 @@ function renderMenuBackdrop(dt, t){
   window.DA.World.drawScene(g, W, H, menuCam, 1, {
     x:-20, y:window.DA.World.groundY(-20)+2, vx:0, vy:0, pitch:0, pitchVel:0,
     boosting:false, stalled:false,
-    sledLvl:Game.save?Game.save.upgrades.sled:0, wingsLvl:Game.save?Game.save.upgrades.wings:0,
+    glider:Game.save?Game.save.glider.equipped:0,
+    sledLvl:Game.save?Game.save.upgrades.sled:0,
     boosterLvl:Game.save?Game.save.upgrades.booster:0, aeroLvl:Game.save?Game.save.upgrades.aero:0
   }, { playerScale: 1.22 });
 }

@@ -1,21 +1,31 @@
-/* Arcade flight physics — signed-AoA energy model.
-   Units: meters, seconds. x = distance, y = altitude above ground (y=0 ground).
-   ONE authoritative pitch (s.pitch, radians, + = nose up). Thrust acts EXACTLY
-   along the nose vector (cos pitch, sin pitch). Lift uses SIGNED angle of
-   attack so pointing the nose down can never magically produce upward force.
+/* Arcade steering-glider physics — FAST, SIMPLE, MOMENTUM-BASED.
+   Units: meters, seconds. x = distance, y = altitude above ground.
+   ONE authoritative pitch (s.pitch, radians, + = nose up). Thrust acts
+   EXACTLY along the nose vector.
 
-   Skill loop: dive (gravity -> speed) -> pull up (speed -> altitude, induced
-   drag bleeds speed) -> level out (efficient glide) -> boost strategically.
+   The whole game in five rules:
+     NOSE DOWN -> path steers down, gravity accelerates you, speed rises FAST
+     LEVEL     -> path flattens, you keep most of your speed (glide)
+     NOSE UP   -> path arcs up, speed converts into altitude
+     TOO STEEP -> speed collapses, you stall and fall (lower nose to recover)
+     BOOST     -> rapid acceleration EXACTLY where the nose points
+
+   How it works: the glider gently STEERS its velocity vector toward the
+   pitch (limited turn rate = control). Plain gravity then does the energy
+   magic: dives accelerate, climbs decelerate, level glides. No AoA curves,
+   no induced-drag equations, no thin air. Momentum you can feel.
 
    Exported for game loop AND for node test simulations. */
 (function(){
 "use strict";
 
-var GRAVITY = 13.0;          // m/s^2 — gravity is gravity, wings never scale it
-var PITCH_RATE = 1.5;        // rad/s max pitch rate (~86 deg/s): responsive, not instant
+var GRAVITY = 19.0;          // m/s^2 — dives must pay, immediately (redlines cap the tops)
+var PITCH_RATE = 2.6;        // rad/s — level to ±30deg in ~0.2-0.35s
+var PITCH_SMOOTH = 20;       // higher = snappier settle, less drift
 var MAX_PITCH = 1.15;        // ~66 deg
 var MIN_PITCH = -1.15;
-var STALL_AOA = 0.55;        // base effective AoA where wings let go (~31 deg)
+var REDLINE_K = 0.25;        // shared redline drag strength (soft top speed)
+var OVER_TOP_K = 0.6;        // extra drag past redline top
 var DEG = 180 / Math.PI;
 
 function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
@@ -25,29 +35,9 @@ function wrapAngle(a){
   return a;
 }
 
-/* Lift coefficient from SIGNED effective AoA (arcade thin-airfoil curve):
-   linear to ~16 deg, softens to a rounded peak, collapses past stall.
-   Negative AoA gives NEGATIVE lift (nose-down at speed pushes the dive
-   steeper). Moderate AoA is efficient; pinning high AoA is expensive. */
-function liftCoefFromAoa(aoaEff, stallAoa){
-  var sa = stallAoa || STALL_AOA;
-  var a = Math.abs(aoaEff);
-  var sgn = aoaEff < 0 ? -1 : 1;
-  var cl;
-  if(a <= 0.28){ cl = 5.0 * aoaEff; }
-  else if(a <= sa){
-    var k = (a - 0.28) / Math.max(0.05, sa - 0.28);
-    cl = sgn * (1.4 * (1 - k) + 0.5 * k);
-  }
-  else { cl = sgn * 0.30; }
-  if(cl > 1.5) cl = 1.5;
-  if(cl < -1.3) cl = -1.3;
-  return cl;
-}
-
 /* One physics step. state: {x,y,vx,vy,pitch,pitchVel,fuel,airTime,speed}
    input: {up:bool,down:bool,boost:bool}
-   params: {liftArea,trim,stallSpeed,stallAoa,wings,cd0,kInd,thrust,fuelMax}
+   params: {control,drag,turnK,comfort,top,stall,thrust,fuelMax}
    returns {stalled, boosting} */
 function stepFlight(s, input, p, dt){
   if(!(dt > 0)) dt = 0.016;
@@ -60,97 +50,74 @@ function stepFlight(s, input, p, dt){
   if(!isFinite(s.vy)) s.vy = 0;
   if(!(s.fuel >= 0)) s.fuel = 0;
 
-  var speed = Math.sqrt(s.vx*s.vx + s.vy*s.vy);
-  var velAng = Math.atan2(s.vy, s.vx);
-
-  // --- signed angle of attack (nose vs. velocity) + wing trim ---
-  // (evaluated pre-input for control feel, re-evaluated for forces below)
-  // Better wings tolerate a slightly higher AoA before letting go.
-  var stallAoa = p.stallAoa || STALL_AOA;
-  var aoaPre = wrapAngle(s.pitch - velAng) + (p.trim || 0);
-  var stalledPre = (Math.abs(aoaPre) > stallAoa) ||
-                   (speed < p.stallSpeed && s.pitch > 0.15);
-
-  // --- pitch control: smoothed rate with airspeed authority ---
-  // slow = mushy, normal = responsive, extreme speed = damped (not twitchy)
+  // --- pitch: fast arcade rotation, settles the instant you let go ---
   var dir = 0;
   if(input.up && !input.down) dir = 1;
   else if(input.down && !input.up) dir = -1;
-  var auth = clamp(0.35 + speed / 30, 0.35, 1.0);
-  if(speed > 55) auth *= Math.max(0.7, 1 - (speed - 55) / 100);
-  var targetRate = dir * PITCH_RATE * auth;
-  if(stalledPre) targetRate *= 0.2; // controls go mushy in a stall
-  s.pitchVel += (targetRate - s.pitchVel) * Math.min(1, 12 * dt);
+  var targetRate = dir * PITCH_RATE;
+  s.pitchVel += (targetRate - s.pitchVel) * Math.min(1, PITCH_SMOOTH * dt);
   s.pitch += s.pitchVel * dt;
   if(s.pitch > MAX_PITCH){ s.pitch = MAX_PITCH; if(s.pitchVel > 0) s.pitchVel = 0; }
   if(s.pitch < MIN_PITCH){ s.pitch = MIN_PITCH; if(s.pitchVel < 0) s.pitchVel = 0; }
 
-  var aoa = wrapAngle(s.pitch - velAng);
-  var aoaEff = aoa + (p.trim || 0);
-  var stalled = (Math.abs(aoaEff) > stallAoa) ||
-                (speed < p.stallSpeed && s.pitch > 0.15);
-
-  var CL = liftCoefFromAoa(aoaEff, stallAoa);
-  if(stalled) CL *= 0.55; // lift collapses: severe, but only past high AoA (severe, but not a wall)
-
-  // --- thin air: lift and (fish-oil) thrust fade with altitude ---
-  // This keeps zoom-climbs viable but makes 10 km vertical rockets
-  // impossible: up high the wings stop working and you must come down.
-  var thin = 1 / (1 + Math.max(0, s.y - 350) / 350);
-
-  // --- lift: perpendicular to velocity, SIGNED (can push down) ---
-  var q = 0.5 * speed * speed;
-  var area = p.liftArea || 0.15;
-  var liftF = q * area * CL * thin;
-  var lx = 0, ly = 0;
-  if(speed > 0.5){
-    lx = -Math.sin(velAng) * liftF;
-    ly = Math.cos(velAng) * liftF;
+  // --- stall: simple and legible. Slow + trying to climb = fall out. ---
+  var speed = Math.sqrt(s.vx*s.vx + s.vy*s.vy);
+  var stalled = (speed < p.stall && s.pitch > 0.18);
+  if(stalled){
+    s.pitch -= 1.4 * dt; // nose falls on its own
+    if(s.pitch < MIN_PITCH) s.pitch = MIN_PITCH;
   }
 
-  // --- drag: parasite (fixed body ref area) + induced (grows with lift) ---
-  // NOTE: parasite drag uses a fixed reference area so bigger wings do not
-  // magically add body drag. Better wings instead waste less induced drag
-  // (smoother airflow), which is what makes them glide farther.
-  var wingK = 1 - 0.06 * (p.wings || 0); // x1.0 -> x0.52
-  var CD = p.cd0 + (p.kInd || 0) * wingK * CL * CL;
-  if(stalled) CD *= 2.0; // stalled flight is a barn door (smooth flight never goes here)
-  var dragF = q * 0.15 * CD;
-  var dx = 0, dy = 0;
-  if(speed > 0.5){
-    dx = -s.vx / speed * dragF;
-    dy = -s.vy / speed * dragF;
-  }
-
-  var ax = lx + dx;
-  var ay = -GRAVITY + ly + dy;
-
-  // --- booster: EXACTLY along the nose, no fudge factors ---
-  // (breathes thin air too, but never fully quits — unfun otherwise)
-  if(input.boost && s.fuel > 0){
+  // --- booster: EXACTLY along the nose. No thrust, no party. ---
+  if(input.boost && s.fuel > 0 && p.thrust > 0){
     boosting = true;
-    var th = p.thrust * (0.4 + 0.6 * thin);
-    ax += Math.cos(s.pitch) * th;
-    ay += Math.sin(s.pitch) * th;
+    s.vx += Math.cos(s.pitch) * p.thrust * dt;
+    s.vy += Math.sin(s.pitch) * p.thrust * dt;
     s.fuel = Math.max(0, s.fuel - dt);
   }
 
-  // --- stall: nose drops on its own, sink grows, speed can recover ---
-  // (pitchVel was already integrated once above; here we only bleed it off
-  // so the nose falls while the pilot holds useless full-up.)
-  if(stalled){
-    ay -= 6.0;
-    s.pitchVel -= 6.0 * dt;
+  // --- gravity: the engine of all fun (dives pay, climbs cost) ---
+  s.vy -= GRAVITY * dt;
+  if(stalled) s.vy -= 6 * dt; // stalled wings barely hold you
+
+  // --- steering: pull the velocity vector toward the nose ---
+  // Better gliders turn harder; slow flight turns mushy; stalls barely turn.
+  speed = Math.sqrt(s.vx*s.vx + s.vy*s.vy);
+  var velAng = Math.atan2(s.vy, s.vx);
+  var authority = clamp(speed / 12, 0.35, 1) * (stalled ? 0.2 : 1);
+  var steerRate = (p.control || 1.5) * authority;
+  var diff = wrapAngle(s.pitch - velAng);
+  var maxTurn = steerRate * dt;
+  var turn = clamp(diff, -maxTurn, maxTurn);
+  var turnRate = turn / dt;
+  var newAng = velAng + turn;
+
+  // --- turn cost: smooth tracking is cheap, violent yanks bleed ---
+  // Losing ~turnK per radian yanked: a full 90deg slam costs ~5-15%.
+  speed = Math.sqrt(s.vx*s.vx + s.vy*s.vy);
+  speed *= Math.exp(-(p.turnK || 0.1) * Math.abs(turnRate) * dt);
+
+  // --- drag: quadratic body drag + soft redline per glider ---
+  // Below comfort: clean. Approaching top: drag swells. Past top: wall.
+  // (No hard clamp — drag is the speed limit, plus a huge safety net.)
+  var red = 0;
+  if(speed > p.comfort){
+    var span = Math.max(5, p.top - p.comfort);
+    red = REDLINE_K * Math.pow((speed - p.comfort) / span, 1.5);
+    if(speed > p.top) red += OVER_TOP_K;
+  }
+  var dragF = (0.5 * speed * speed * 0.15 * p.drag) + (speed * speed * 0.004 * red);
+  if(speed > 0.5){
+    var nx = s.vx / speed, ny = s.vy / speed;
+    // rebuild velocity along the steered direction, minus drag
+    var vNew = Math.max(0, speed - dragF / 1 * dt);
+    s.vx = Math.cos(newAng) * vNew;
+    s.vy = Math.sin(newAng) * vNew;
   }
 
-  // gentle extra sink at crawl speed so flights always end
-  if(speed < 8) ay -= (8 - speed) * 1.5;
-
-  s.vx += ax * dt;
-  s.vy += ay * dt;
-  // anti-NaN guard only (drag is the real speed limit)
-  s.vx = clamp(s.vx, -160, 160);
-  s.vy = clamp(s.vy, -160, 160);
+  // anti-NaN safety net only (drag is the real speed limit)
+  s.vx = clamp(s.vx, -200, 200);
+  s.vy = clamp(s.vy, -200, 200);
   if(!isFinite(s.vx)) s.vx = 0;
   if(!isFinite(s.vy)) s.vy = 0;
 
@@ -186,7 +153,7 @@ function fmtDist(m){
 }
 
 var api = { GRAVITY:GRAVITY, PITCH_RATE:PITCH_RATE, MAX_PITCH:MAX_PITCH, MIN_PITCH:MIN_PITCH,
-  STALL_AOA:STALL_AOA, clamp:clamp, wrapAngle:wrapAngle, liftCoefFromAoa:liftCoefFromAoa,
+  clamp:clamp, wrapAngle:wrapAngle,
   stepFlight:stepFlight, rampSlide:rampSlide, econReward:econReward, fmtDist:fmtDist };
 
 // browser + node compatibility

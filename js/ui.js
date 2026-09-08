@@ -104,11 +104,19 @@ function updateHUD(){
   $("hud-dist").textContent = window.DA.Physics.fmtDist(Math.max(0,G.S.x));
   $("hud-alt").textContent = Math.max(0,G.S.y).toFixed(0)+" m";
   $("hud-speed").textContent = Math.round((G.S.speed||0)*3.6)+" km/h";
-  var f = G.S.fuelMax>0 ? G.S.fuel/G.S.fuelMax : 0;
+  // redline: speed readout heats up as the glider strains past comfort
+  var spdEl = $("hud-speed");
+  if(G.P && (G.S.speed||0) > G.P.top) spdEl.style.color = "#ff5d5d";
+  else if(G.P && (G.S.speed||0) > G.P.comfort) spdEl.style.color = "#ffb703";
+  else spdEl.style.color = "#fff";
+  var hasBooster = !!(G.P && G.P.thrust > 0);
+  var f = (G.S.fuelMax>0 && hasBooster) ? G.S.fuel/G.S.fuelMax : 0;
   var fill = $("fuel-fill");
   fill.style.width = (f*100).toFixed(1)+"%";
-  fill.className = f<0.25 ? "low" : "";
+  fill.className = (!hasBooster || f<0.25) ? "low" : "";
   fill.id = "fuel-fill";
+  var fl = $("fuel-label");
+  if(fl) fl.textContent = hasBooster ? "FUEL" : "NO BOOSTER";
   $("hud-best").textContent = window.DA.Physics.fmtDist(save.best.dist);
   $("phase-label").textContent = G.phase==="ramp" ? "🛷 RAMP!" : (G.S.boosting?"🔥 BOOST!":(G.S.stalled?"⚠ STALL":"🕊️ FLY"));
   if(G.S.boosting) $("phase-label").style.color = "#ffb703"; else $("phase-label").style.color = "#fff";
@@ -143,11 +151,13 @@ function onCrash(info){
 /* ---------- SHOP ---------- */
 function renderShop(){
   $("shop-cash").textContent = "$" + save.money.toLocaleString();
+  renderGliders();
   var grid = $("shop-grid");
   grid.innerHTML = "";
-  var keys = ["ramp","sled","wings","aero","booster","fuel"];
+  var keys = ["ramp","sled","aero","booster","fuel"];
   keys.forEach(function(k){
     var u = window.DA.UPGRADES[k];
+    if(!u) return; // gliders replaced the old wings meter
     var lvl = save.upgrades[k];
     var maxed = lvl>=u.max;
     var price = maxed?0:window.DA.priceOf(k,lvl);
@@ -174,9 +184,75 @@ function renderShop(){
   });
   drawPreview();
   var q = window.DA.PREVIEW_QUIPS[(Math.random()*window.DA.PREVIEW_QUIPS.length)|0];
-  $("preview-text").textContent = '"' + q + '" — Dennis (Lv ' + totalLv() + ' pilot)';
+  var gl = (window.DA.GLIDERS && window.DA.GLIDERS[save.glider.equipped]) || { name:"Bare Dodo" };
+  $("preview-text").textContent = '"' + q + '" — Dennis, flying ' + gl.name + " (Lv " + totalLv() + " pilot)";
 }
 function totalLv(){ var t=0; for(var k in save.upgrades) t+=save.upgrades[k]; return t; }
+function ownedGliders(){ var n=0; for(var i=0;i<10;i++) if(save.glider.owned[i]) n++; return n; }
+
+/* ---------- GLIDER HANGAR ---------- */
+function statBar(label, v){
+  var bars = "";
+  for(var i=0;i<10;i++) bars += '<div class="pip'+(i<Math.round(v)?' on':'')+'"></div>';
+  return '<div class="gstat"><span>'+label+'</span><div class="pips">'+bars+'</div></div>';
+}
+function renderGliders(){
+  var wrap = $("glider-grid");
+  if(!wrap || !window.DA.GLIDERS) return;
+  wrap.innerHTML = "";
+  var eq = save.glider.equipped;
+  var head = document.createElement("div");
+  head.className = "glider-head";
+  head.innerHTML = "🪂 <b>GLIDER HANGAR</b> — equipped: <b>" + window.DA.GLIDERS[eq].name + "</b>";
+  wrap.appendChild(head);
+  window.DA.GLIDERS.forEach(function(gl){
+    var owned = !!save.glider.owned[gl.id];
+    var equipped = (eq === gl.id);
+    var card = document.createElement("div");
+    card.className = "up-card gcard" + (equipped ? " maxed" : "") + (!owned && gl.price > save.money ? " cant" : "");
+    var cv = document.createElement("canvas");
+    cv.width = 160; cv.height = 90; cv.className = "gprev";
+    card.appendChild(cv);
+    var info = document.createElement("div");
+    info.innerHTML =
+      '<div class="up-top"><span class="up-name">' + gl.name + '</span>' +
+      '<span class="up-lvl">' + (equipped ? "EQUIPPED" : owned ? "OWNED" : "$" + gl.price.toLocaleString()) + '</span></div>' +
+      '<div class="up-desc">' + gl.tag + '</div>' +
+      statBar("FLIGHT", gl.bars.fly) + statBar("SPEED", gl.bars.speed) + statBar("CONTROL", gl.bars.ctrl);
+    card.appendChild(info);
+    var btn = document.createElement("button");
+    btn.className = "buy-btn";
+    if(equipped){ btn.textContent = "✔ EQUIPPED"; btn.disabled = true; }
+    else if(owned){ btn.textContent = "EQUIP"; btn.onclick = (function(id){ return function(){ equipGlider(id); }; })(gl.id); }
+    else { btn.textContent = "BUY — $" + gl.price.toLocaleString(); btn.disabled = gl.price > save.money;
+      btn.onclick = (function(id, price){ return function(){ buyGlider(id, price); }; })(gl.id, gl.price); }
+    card.appendChild(btn);
+    wrap.appendChild(card);
+    try{ window.DA.drawGliderPreview(cv, gl.id); }catch(e){}
+  });
+}
+function buyGlider(id, price){
+  var gl = window.DA.GLIDERS[id];
+  if(!gl || save.glider.owned[id]) return;
+  if(save.money < price){ window.DA.Audio.SFX.denied(); toast("❌ Not enough cash! One more flight..."); return; }
+  save.money -= price;
+  save.glider.owned[id] = true;
+  save.glider.equipped = id;
+  window.DA.Save.save(save);
+  window.DA.Audio.SFX.purchase();
+  floatText("🪂 " + gl.name + "!", "#80ed99");
+  renderShop();
+  refreshMenu();
+}
+function equipGlider(id){
+  if(!save.glider.owned[id] || save.glider.equipped === id) return;
+  save.glider.equipped = id;
+  window.DA.Save.save(save);
+  window.DA.Audio.ensure(); window.DA.Audio.SFX.click();
+  toast("🪂 Equipped " + window.DA.GLIDERS[id].name + "!");
+  renderShop();
+  refreshMenu();
+}
 
 function buy(key, price){
   var u = window.DA.UPGRADES[key];
@@ -207,11 +283,13 @@ function drawPreview(){
   g.beginPath(); g.moveTo(0,c.height-30); g.quadraticCurveTo(90,c.height-90,200,c.height-44); g.lineTo(360,c.height-36); g.lineTo(360,c.height-30); g.closePath(); g.fill();
   window.DA.World.drawDodo(g, 150, 95, {
     pitch: -0.15, vx: 20, vy: 4, boosting:false, stalled:false,
-    sledLvl: save.upgrades.sled, wingsLvl: save.upgrades.wings,
+    glider: save.glider.equipped,
+    sledLvl: save.upgrades.sled,
     boosterLvl: save.upgrades.booster, aeroLvl: save.upgrades.aero
   }, 1.15, {});
   g.fillStyle = "#123"; g.font = "bold 12px sans-serif"; g.textAlign="left";
-  g.fillText("Ramp "+save.upgrades.ramp+" • Sled "+save.upgrades.sled+" • Wings "+save.upgrades.wings, 8, 16);
+  var gl2 = (window.DA.GLIDERS && window.DA.GLIDERS[save.glider.equipped]) || { name:"Bare Dodo" };
+  g.fillText("Ramp "+save.upgrades.ramp+" • Sled "+save.upgrades.sled+" • "+gl2.name, 8, 16);
   g.fillText("Aero "+save.upgrades.aero+" • Boost "+save.upgrades.booster+" • Fuel "+save.upgrades.fuel, 8, 32);
 }
 
@@ -278,15 +356,15 @@ function showResults(res){
           od.appendChild(d2);
         });
       }
-    }, 170*(i+1));
+    }, 120*(i+1));
   });
-  setTimeout(function(){ if(id === runId) animateMoney(totalEl, rw.total, id); }, 170*(rows.length+1));
+  setTimeout(function(){ if(id === runId) animateMoney(totalEl, rw.total, id); }, 120*(rows.length+1));
   $("screen-results").classList.remove("hidden");
   refreshMenu();
 }
 function animateMoney(el, to, id){
   var from = parseInt(el.textContent.replace(/[^0-9]/g,""))||0;
-  var start = performance.now(), dur = 300;
+  var start = performance.now(), dur = 200;
   function f(t){
     if(id !== undefined && id !== runId) return;
     var k = Math.min(1,(t-start)/dur);
@@ -307,7 +385,8 @@ function renderStats(){
     statBox("FLIGHTS", ""+save.flights) +
     statBox("TOTAL EARNED", "$"+save.totalEarned.toLocaleString()) +
     statBox("WALLET", "$"+save.money.toLocaleString()) +
-    statBox("PILOT LEVEL", "Lv "+totalLv()+"/48");
+    statBox("PILOT LEVEL", "Lv "+totalLv()+"/40") +
+    statBox("GLIDERS", ownedGliders()+"/10");
   var ol = $("objectives-list"); ol.innerHTML = "";
   window.DA.OBJECTIVES.forEach(function(o){
     var done = save.objectivesDone.indexOf(o.id)>=0;

@@ -23,7 +23,7 @@
       <div id="pitch-label">→ 0°</div>
     </div>
     <div class="hud-right">
-      <div class="hud-item fuel-wrap"><span class="hud-label">FUEL</span>
+      <div class="hud-item fuel-wrap"><span class="hud-label" id="fuel-label">FUEL</span>
         <div id="fuel-bar"><div id="fuel-fill"></div></div>
       </div>
       <div class="hud-item"><span class="hud-label">BEST</span><span id="hud-best">0 m</span></div>
@@ -82,6 +82,7 @@
         <canvas id="preview-canvas" width="360" height="150"></canvas>
         <div id="preview-text">Dennis judges your spending.</div>
       </div>
+      <div id="glider-grid"></div>
       <div id="shop-grid"></div>
       <div class="shop-foot">Early parts are cheap — grab something after almost every flight. Late parts get gloriously stupid.</div>
     </div>
@@ -152,6 +153,7 @@
 </div>
 
 <script src="js/config.js"></script>
+<script src="js/gliders.js"></script>
 <script src="js/save.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/physics.js"></script>

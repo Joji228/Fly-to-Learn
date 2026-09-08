@@ -272,6 +272,39 @@ function drawDetails(g, SX, SY, cam, W, H, zoom, S){
       drawPine(g, sx, sy, (0.7+hash(x+3)*0.6)*zoom);
     }
   }
+  // near-field motion cues: snow poles on land, buoys at sea, birds aloft.
+  // These stream past close to the flight line and sell speed.
+  var px, j;
+  for(px=Math.floor(x0/130)*130; px<x1; px+=130){
+    if(px < -100 || px > 480) continue;
+    j = SX(px+hash(px)*30); if(j<-60||j>W+60) continue;
+    var gy = groundY(px), gyS = SY(gy);
+    g.strokeStyle = "#c1121f"; g.lineWidth = 3*zoom;
+    g.beginPath(); g.moveTo(j, gyS); g.lineTo(j, gyS-34*zoom); g.stroke();
+    g.fillStyle = "#ffb703";
+    g.beginPath(); g.arc(j, gyS-36*zoom, 4*zoom, 0, 7); g.fill();
+  }
+  for(px=Math.floor(x0/170)*170; px<x1; px+=170){
+    if(px < 560) continue;
+    j = SX(px+hash(px+9)*60); if(j<-60||j>W+60) continue;
+    var by = SY(groundY(px)) + Math.sin(Date.now()*0.002+px)*2;
+    g.fillStyle = "#e63946";
+    g.beginPath(); g.arc(j, by-4*zoom, 6*zoom, Math.PI, 0); g.fill();
+    g.fillRect(j-6*zoom, by-16*zoom, 3*zoom, 12*zoom);
+  }
+  g.textAlign = "center";
+  for(px=Math.floor(x0/450)*450; px<x1; px+=450){
+    var bse = px*3+11;
+    var bx = SX(px + hash(bse)*300);
+    if(bx<-60||bx>W+60) continue;
+    var bh = SY(60 + hash(bse+1)*120) + Math.sin(Date.now()*0.004+bse)*6;
+    var flap = Math.sin(Date.now()*0.012+bse)*4*zoom;
+    g.strokeStyle = "rgba(30,30,40,0.8)"; g.lineWidth = 2*zoom;
+    g.beginPath();
+    g.moveTo(bx-9*zoom, bh); g.quadraticCurveTo(bx-4*zoom, bh-4*zoom-flap, bx, bh);
+    g.quadraticCurveTo(bx+4*zoom, bh-4*zoom-flap, bx+9*zoom, bh);
+    g.stroke();
+  }
   // buoys / boats / icebergs / city / etc based on world x
   for(var wx=Math.floor(x0/400)*400; wx<x1; wx+=400){
     var sx2 = SX(wx+hash(wx)*200), gy2 = groundY(wx);
@@ -404,7 +437,7 @@ function drawDodo(g, x, y, S, zoom, opts){
   g.save();
   g.translate(x, y);
   g.rotate(-(S.pitch || 0));
-  var s = zoom * (1 + Math.min(0.35, (S.wingsLvl||0)*0.03));
+  var s = zoom; // body stays constant; the glider apparatus shows progression
   var crashSpin = opts.crashSpin || 0;
   if(crashSpin) g.rotate(crashSpin);
 
@@ -436,17 +469,11 @@ function drawDodo(g, x, y, S, zoom, opts){
     if(bl>=7){ g.fillStyle="#ffbe0b"; g.fillRect(-28*s,-8*s,3*s,14*s); }
   }
 
-  // wings (size by level)
-  var wl = S.wingsLvl||0;
-  var wingLen = (20 + wl*5)*s, wingW = (10 + wl*1.2)*s;
-  var flap = Math.sin(Date.now()*0.02)* (S.boosting?6:3);
-  if(S.stalled) flap = Math.sin(Date.now()*0.06)*10;
-  g.fillStyle = wl>=6 ? "#90be6d" : (wl>=3 ? "#e9c46a" : "#c9ada7");
-  g.strokeStyle = "rgba(0,0,0,0.3)"; g.lineWidth = 2;
-  g.save();
-  g.translate(2*s, -6*s); g.rotate((-0.25 + flap*0.02));
-  g.beginPath(); g.ellipse(0, -wingLen/2, wingW/2, wingLen/2, 0, 0, 7); g.fill(); g.stroke();
-  g.restore();
+  // glider apparatus (distinct equipment art, drawn above the body)
+  if(window.DA.drawGlider){
+    try{ window.DA.drawGlider(g, S.glider||0, s, {boosting:!!S.boosting, stalled:!!S.stalled, t:Date.now()}); }
+    catch(e){ /* art must never break the flight */ }
+  }
 
   // body (round dodo)
   var bodyG = g.createLinearGradient(0,-16*s,0,14*s);

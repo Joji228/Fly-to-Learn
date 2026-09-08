@@ -91,6 +91,16 @@ kbd{background:#000;border:1px solid #555;border-bottom-width:3px;border-radius:
 #preview-canvas{background:linear-gradient(180deg,#87b5d6,#e3f2fd);border-radius:10px;max-width:100%;}
 #preview-text{font-style:italic;color:var(--muted);font-size:14px;}
 #shop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;}
+/* glider hangar */
+#glider-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-bottom:12px;}
+.glider-head{grid-column:1/-1;font-size:15px;letter-spacing:1px;color:var(--ink);
+  background:rgba(0,0,0,.3);border-radius:10px;padding:8px 12px;}
+.gcard{display:flex;flex-direction:column;}
+.gprev{width:100%;height:90px;border-radius:10px;background:#87b5d6;}
+.gstat{display:flex;align-items:center;gap:6px;font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:2px;}
+.gstat span{width:58px;flex:none;}
+.gstat .pips{flex:1;margin:0;}
+.gstat .pip{max-width:none;}
 .up-card{background:#0e1f3c;border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:12px;position:relative;
   transition:transform .12s, border-color .12s;}
 .up-card.maxed{border-color:var(--good);}
