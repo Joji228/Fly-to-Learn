@@ -19,12 +19,12 @@
 (function(){
 "use strict";
 
-var GRAVITY = 19.0;          // m/s^2 — dives must pay, immediately (redlines cap the tops)
+var GRAVITY = 23.0;          // m/s^2 — falls are decisive, no moon gravity
 var PITCH_RATE = 3.2;        // rad/s — 0 to ±30deg in ~0.2s, arcade snap
 var PITCH_SMOOTH = 28;       // higher = snappier settle, no trailing drift
 var MAX_PITCH = 1.15;        // ~66 deg
 var MIN_PITCH = -1.15;
-var DIVE_K = 6.0;            // arcade dive assist along the path (feel it!)
+var DIVE_K = 13.0;           // arcade dive assist along the path (feel it!)
 var REDLINE_K = 0.25;        // shared redline drag strength (soft top speed)
 var OVER_TOP_K = 0.6;        // extra drag past redline top
 var DEG = 180 / Math.PI;
@@ -65,7 +65,7 @@ function stepFlight(s, input, p, dt){
   var speed = Math.sqrt(s.vx*s.vx + s.vy*s.vy);
   var stalled = (speed < p.stall && s.pitch > 0.18);
   if(stalled){
-    s.pitch -= 1.4 * dt; // nose falls on its own
+    s.pitch -= 2.2 * dt; // nose falls fast on its own: STALL -> DIVE -> SPEED
     if(s.pitch < MIN_PITCH) s.pitch = MIN_PITCH;
   }
 
@@ -79,13 +79,13 @@ function stepFlight(s, input, p, dt){
 
   // --- gravity: the engine of all fun (dives pay, climbs cost) ---
   s.vy -= GRAVITY * dt;
-  if(stalled) s.vy -= 6 * dt; // stalled wings barely hold you
+  if(stalled) s.vy -= 9 * dt; // stalled wings barely hold you: drop decisively
 
   // --- arcade dive assist: pointing downhill adds a controlled bonus push
   // along the path so dives feel powerful without touching top speeds much
   // (redline drag still caps every glider). Subtle but unmistakable.
   var preDiveAng = Math.atan2(s.vy, s.vx);
-  if(preDiveAng < -0.12 && s.pitch < -0.08){
+  if(preDiveAng < -0.08 && s.pitch < -0.05){
     var db = DIVE_K * Math.min(1, (-preDiveAng) / 0.6);
     s.vx += Math.cos(preDiveAng) * db * dt;
     s.vy += Math.sin(preDiveAng) * db * dt;
@@ -93,11 +93,15 @@ function stepFlight(s, input, p, dt){
 
   // --- steering: pull the velocity vector toward the nose ---
   // Better gliders turn harder; slow flight turns mushy; stalls barely turn.
+  // Pulling UP with speed bites extra hard (fast arcs); without speed it
+  // barely responds — HIGH SPEED + UP = climb, LOW SPEED + UP = stall.
   speed = Math.sqrt(s.vx*s.vx + s.vy*s.vy);
   var velAng = Math.atan2(s.vy, s.vx);
   var authority = clamp(speed / 12, 0.35, 1) * (stalled ? 0.2 : 1);
-  var steerRate = (p.control || 1.5) * authority;
-  var diff = wrapAngle(s.pitch - velAng);
+  var diff0 = wrapAngle(s.pitch - velAng);
+  var climbGain = (diff0 > 0) ? (1 + 1.2 * Math.min(1, speed / 40)) : 1;
+  var steerRate = (p.control || 1.5) * authority * climbGain * 1.25;
+  var diff = diff0;
   var maxTurn = steerRate * dt;
   var turn = clamp(diff, -maxTurn, maxTurn);
   var turnRate = turn / dt;
