@@ -24,16 +24,39 @@ function mix(a,b,k){ return [a[0]+(b[0]-a[0])*k, a[1]+(b[1]-a[1])*k, a[2]+(b[2]-
 function rgb(c){ return "rgb("+(c[0]|0)+","+(c[1]|0)+","+(c[2]|0)+")"; }
 
 function groundY(x){
-  // y=0 baseline; ramp hill near x<0; gentle dunes; water after 500m at y=0
-  if(x < 140){
-    // launch hill: 55m at x=-40 down to 12m at x=140
-    var k = (x+40)/180;
-    k = Math.max(0, Math.min(1, k));
-    return 55 - k*k*43;
-  }
+  // Launch hill (x<140) is the ski-jump ramp track: a Hermite curve from the
+  // flat top down to the lip, whose exit tangent EXACTLY matches the launch
+  // angle for the current ramp level. Past the lip: gentle dunes (~0).
+  if(x < 140) return rampY(x);
   return Math.sin(x*0.01)*1.2 + Math.sin(x*0.043)*0.5;
 }
 function isWater(x){ return x > 500; }
+
+/* Ramp track. The dodo rides this curve, the ramp structure is drawn along
+   it, and launch velocity leaves along its exit tangent — one shared truth. */
+var _rampLvl = 0;
+function setRampLevel(r){ _rampLvl = Math.max(0, Math.min(8, r || 0)); }
+function rampLipY(){ return window.DA.rampLipY(_rampLvl); }
+function rampExitAngle(){ return window.DA.launchAngleDeg(_rampLvl) * Math.PI / 180; }
+function rampY(x){
+  var x0 = -60, L = 200;
+  var y1 = window.DA.rampLipY(_rampLvl);
+  var m1 = Math.tan(window.DA.launchAngleDeg(_rampLvl) * Math.PI / 180);
+  if(x > 140) return y1 + (x - 140) * m1; // keep leaving along the exit tangent
+  var t = (x - x0) / L;
+  if(t < 0) t = 0;
+  if(t > 1) t = 1;
+  var y0 = 55;
+  var m0 = -0.05;
+  var t2 = t*t, t3 = t2*t;
+  var h00 = 2*t3 - 3*t2 + 1, h10 = t3 - 2*t2 + t;
+  var h01 = -2*t3 + 3*t2, h11 = t3 - t2;
+  return h00*y0 + h10*L*m0 + h01*y1 + h11*L*m1;
+}
+function rampSlopeY(x){
+  var e = 2;
+  return (rampY(x + e) - rampY(x - e)) / (2 * e);
+}
 
 function drawBackground(g, W, H, cam, dist, alt){
   var sky = skyColors(dist, alt);
@@ -187,7 +210,7 @@ function drawScene(g, W, H, cam, zoom, S, opts){
   g.textAlign = "center";
   for(var i=0;i<MS.length;i++){
     var mx = MS[i].d, msx = SX(mx);
-    if(msx < -120 || msx > W+120) continue;
+    if(msx < -200 || msx > W+200) continue;
     var msy = SY(groundY(mx));
     // pole
     g.strokeStyle = "#5b3a29"; g.lineWidth = 4;
@@ -230,8 +253,9 @@ function drawScene(g, W, H, cam, zoom, S, opts){
     g.globalAlpha = 1;
   }
 
-  // player dodo
-  drawDodo(g, SX(S.x), SY(S.y), S, zoom, opts||{});
+  // player dodo (drawn at its own scale so it stays readable at any zoom)
+  var ps = (opts && opts.playerScale) || zoom;
+  drawDodo(g, SX(S.x), SY(S.y), S, ps, opts||{});
 }
 
 function fmtM(m){ return m>=1000 ? (m/1000).toFixed(m>=10000?0:1)+"km" : m+"m"; }
@@ -252,7 +276,7 @@ function drawDetails(g, SX, SY, cam, W, H, zoom, S){
   for(var wx=Math.floor(x0/400)*400; wx<x1; wx+=400){
     var sx2 = SX(wx+hash(wx)*200), gy2 = groundY(wx);
     var sy2 = SY(gy2);
-    if(sx2<-80||sx2>W+80) continue;
+    if(sx2<-200||sx2>W+200) continue;
     if(wx+200 < 500) continue;
     var pick = pickFor(wx+200);
     if(pick) drawProp(g, sx2, sy2, pick, zoom, wx);
@@ -374,18 +398,17 @@ function drawRamp(g, SX, SY, zoom){
   g.restore();
 }
 
-/* Dennis the dodo. S: {pitch, boosting, stalled, crashing, sledLvl, wingsLvl, boosterLvl, vy, vx} */
+/* Dennis the dodo. S.pitch is the ONE authoritative angle (radians, +up):
+   the body rotates to exactly that, so the beak shows where thrust goes. */
 function drawDodo(g, x, y, S, zoom, opts){
   g.save();
   g.translate(x, y);
-  var face = S.pitch || 0;
-  // when sliding on ramp, align to ramp slope; in air use pitch
-  g.rotate(-face*0.9);
+  g.rotate(-(S.pitch || 0));
   var s = zoom * (1 + Math.min(0.35, (S.wingsLvl||0)*0.03));
   var crashSpin = opts.crashSpin || 0;
   if(crashSpin) g.rotate(crashSpin);
 
-  // booster flame
+  // booster flame: points backwards along the nose (-nose vector)
   if(S.boosting){
     var f = 14 + Math.random()*16;
     g.fillStyle = "#ffbe0b";
@@ -469,16 +492,25 @@ function drawDodo(g, x, y, S, zoom, opts){
     g.beginPath(); g.moveTo(-2*s, -13*s); g.lineTo((4+aero*2.2)*s, -13*s); g.lineTo((-2+aero*1.1)*s, (-20-aero*1.2)*s); g.closePath(); g.fill();
   }
 
-  // crash X eyes
+  // crash X eyes + orbiting stars
   if(opts.crashed){
     g.strokeStyle = "#111"; g.lineWidth = 2.5*s;
     g.beginPath();
     g.moveTo(5*s,-9*s); g.lineTo(13*s,-1*s); g.moveTo(13*s,-9*s); g.lineTo(5*s,-1*s);
     g.stroke();
+    g.fillStyle = "#ffd60a";
+    var now = Date.now()*0.005;
+    for(var si=0; si<3; si++){
+      var sa = now + si*2.094;
+      g.beginPath();
+      g.arc(Math.cos(sa)*17*s, -13*s + Math.sin(sa)*6*s, 2.6*s, 0, 7);
+      g.fill();
+    }
   }
   g.restore();
 }
 
 window.DA = window.DA || {};
-window.DA.World = { drawScene:drawScene, drawDodo:drawDodo, groundY:groundY, isWater:isWater, skyColors:skyColors };
+window.DA.World = { drawScene:drawScene, drawDodo:drawDodo, groundY:groundY, isWater:isWater, skyColors:skyColors,
+  setRampLevel:setRampLevel, rampY:rampY, rampSlopeY:rampSlopeY, rampLipY:rampLipY, rampExitAngle:rampExitAngle };
 })();

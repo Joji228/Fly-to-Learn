@@ -21,10 +21,10 @@ function load(){
     var raw = localStorage.getItem(KEY);
     if(!raw) return s;
     var d = JSON.parse(raw);
-    if(typeof d.money === "number") s.money = d.money;
+    if(typeof d.money === "number" && isFinite(d.money)) s.money = Math.max(0, Math.floor(d.money));
     if(d.upgrades) for(var k in s.upgrades){ if(typeof d.upgrades[k]==="number") s.upgrades[k]=Math.max(0,Math.min(8,Math.floor(d.upgrades[k]))); }
-    if(d.best){ ["dist","alt","speedKmh","airTime"].forEach(function(k){ if(typeof d.best[k]==="number") s.best[k]=d.best[k]; }); }
-    if(typeof d.flights==="number") s.flights=d.flights;
+    if(d.best){ ["dist","alt","speedKmh","airTime"].forEach(function(k){ if(typeof d.best[k]==="number" && isFinite(d.best[k])) s.best[k]=Math.max(0,d.best[k]); }); }
+    if(typeof d.flights==="number" && isFinite(d.flights)) s.flights=Math.max(0,Math.floor(d.flights));
     if(Array.isArray(d.objectivesDone)) s.objectivesDone=d.objectivesDone.filter(function(x){return typeof x==="string";});
     if(d.settings) for(var j in s.settings){ if(typeof d.settings[j]==="boolean") s.settings[j]=d.settings[j]; }
     if(typeof d.totalEarned==="number") s.totalEarned=d.totalEarned;

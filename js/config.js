@@ -1,69 +1,80 @@
-/* Dodo Airways — all tunables, upgrades, objectives, milestones. No external assets. */
+/* Dodo Airways — all tunables, upgrades, objectives, milestones. No external assets.
+   RULE: every shop description is computed from the SAME functions the
+   physics/launch code uses, so displayed numbers always match reality. */
 (function(){
 "use strict";
 
-var UPGRADES = {
-  ramp: {
-    name: "Launch Ramp", icon: "🚀",
-    blurb: "Bigger ramp, hotter launch. More starting speed + better launch angle.",
-    max: 8, base: 80, growth: 2.05,
-    desc: function(l){ return "Launch " + launchSpeed(l).toFixed(0) + " m/s @ " + launchAngleDeg(l).toFixed(0) + "°"; },
-    next: function(l){ return l>=8 ? "MAXED — orbital dodo" : "→ " + launchSpeed(l+1).toFixed(0) + " m/s @ " + launchAngleDeg(l+1).toFixed(0) + "°"; }
-  },
-  sled: {
-    name: "Waddle Sled", icon: "🛷",
-    blurb: "Greased runners + rocket shopping cart energy. Faster ramp + bonus launch speed.",
-    max: 8, base: 60, growth: 2.0,
-    desc: function(l){ return "Ramp accel x" + sledMult(l).toFixed(2) + " • +" + (l*1.2).toFixed(1) + " m/s"; },
-    next: function(l){ return l>=8 ? "MAXED — frictionless nonsense" : "→ accel x" + sledMult(l+1).toFixed(2) + " • +" + ((l+1)*1.2).toFixed(1) + " m/s"; }
-  },
-  wings: {
-    name: "Wings (cardboard→titanium)", icon: "🪽",
-    blurb: "More lift, floatier glide, gentler sink. The single best way to stay up.",
-    max: 8, base: 100, growth: 2.15,
-    desc: function(l){ return "Lift " + Math.round(liftCoef(l)*1000) + " • sink x" + sinkMult(l).toFixed(2); },
-    next: function(l){ return l>=8 ? "MAXED — basically an albatross" : "→ lift " + Math.round(liftCoef(l+1)*1000) + " • sink x" + sinkMult(l+1).toFixed(2); }
-  },
-  aero: {
-    name: "Aerodynamics", icon: "💨",
-    blurb: "Pointier helmet, slicker belly. Keeps speed instead of donating it to the wind.",
-    max: 8, base: 100, growth: 2.1,
-    desc: function(l){ return "Drag " + (dragCoef(l)*1000).toFixed(1); },
-    next: function(l){ return l>=8 ? "MAXED — soap-bar dodo" : "→ drag " + (dragCoef(l+1)*1000).toFixed(1); }
-  },
-  booster: {
-    name: "Sardine Booster", icon: "🔥",
-    blurb: "Hold SPACE for thrust along your nose. Stronger push per level.",
-    max: 8, base: 120, growth: 2.2,
-    desc: function(l){ return l===0 ? "Weak cough (" + boosterThrust(0).toFixed(0) + " m/s²)" : "Thrust " + boosterThrust(l).toFixed(0) + " m/s²"; },
-    next: function(l){ return l>=8 ? "MAXED — illegal in 12 countries" : "→ thrust " + boosterThrust(l+1).toFixed(0) + " m/s²"; }
-  },
-  fuel: {
-    name: "Fuel Tank (fish oil)", icon: "🛢️",
-    blurb: "Longer burn time for the booster. Fly now, smell later.",
-    max: 8, base: 80, growth: 2.0,
-    desc: function(l){ return fuelTime(l).toFixed(1) + "s of boost"; },
-    next: function(l){ return l>=8 ? "MAXED — mobile ocean" : "→ " + fuelTime(l+1).toFixed(1) + "s of boost"; }
-  }
-};
-
+/* ---------- upgrade math (single source of truth) ---------- */
 function priceOf(key, level){ // level = current level, price for next
   var u = UPGRADES[key];
   return Math.round(u.base * Math.pow(u.growth, level) / 5) * 5;
 }
+// Ramp: better launch geometry (higher lip, steeper exit) + base speed.
 function launchSpeed(rampLvl, sledLvl){
-  if (rampLvl === undefined) return 0;
-  var r = (rampLvl === undefined) ? 0 : rampLvl;
-  var s = sledLvl || 0;
+  var r = rampLvl || 0, s = sledLvl || 0;
   return 20 + r * 5.0 + s * 1.6;
 }
-function launchAngleDeg(rampLvl){ return 9 + (rampLvl||0) * 1.5; }
+function launchAngleDeg(rampLvl){ return 9 + (rampLvl || 0) * 1.5; } // == ramp exit tangent, see World.rampY
+function rampLipY(rampLvl){ return 14 + (rampLvl || 0) * 1.8; }       // lip height in m, matches ramp track
+// Sled: faster ride down the ramp (accel feel) + small launch bonus.
 function sledMult(l){ return 1 + l * 0.28; }
-function liftCoef(l){ return 0.028 + l * 0.006; }
-function sinkMult(l){ return Math.max(0.5, 1 - l * 0.06); }
-function dragCoef(l){ return Math.max(0.0009, 0.0072 - l * 0.00079); }
-function boosterThrust(l){ return 16 + l * 13; }
-function fuelTime(l){ return 2.5 + l * 1.5; }
+function rampRideTime(sledLvl){ return Math.max(1.1, 2.3 / sledMult(sledLvl || 0)); }
+// Wings: bigger lifting surface, better trim, slower stall, less sink.
+function liftArea(l){ return 0.15 + l * 0.022; }
+function wingTrim(l){ return 0.07 + l * 0.003; }
+function stallSpeed(l){ return 12 - l * 0.4; }                        // m/s
+function sinkMult(l){ return Math.max(0.6, 1 - l * 0.05); }           // gravity scale while gliding
+// Aero: less parasite drag + less induced drag (keeps speed in maneuvers).
+function dragCoef(l){ return Math.max(0.016, 0.055 - l * 0.005); }
+function kindCoef(l){ return 0.30 - l * 0.014; }
+// Booster: exact thrust along the nose (m/s^2).
+function boosterThrust(l){ return 14 + l * 11; }
+function fuelTime(l){ return 2.5 + l * 1.3; }                         // seconds of burn
+
+var UPGRADES = {
+  ramp: {
+    name: "Launch Ramp", icon: "🚀",
+    blurb: "Taller lip, steeper exit, hotter launch. The single best start.",
+    max: 8, base: 90, growth: 2.05,
+    desc: function(l){ return "Lip " + rampLipY(l).toFixed(0) + "m • exit " + launchAngleDeg(l).toFixed(0) + "° • base " + (20 + l*5).toFixed(0) + " m/s"; },
+    next: function(l){ return l>=8 ? "MAXED — orbital dodo" : "→ lip " + rampLipY(l+1).toFixed(0) + "m • exit " + launchAngleDeg(l+1).toFixed(0) + "° • base " + (20 + (l+1)*5).toFixed(0) + " m/s"; }
+  },
+  sled: {
+    name: "Waddle Sled", icon: "🛷",
+    blurb: "Greased runners. Shorter ride, snappier accel, bonus launch speed.",
+    max: 8, base: 70, growth: 2.0,
+    desc: function(l){ return "Ride " + rampRideTime(l).toFixed(1) + "s • +" + (l*1.6).toFixed(1) + " m/s launch"; },
+    next: function(l){ return l>=8 ? "MAXED — frictionless nonsense" : "→ ride " + rampRideTime(l+1).toFixed(1) + "s • +" + ((l+1)*1.6).toFixed(1) + " m/s launch"; }
+  },
+  wings: {
+    name: "Wings (cardboard→titanium)", icon: "🪽",
+    blurb: "More lift, floatier glide, gentler sink. The best way to stay up.",
+    max: 8, base: 110, growth: 2.15,
+    desc: function(l){ return "Lift " + liftArea(l).toFixed(2) + " • stall " + Math.round(stallSpeed(l)*3.6) + " km/h • sink x" + sinkMult(l).toFixed(2); },
+    next: function(l){ return l>=8 ? "MAXED — basically an albatross" : "→ lift " + liftArea(l+1).toFixed(2) + " • stall " + Math.round(stallSpeed(l+1)*3.6) + " km/h • sink x" + sinkMult(l+1).toFixed(2); }
+  },
+  aero: {
+    name: "Aerodynamics", icon: "💨",
+    blurb: "Pointier helmet, slicker belly. Keeps speed through every maneuver.",
+    max: 8, base: 110, growth: 2.1,
+    desc: function(l){ return "Drag " + (dragCoef(l)*1000).toFixed(1) + " • induced " + kindCoef(l).toFixed(2); },
+    next: function(l){ return l>=8 ? "MAXED — soap-bar dodo" : "→ drag " + (dragCoef(l+1)*1000).toFixed(1) + " • induced " + kindCoef(l+1).toFixed(2); }
+  },
+  booster: {
+    name: "Sardine Booster", icon: "🔥",
+    blurb: "Hold SPACE for thrust along your nose. Points where you point.",
+    max: 8, base: 130, growth: 2.2,
+    desc: function(l){ return "Thrust " + boosterThrust(l).toFixed(0) + " m/s² along nose"; },
+    next: function(l){ return l>=8 ? "MAXED — illegal in 12 countries" : "→ thrust " + boosterThrust(l+1).toFixed(0) + " m/s² along nose"; }
+  },
+  fuel: {
+    name: "Fuel Tank (fish oil)", icon: "🛢️",
+    blurb: "Longer burn time for the booster. Fly now, smell later.",
+    max: 8, base: 90, growth: 2.0,
+    desc: function(l){ return fuelTime(l).toFixed(1) + "s of boost"; },
+    next: function(l){ return l>=8 ? "MAXED — mobile ocean" : "→ " + fuelTime(l+1).toFixed(1) + "s of boost"; }
+  }
+};
 
 var OBJECTIVES = [
   { id:"d300",   text:"Reach 300 m",            bonus:50,   check:function(s){ return s.dist>=300; } },
@@ -118,6 +129,12 @@ var GOOD_QUOTES = [
   "NASA just called. They're confused.",
   "That landing was almost intentional!"
 ];
+var GENTLE_QUOTES = [
+  "Dennis sticks the landing! Judges weep.",
+  "Smoother than expected. Suspiciously smooth.",
+  "That was almost flying. Keep going!",
+  "A landing you can waddle away from."
+];
 
 var PREVIEW_QUIPS = [
   "Dennis judges your spending.",
@@ -132,15 +149,21 @@ window.DA.UPGRADES = UPGRADES;
 window.DA.priceOf = priceOf;
 window.DA.launchSpeed = launchSpeed;
 window.DA.launchAngleDeg = launchAngleDeg;
+window.DA.rampLipY = rampLipY;
 window.DA.sledMult = sledMult;
-window.DA.liftCoef = liftCoef;
+window.DA.rampRideTime = rampRideTime;
+window.DA.liftArea = liftArea;
+window.DA.wingTrim = wingTrim;
+window.DA.stallSpeed = stallSpeed;
 window.DA.sinkMult = sinkMult;
 window.DA.dragCoef = dragCoef;
+window.DA.kindCoef = kindCoef;
 window.DA.boosterThrust = boosterThrust;
 window.DA.fuelTime = fuelTime;
 window.DA.OBJECTIVES = OBJECTIVES;
 window.DA.MILESTONES = MILESTONES;
 window.DA.QUOTES = QUOTES;
 window.DA.GOOD_QUOTES = GOOD_QUOTES;
+window.DA.GENTLE_QUOTES = GENTLE_QUOTES;
 window.DA.PREVIEW_QUIPS = PREVIEW_QUIPS;
 })();

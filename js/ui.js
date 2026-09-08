@@ -93,7 +93,8 @@ function showFlight(){
   $("hud").classList.remove("hidden");
   $("touch-controls").classList.remove("hidden");
   if(window.innerWidth>700) $("pitch-hint").classList.remove("hidden");
-  setTimeout(function(){ $("pitch-hint").classList.add("hidden"); }, 6000);
+  var id = runId;
+  setTimeout(function(){ if(id === runId) $("pitch-hint").classList.add("hidden"); }, 6000);
   $("record-banner").classList.add("hidden");
 }
 
@@ -111,6 +112,14 @@ function updateHUD(){
   $("hud-best").textContent = window.DA.Physics.fmtDist(save.best.dist);
   $("phase-label").textContent = G.phase==="ramp" ? "🛷 RAMP!" : (G.S.boosting?"🔥 BOOST!":(G.S.stalled?"⚠ STALL":"🕊️ FLY"));
   if(G.S.boosting) $("phase-label").style.color = "#ffb703"; else $("phase-label").style.color = "#fff";
+  // pitch indicator: arrow + degrees, one glance tells where the nose (and booster) points
+  var deg = Math.round((G.S.pitch||0) * 180/Math.PI);
+  var arrow = deg > 12 ? "↗" : deg < -12 ? "↘" : "→";
+  var pl = $("pitch-label");
+  if(pl){
+    pl.textContent = arrow + " " + (deg>0?"+":"") + deg + "°";
+    pl.style.color = G.S.stalled ? "#ff5d5d" : (Math.abs(deg) > 55 ? "#ffb703" : "#fff");
+  }
 }
 
 function onRecord(){
@@ -119,8 +128,12 @@ function onRecord(){
   toast("🎉 NEW RECORD!");
 }
 function onCrash(info){
-  var msgs = info.water ? ["💦 SPLASHDOWN!", "🌊 Belly-flop!", "🐟 The fish applaud."] : ["💥 Wipeout!", "❄️ Face-first!", "🕳️ Crater delivered!"];
-  toast(msgs[(Math.random()*msgs.length)|0] + (info.hard?" That one hurt.":""));
+  var msgs;
+  if(info.water) msgs = ["💦 SPLASHDOWN!", "🌊 Belly-flop!", "🐟 The fish applaud."];
+  else if(info.severity === "gentle") msgs = ["🛬 Smooth touchdown!", "⛷️ Stylish rollout!", "🧈 Butter!"];
+  else if(info.severity === "brutal") msgs = ["💥 MEGA wipeout!", "☄️ Crater delivered!", "🩹 That one hurt."];
+  else msgs = ["💥 Wipeout!", "❄️ Face-first!", "🕳️ Sudden stop!"];
+  toast(msgs[(Math.random()*msgs.length)|0]);
 }
 
 /* ---------- SHOP ---------- */
@@ -199,20 +212,30 @@ function drawPreview(){
 }
 
 /* ---------- RESULTS ---------- */
+// Stale-timer guard: every PLAY AGAIN / launch bumps runId; pending row
+// animations from an older results screen abort instead of touching the
+// new flight's DOM or playing sounds late.
+var runId = 0;
+function onRunStart(){ runId++; }
+
 function showResults(res){
+  var id = runId;
   hideAll();
   $("hud").classList.add("hidden"); $("touch-controls").classList.add("hidden");
   var st = res.stats, rw = res.rewards;
-  var crashed = res.crash;
-  $("results-title").textContent = crashed ? (crashed.water ? "💦 Splashdown!" : (crashed.hard?"💥 Mega Wipeout!":"❄️ Snow Snack!")) : "🛬 Landed(?)!";
-  var quotes = res.isRecord ? window.DA.GOOD_QUOTES : window.DA.QUOTES;
+  var crashed = res.crash || {};
+  $("results-title").textContent = crashed.water ? "💦 Splashdown!"
+    : crashed.severity === "gentle" ? "🛬 What a landing!"
+    : crashed.severity === "brutal" ? "💥 Mega Wipeout!" : "❄️ Snow Snack!";
+  var quotes = res.isRecord ? window.DA.GOOD_QUOTES
+    : crashed.severity === "gentle" ? window.DA.GENTLE_QUOTES : window.DA.QUOTES;
   $("results-quote").textContent = '"' + quotes[(Math.random()*quotes.length)|0] + '"';
   $("r-dist").textContent = window.DA.Physics.fmtDist(st.dist);
   $("r-dist-best").textContent = res.isRecord ? "🎉 NEW BEST!" : ("best " + window.DA.Physics.fmtDist(save.best.dist));
   $("r-alt").textContent = st.maxAlt.toFixed(0)+" m";
   $("r-speed").textContent = Math.round(st.maxSpeedKmh)+" km/h";
   $("r-time").textContent = st.airTime.toFixed(1)+" s";
-  // animated breakdown
+  // snappy animated breakdown
   var bd = $("results-breakdown");
   bd.innerHTML = "";
   var rows = [
@@ -222,10 +245,12 @@ function showResults(res){
     ["⏱️ Airtime ("+st.airTime.toFixed(1)+" s)", rw.base.time]
   ];
   if(rw.msBonus>0) rows.push(["📍 Milestone flyovers", rw.msBonus]);
+  if(rw.landBonus>0) rows.push(["🧈 Smooth-landing style", rw.landBonus]);
   var od = $("results-objectives"); od.innerHTML = "";
   rw.newObj.forEach(function(o){ rows.push(["🏆 "+o.text, o.bonus]); });
   var total = 0;
-  $("results-total").textContent = "$0";
+  var totalEl = $("results-total");
+  totalEl.textContent = "$0";
   rows.forEach(function(r, i){
     var div = document.createElement("div");
     div.className = "bd-row" + (i>=4?" bonus":"");
@@ -233,10 +258,11 @@ function showResults(res){
     div.style.opacity = "0";
     bd.appendChild(div);
     setTimeout(function(){
+      if(id !== runId) return; // user already started another flight: stay silent
       div.style.opacity = "1";
-      div.style.transition = "opacity .3s";
+      div.style.transition = "opacity .25s";
       total += r[1];
-      animateMoney($("results-total"), total);
+      animateMoney(totalEl, total, id);
       window.DA.Audio.SFX.coin();
       if(i===rows.length-1 && rw.newObj.length){
         rw.newObj.forEach(function(o){
@@ -246,16 +272,17 @@ function showResults(res){
           od.appendChild(d2);
         });
       }
-    }, 350*(i+1));
+    }, 170*(i+1));
   });
-  setTimeout(function(){ animateMoney($("results-total"), rw.total); }, 350*(rows.length+1));
+  setTimeout(function(){ if(id === runId) animateMoney(totalEl, rw.total, id); }, 170*(rows.length+1));
   $("screen-results").classList.remove("hidden");
   refreshMenu();
 }
-function animateMoney(el, to){
+function animateMoney(el, to, id){
   var from = parseInt(el.textContent.replace(/[^0-9]/g,""))||0;
-  var start = performance.now(), dur = 400;
+  var start = performance.now(), dur = 300;
   function f(t){
+    if(id !== undefined && id !== runId) return;
     var k = Math.min(1,(t-start)/dur);
     el.textContent = "$" + Math.round(from+(to-from)*k).toLocaleString();
     if(k<1) requestAnimationFrame(f);
@@ -315,5 +342,6 @@ function enterPressed(){
 window.DA = window.DA || {};
 window.DA.UI = { init:init, showMenu:showMenu, showShop:showShop, showFlight:showFlight,
   updateHUD:updateHUD, showResults:showResults, onRecord:onRecord, onCrash:onCrash,
-  toast:toast, floatText:floatText, enterPressed:enterPressed, refreshMenu:refreshMenu, renderShop:renderShop };
+  toast:toast, floatText:floatText, enterPressed:enterPressed, refreshMenu:refreshMenu, renderShop:renderShop,
+  onRunStart:onRunStart };
 })();
