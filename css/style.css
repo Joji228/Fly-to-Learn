@@ -27,6 +27,7 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--ink);
 @keyframes pop{from{transform:scale(1)}to{transform:scale(1.07)}}
 #phase-label{margin-top:4px;font-size:11px;letter-spacing:3px;color:#fff;opacity:.85;text-shadow:0 1px 4px #000;}
 #pitch-label{margin-top:2px;font-size:15px;font-weight:900;color:#fff;text-shadow:0 1px 4px #000;letter-spacing:1px;}
+#loadout-label{margin-top:2px;font-size:11px;font-weight:700;color:var(--muted);text-shadow:0 1px 4px #000;white-space:nowrap;}
 .hud-btns{display:flex;gap:6px;pointer-events:auto;}
 .mini-btn{background:rgba(8,18,36,.72);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:8px;
   font-size:15px;padding:6px 9px;cursor:pointer;}
@@ -91,8 +92,8 @@ kbd{background:#000;border:1px solid #555;border-bottom-width:3px;border-radius:
 #preview-canvas{background:linear-gradient(180deg,#87b5d6,#e3f2fd);border-radius:10px;max-width:100%;}
 #preview-text{font-style:italic;color:var(--muted);font-size:14px;}
 #shop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;}
-/* glider hangar */
-#glider-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-bottom:12px;}
+/* glider + rocket hangars */
+#glider-grid,#rocket-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-bottom:12px;}
 .glider-head{grid-column:1/-1;font-size:15px;letter-spacing:1px;color:var(--ink);
   background:rgba(0,0,0,.3);border-radius:10px;padding:8px 12px;}
 .gcard{display:flex;flex-direction:column;}
@@ -145,6 +146,10 @@ kbd{background:#000;border:1px solid #555;border-bottom-width:3px;border-radius:
 #results-objectives{margin-top:8px;}
 .obj-done{background:rgba(128,237,153,.15);border:1px solid var(--good);border-radius:10px;padding:6px 10px;
   margin:4px 0;font-size:13px;}
+.obj-done.nudge{background:rgba(255,183,3,.16);border-color:var(--accent);font-weight:900;animation:pop .5s ease 3;}
+.obj-soon{color:var(--muted);font-size:12.5px;padding:5px 2px;text-align:center;}
+.btn.attn{animation:attn 1s ease infinite;border-color:var(--accent);}
+@keyframes attn{0%,100%{box-shadow:0 0 0 0 rgba(255,183,3,0)}50%{box-shadow:0 0 14px 2px rgba(255,183,3,.8)}}
 .total-row{display:flex;justify-content:space-between;align-items:center;margin:12px 0;font-size:18px;}
 .total-row b{color:var(--accent);font-size:30px;}
 .results-btns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}

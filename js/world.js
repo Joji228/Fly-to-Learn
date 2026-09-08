@@ -735,10 +735,10 @@ function drawDodo(g, x, y, S, zoom, opts){
     catch(e){}
   }
 
-  // booster flame (local -x = backwards along the nose)
+  // booster flame (local -x = backwards along the nose), wilder per rocket
   if(boosting){
-    var bl = S.boosterLvl||0;
-    var f = (16 + Math.random()*18) * (1 + bl*0.09);
+    var rk = (typeof S.rocket === "number") ? S.rocket : -1;
+    var f = (16 + Math.random()*18) * (rk >= 0 ? 1 + rk*0.22 : 1);
     g.fillStyle = "rgba(255,190,11,0.9)";
     g.beginPath(); g.moveTo(-20*s, -5*s); g.lineTo(-20*s-f*s, 2*s); g.lineTo(-20*s, 9*s); g.closePath(); g.fill();
     g.fillStyle = "#fb5607";
@@ -766,16 +766,11 @@ function drawDodo(g, x, y, S, zoom, opts){
   if(sled>=3){ g.fillStyle = "#ffd60a"; g.fillRect(-22*s, 12.5*s, sledW-4*s, 2*s); }
   if(sled>=6){ g.fillStyle = "#80ed99"; g.fillRect(-20*s, 17*s, 6*s, 5*s); g.fillRect(10*s, 17*s, 6*s, 5*s); }
 
-  // booster rocket visual tiers
-  var blo = S.boosterLvl||0;
-  if(blo>0){
-    g.fillStyle = blo>=5 ? "#e63946" : "#8d99ae";
-    rr(g, -27*s, -7*s, 9*s, 12*s, 3*s); g.fill();
-    g.strokeStyle = "rgba(0,0,0,0.35)"; g.lineWidth = 1.6; g.stroke();
-    g.fillStyle = "#edf2f4"; g.fillRect(-27*s, -7*s, 9*s, 3.5*s);
-    g.fillStyle = "#ffb703";
-    g.beginPath(); g.moveTo(-23*s, 5*s); g.lineTo(-27*s, 10*s); g.lineTo(-19*s, 5*s); g.closePath(); g.fill();
-    if(blo>=7){ g.fillStyle="#ffbe0b"; g.fillRect(-29*s,-9*s,3*s,16*s); }
+  // equipped rocket hardware (nothing drawn when flying rocket-less)
+  var rkid = (typeof S.rocket === "number") ? S.rocket : -1;
+  if(rkid >= 0 && window.DA.drawRocket){
+    try{ window.DA.drawRocket(g, rkid, s, {firing: boosting, t:T}); }
+    catch(e){}
   }
 
   // tail feathers

@@ -19,24 +19,19 @@ function rampLipY(rampLvl){ return 14 + (rampLvl || 0) * 1.8; }       // lip hei
 // Sled: FASTER ride (impatience is a virtue) + small launch bonus.
 function sledMult(l){ return 1 + l * 0.28; }
 function rampRideTime(sledLvl){ return Math.max(0.8, 1.2 - (sledLvl || 0) * 0.05); }
-// Booster: nothing at level 0 (SPACE does nothing until you buy one!),
-// then big exact-along-the-nose thrust.
-function boosterThrust(l){ return l <= 0 ? 0 : 38 + (l - 1) * 16; }
-function fuelTime(l){ return 2.0 + l * 0.5; }                         // seconds of burn
+// Rockets are equipment now (see ROCKETS in gliders.js): thrust + burn come
+// from the equipped rocket, not from an 8-level meter.
 // Aero: less parasite drag + less induced drag (keeps speed in maneuvers).
 function dragCoef(l){ return Math.max(0.016, 0.055 - l * 0.005); }
 function kindCoef(l){ return 0.22 - l * 0.011; }
-// Booster: exact thrust along the nose (m/s^2).
-function boosterThrust(l){ return 14 + l * 11; }
-function fuelTime(l){ return 2.5 + l * 1.3; }                         // seconds of burn
 
 var UPGRADES = {
   ramp: {
     name: "Launch Ramp", icon: "🚀",
     blurb: "Taller lip, steeper exit, hotter launch. The single best start.",
     max: 8, base: 270, growth: 2.05,
-    desc: function(l){ return "Lip " + rampLipY(l).toFixed(0) + "m • exit " + launchAngleDeg(l).toFixed(0) + "° • base " + (20 + l*5).toFixed(0) + " m/s"; },
-    next: function(l){ return l>=8 ? "MAXED — orbital dodo" : "→ lip " + rampLipY(l+1).toFixed(0) + "m • exit " + launchAngleDeg(l+1).toFixed(0) + "° • base " + (20 + (l+1)*5).toFixed(0) + " m/s"; }
+    desc: function(l){ return "Lip " + rampLipY(l).toFixed(0) + "m • exit " + launchAngleDeg(l).toFixed(0) + "° • base " + (28 + l*2.5).toFixed(0) + " m/s"; },
+    next: function(l){ return l>=8 ? "MAXED — orbital dodo" : "→ lip " + rampLipY(l+1).toFixed(0) + "m • exit " + launchAngleDeg(l+1).toFixed(0) + "° • base " + (28 + (l+1)*2.5).toFixed(0) + " m/s"; }
   },
   sled: {
     name: "Waddle Sled", icon: "🛷",
@@ -51,20 +46,6 @@ var UPGRADES = {
     max: 8, base: 300, growth: 2.0,
     desc: function(l){ return "Drag x" + (1-0.055*l).toFixed(2) + " • top +" + (l*2) + " m/s"; },
     next: function(l){ return l>=8 ? "MAXED — soap-bar dodo" : "→ drag x" + (1-0.055*(l+1)).toFixed(2) + " • top +" + ((l+1)*2) + " m/s"; }
-  },
-  booster: {
-    name: "Sardine Booster", icon: "🔥",
-    blurb: "Hold SPACE for thrust along your nose. Useless until owned!",
-    max: 8, base: 340, growth: 2.1,
-    desc: function(l){ return l<=0 ? "No booster. SPACE does nothing. Tragic." : "Thrust " + boosterThrust(l).toFixed(0) + " m/s² along nose"; },
-    next: function(l){ return l>=8 ? "MAXED — illegal in 12 countries" : "→ thrust " + boosterThrust(l+1).toFixed(0) + " m/s² along nose"; }
-  },
-  fuel: {
-    name: "Fuel Tank (fish oil)", icon: "🛢️",
-    blurb: "Longer burn time for the booster. Fly now, smell later.",
-    max: 8, base: 250, growth: 2.0,
-    desc: function(l){ return fuelTime(l).toFixed(1) + "s of boost"; },
-    next: function(l){ return l>=8 ? "MAXED — mobile ocean" : "→ " + fuelTime(l+1).toFixed(1) + "s of boost"; }
   }
 };
 
@@ -146,8 +127,6 @@ window.DA.sledMult = sledMult;
 window.DA.rampRideTime = rampRideTime;
 window.DA.dragCoef = dragCoef;
 window.DA.kindCoef = kindCoef;
-window.DA.boosterThrust = boosterThrust;
-window.DA.fuelTime = fuelTime;
 window.DA.OBJECTIVES = OBJECTIVES;
 window.DA.MILESTONES = MILESTONES;
 window.DA.QUOTES = QUOTES;

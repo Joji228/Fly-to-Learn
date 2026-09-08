@@ -136,6 +136,13 @@ function updateHUD(){
     pl.textContent = arrow + " " + (deg>0?"+":"") + deg + "°";
     pl.style.color = G.S.stalled ? "#ff5d5d" : (Math.abs(deg) > 55 ? "#ffb703" : "#fff");
   }
+  // loadout: tiny equipped-equipment readout (cached, cheap)
+  var lo = gliderName(save.glider.equipped) + "|" + save.rocket.equipped;
+  if(lo !== G._lastLoadout){
+    G._lastLoadout = lo;
+    var ll = $("loadout-label");
+    if(ll) ll.textContent = "🪂 " + gliderName(save.glider.equipped) + " • 🚀 " + rocketName(save.rocket.equipped);
+  }
 }
 
 function onRecord(){
@@ -169,16 +176,127 @@ function onCrash(info){
   toast(msgs[(Math.random()*msgs.length)|0]);
 }
 
-/* ---------- SHOP ---------- */
+/* ---------- SHOP: loadout preview, gliders, rockets, workshop ---------- */
+function gliderName(id){
+  var g = window.DA.GLIDERS && window.DA.GLIDERS[id];
+  return g ? g.name : "Bare Dodo";
+}
+function rocketName(id){
+  var r = window.DA.ROCKETS && id >= 0 && window.DA.ROCKETS[id];
+  return r ? r.name : "none yet";
+}
 function renderShop(){
   $("shop-cash").textContent = "$" + save.money.toLocaleString();
   renderGliders();
+  renderRockets();
+  renderTracks();
+  drawPreview();
+  var q = window.DA.PREVIEW_QUIPS[(Math.random()*window.DA.PREVIEW_QUIPS.length)|0];
+  $("preview-text").textContent = '"' + q + '" — 🪂 ' + gliderName(save.glider.equipped) +
+    " • 🚀 " + rocketName(save.rocket.equipped);
+}
+function totalLv(){ var t=0; for(var k in save.upgrades) t+=save.upgrades[k]; return t; }
+function ownedGliders(){ var n=0, g = save.glider.owned; for(var i=0;i<g.length;i++) if(g[i]) n++; return n; }
+function ownedRockets(){ var n=0, r = save.rocket.owned; for(var i=0;i<r.length;i++) if(r[i]) n++; return n; }
+
+/* ---------- GLIDER HANGAR: exactly 5 buyable gliders (id 1-5) ---------- */
+function statBar(label, v){
+  var bars = "";
+  for(var i=0;i<10;i++) bars += '<div class="pip'+(i<Math.round(v)?' on':'')+'"></div>';
+  return '<div class="gstat"><span>'+label+'</span><div class="pips">'+bars+'</div></div>';
+}
+function equipCard(opts){
+  // shared card builder: {name, tag, status, barsHtml, preview(draw fn), btnText, btnDisabled, onBtn, flashId}
+  var card = document.createElement("div");
+  card.className = "up-card gcard" + (opts.equipped ? " maxed" : "") + (opts.dim ? " cant" : "");
+  if(opts.flashId) card.id = opts.flashId;
+  var cv = document.createElement("canvas");
+  cv.width = 160; cv.height = 90; cv.className = "gprev";
+  card.appendChild(cv);
+  var info = document.createElement("div");
+  info.innerHTML =
+    '<div class="up-top"><span class="up-name">' + opts.name + '</span>' +
+    '<span class="up-lvl">' + opts.status + '</span></div>' +
+    '<div class="up-desc">' + opts.tag + '</div>' + opts.barsHtml;
+  card.appendChild(info);
+  var btn = document.createElement("button");
+  btn.className = "buy-btn";
+  btn.textContent = opts.btnText;
+  btn.disabled = !!opts.btnDisabled;
+  if(opts.onBtn) btn.onclick = opts.onBtn;
+  card.appendChild(btn);
+  try{ opts.preview(cv); }catch(e){}
+  return card;
+}
+function renderGliders(){
+  var wrap = $("glider-grid");
+  if(!wrap || !window.DA.GLIDERS) return;
+  wrap.innerHTML = "";
+  var eq = save.glider.equipped;
+  var head = document.createElement("div");
+  head.className = "glider-head";
+  head.innerHTML = "🪂 <b>GLIDERS</b> — equipped: <b>" +
+    (window.DA.GLIDERS[eq] ? window.DA.GLIDERS[eq].name : "Bare Dodo") + "</b>";
+  wrap.appendChild(head);
+  window.DA.GLIDERS.forEach(function(gl){
+    if(gl.id === 0) return; // Bare Dodo is the free baseline, not a shop card
+    var owned = !!save.glider.owned[gl.id];
+    var equipped = (eq === gl.id);
+    wrap.appendChild(equipCard({
+      name: gl.name, tag: gl.tag,
+      status: equipped ? "EQUIPPED" : owned ? "OWNED" : "$" + gl.price.toLocaleString(),
+      barsHtml: statBar("GLIDE", gl.bars.fly) + statBar("SPEED", gl.bars.speed) + statBar("CONTROL", gl.bars.ctrl),
+      preview: function(cv){ window.DA.drawGliderPreview(cv, gl.id); },
+      equipped: equipped, dim: !owned && gl.price > save.money,
+      flashId: "card-glider-" + gl.id,
+      btnText: equipped ? "✔ EQUIPPED" : owned ? "EQUIP" : "BUY — $" + gl.price.toLocaleString(),
+      btnDisabled: equipped || (!owned && gl.price > save.money),
+      onBtn: equipped ? null : owned
+        ? (function(id){ return function(){ equipGlider(id); }; })(gl.id)
+        : (function(id, price){ return function(){ buyGlider(id, price); }; })(gl.id, gl.price)
+    }));
+  });
+}
+/* ---------- ROCKET HANGAR: exactly 3 boosters ---------- */
+function renderRockets(){
+  var wrap = $("rocket-grid");
+  if(!wrap || !window.DA.ROCKETS) return;
+  wrap.innerHTML = "";
+  var eq = save.rocket.equipped;
+  var head = document.createElement("div");
+  head.className = "glider-head";
+  head.innerHTML = "🚀 <b>ROCKET BOOSTERS</b> — equipped: <b>" + rocketName(eq) + "</b>";
+  wrap.appendChild(head);
+  window.DA.ROCKETS.forEach(function(rk){
+    var owned = !!save.rocket.owned[rk.id];
+    var equipped = (eq === rk.id);
+    wrap.appendChild(equipCard({
+      name: rk.name, tag: rk.tag,
+      status: equipped ? "EQUIPPED" : owned ? "OWNED" : "$" + rk.price.toLocaleString(),
+      barsHtml: statBar("THRUST", rk.bars.thrust) + statBar("BURN", rk.bars.burn),
+      preview: function(cv){ window.DA.drawRocketPreview(cv, rk.id); },
+      equipped: equipped, dim: !owned && rk.price > save.money,
+      flashId: "card-rocket-" + rk.id,
+      btnText: equipped ? "✔ EQUIPPED" : owned ? "EQUIP" : "BUY — $" + rk.price.toLocaleString(),
+      btnDisabled: equipped || (!owned && rk.price > save.money),
+      onBtn: equipped ? null : owned
+        ? (function(id){ return function(){ equipRocket(id); }; })(rk.id)
+        : (function(id, price){ return function(){ buyRocket(id, price); }; })(rk.id, rk.price)
+    }));
+  });
+}
+/* ---------- WORKSHOP: small permanent upgrades ---------- */
+function renderTracks(){
   var grid = $("shop-grid");
+  if(!grid) return;
   grid.innerHTML = "";
-  var keys = ["ramp","sled","aero","booster","fuel"];
-  keys.forEach(function(k){
+  var head = document.createElement("div");
+  head.className = "glider-head";
+  head.textContent = "🔧 WORKSHOP — permanent upgrades";
+  grid.appendChild(head);
+  ["ramp","sled","aero"].forEach(function(k){
     var u = window.DA.UPGRADES[k];
-    if(!u) return; // gliders replaced the old wings meter
+    if(!u) return;
     var lvl = save.upgrades[k];
     var maxed = lvl>=u.max;
     var price = maxed?0:window.DA.priceOf(k,lvl);
@@ -203,54 +321,6 @@ function renderShop(){
     card.appendChild(btn);
     grid.appendChild(card);
   });
-  drawPreview();
-  var q = window.DA.PREVIEW_QUIPS[(Math.random()*window.DA.PREVIEW_QUIPS.length)|0];
-  var gl = (window.DA.GLIDERS && window.DA.GLIDERS[save.glider.equipped]) || { name:"Bare Dodo" };
-  $("preview-text").textContent = '"' + q + '" — Dennis, flying ' + gl.name + " (Lv " + totalLv() + " pilot)";
-}
-function totalLv(){ var t=0; for(var k in save.upgrades) t+=save.upgrades[k]; return t; }
-function ownedGliders(){ var n=0; for(var i=0;i<10;i++) if(save.glider.owned[i]) n++; return n; }
-
-/* ---------- GLIDER HANGAR ---------- */
-function statBar(label, v){
-  var bars = "";
-  for(var i=0;i<10;i++) bars += '<div class="pip'+(i<Math.round(v)?' on':'')+'"></div>';
-  return '<div class="gstat"><span>'+label+'</span><div class="pips">'+bars+'</div></div>';
-}
-function renderGliders(){
-  var wrap = $("glider-grid");
-  if(!wrap || !window.DA.GLIDERS) return;
-  wrap.innerHTML = "";
-  var eq = save.glider.equipped;
-  var head = document.createElement("div");
-  head.className = "glider-head";
-  head.innerHTML = "🪂 <b>GLIDER HANGAR</b> — equipped: <b>" + window.DA.GLIDERS[eq].name + "</b>";
-  wrap.appendChild(head);
-  window.DA.GLIDERS.forEach(function(gl){
-    var owned = !!save.glider.owned[gl.id];
-    var equipped = (eq === gl.id);
-    var card = document.createElement("div");
-    card.className = "up-card gcard" + (equipped ? " maxed" : "") + (!owned && gl.price > save.money ? " cant" : "");
-    var cv = document.createElement("canvas");
-    cv.width = 160; cv.height = 90; cv.className = "gprev";
-    card.appendChild(cv);
-    var info = document.createElement("div");
-    info.innerHTML =
-      '<div class="up-top"><span class="up-name">' + gl.name + '</span>' +
-      '<span class="up-lvl">' + (equipped ? "EQUIPPED" : owned ? "OWNED" : "$" + gl.price.toLocaleString()) + '</span></div>' +
-      '<div class="up-desc">' + gl.tag + '</div>' +
-      statBar("FLIGHT", gl.bars.fly) + statBar("SPEED", gl.bars.speed) + statBar("CONTROL", gl.bars.ctrl);
-    card.appendChild(info);
-    var btn = document.createElement("button");
-    btn.className = "buy-btn";
-    if(equipped){ btn.textContent = "✔ EQUIPPED"; btn.disabled = true; }
-    else if(owned){ btn.textContent = "EQUIP"; btn.onclick = (function(id){ return function(){ equipGlider(id); }; })(gl.id); }
-    else { btn.textContent = "BUY — $" + gl.price.toLocaleString(); btn.disabled = gl.price > save.money;
-      btn.onclick = (function(id, price){ return function(){ buyGlider(id, price); }; })(gl.id, gl.price); }
-    card.appendChild(btn);
-    wrap.appendChild(card);
-    try{ window.DA.drawGliderPreview(cv, gl.id); }catch(e){}
-  });
 }
 function buyGlider(id, price){
   var gl = window.DA.GLIDERS[id];
@@ -261,18 +331,60 @@ function buyGlider(id, price){
   save.glider.equipped = id;
   window.DA.Save.save(save);
   window.DA.Audio.SFX.purchase();
-  floatText("🪂 " + gl.name + "!", "#80ed99");
+  floatText("🪂 NEW GLIDER: " + gl.name + "!", "#80ed99");
+  toast("🪂 NEW GLIDER: " + gl.name + " equipped!");
+  flashCard("card-glider-" + id);
   renderShop();
   refreshMenu();
+}
+function buyRocket(id, price){
+  var rk = window.DA.ROCKETS[id];
+  if(!rk || save.rocket.owned[id]) return;
+  if(save.money < price){ window.DA.Audio.SFX.denied(); toast("❌ Not enough cash! One more flight..."); return; }
+  save.money -= price;
+  save.rocket.owned[id] = true;
+  save.rocket.equipped = id;
+  window.DA.Save.save(save);
+  window.DA.Audio.SFX.purchase();
+  floatText("🚀 NEW ROCKET: " + rk.name + "!", "#80ed99");
+  toast("🚀 NEW ROCKET: " + rk.name + " equipped!");
+  flashCard("card-rocket-" + id);
+  renderShop();
+  refreshMenu();
+}
+function flashCard(id){
+  var card = $(id);
+  if(card){ card.classList.remove("flash"); void card.offsetWidth; card.classList.add("flash"); }
 }
 function equipGlider(id){
   if(!save.glider.owned[id] || save.glider.equipped === id) return;
   save.glider.equipped = id;
   window.DA.Save.save(save);
   window.DA.Audio.ensure(); window.DA.Audio.SFX.equip();
-  toast("🪂 Equipped " + window.DA.GLIDERS[id].name + "!");
+  toast("🪂 Equipped " + gliderName(id) + "!");
   renderShop();
   refreshMenu();
+}
+function equipRocket(id){
+  if(!save.rocket.owned[id] || save.rocket.equipped === id) return;
+  save.rocket.equipped = id;
+  window.DA.Save.save(save);
+  window.DA.Audio.ensure(); window.DA.Audio.SFX.equip();
+  toast("🚀 Equipped " + rocketName(id) + "!");
+  renderShop();
+  refreshMenu();
+}
+/* Next affordable equipment? Used for the results-screen nudge. */
+function nextAffordable(){
+  var cands = [];
+  if(window.DA.GLIDERS) window.DA.GLIDERS.forEach(function(gl){
+    if(gl.id !== 0 && !save.glider.owned[gl.id]) cands.push({ label:"🪂 " + gl.name, price:gl.price });
+  });
+  if(window.DA.ROCKETS) window.DA.ROCKETS.forEach(function(rk){
+    if(!save.rocket.owned[rk.id]) cands.push({ label:"🚀 " + rk.name, price:rk.price });
+  });
+  cands.sort(function(a,b){ return a.price - b.price; });
+  return cands.length ? cands[0] : null;
 }
 
 function buy(key, price){
@@ -304,14 +416,12 @@ function drawPreview(){
   g.beginPath(); g.moveTo(0,c.height-30); g.quadraticCurveTo(90,c.height-90,200,c.height-44); g.lineTo(360,c.height-36); g.lineTo(360,c.height-30); g.closePath(); g.fill();
   window.DA.World.drawDodo(g, 150, 95, {
     pitch: -0.15, vx: 20, vy: 4, boosting:false, stalled:false,
-    glider: save.glider.equipped,
-    sledLvl: save.upgrades.sled,
-    boosterLvl: save.upgrades.booster, aeroLvl: save.upgrades.aero
+    glider: save.glider.equipped, rocket: save.rocket.equipped,
+    sledLvl: save.upgrades.sled, aeroLvl: save.upgrades.aero
   }, 1.5, {});
   g.fillStyle = "#123"; g.font = "bold 12px sans-serif"; g.textAlign="left";
-  var gl2 = (window.DA.GLIDERS && window.DA.GLIDERS[save.glider.equipped]) || { name:"Bare Dodo" };
-  g.fillText("Ramp "+save.upgrades.ramp+" • Sled "+save.upgrades.sled+" • "+gl2.name, 8, 16);
-  g.fillText("Aero "+save.upgrades.aero+" • Boost "+save.upgrades.booster+" • Fuel "+save.upgrades.fuel, 8, 32);
+  g.fillText("🪂 " + gliderName(save.glider.equipped) + "  •  🚀 " + rocketName(save.rocket.equipped), 8, 16);
+  g.fillText("Ramp "+save.upgrades.ramp+" • Sled "+save.upgrades.sled+" • Aero "+save.upgrades.aero, 8, 32);
 }
 
 /* ---------- RESULTS ---------- */
@@ -380,6 +490,25 @@ function showResults(res){
     }, 120*(i+1));
   });
   setTimeout(function(){ if(id === runId) animateMoney(totalEl, rw.total, id); }, 120*(rows.length+1));
+  // affordable nudge: point at the next equipment ("one more flight" fuel)
+  var od2 = $("results-objectives");
+  var next = nextAffordable();
+  var shopBtn = $("btn-to-shop");
+  if(shopBtn) shopBtn.classList.remove("attn");
+  if(next && id === runId){
+    if(save.money >= next.price){
+      var ndiv = document.createElement("div");
+      ndiv.className = "obj-done nudge";
+      ndiv.textContent = "🛒 NEW EQUIPMENT AFFORDABLE: " + next.label + " ($" + next.price.toLocaleString() + ")!";
+      od2.appendChild(ndiv);
+      if(shopBtn) shopBtn.classList.add("attn");
+    } else {
+      var soon = document.createElement("div");
+      soon.className = "obj-soon";
+      soon.textContent = "Next: " + next.label + " ($" + next.price.toLocaleString() + ") — wallet $" + save.money.toLocaleString();
+      od2.appendChild(soon);
+    }
+  }
   $("screen-results").classList.remove("hidden");
   refreshMenu();
 }
@@ -406,8 +535,9 @@ function renderStats(){
     statBox("FLIGHTS", ""+save.flights) +
     statBox("TOTAL EARNED", "$"+save.totalEarned.toLocaleString()) +
     statBox("WALLET", "$"+save.money.toLocaleString()) +
-    statBox("PILOT LEVEL", "Lv "+totalLv()+"/40") +
-    statBox("GLIDERS", ownedGliders()+"/10");
+    statBox("PILOT LEVEL", "Lv "+totalLv()+"/24") +
+    statBox("GLIDERS", ownedGliders()+"/6") +
+    statBox("ROCKETS", ownedRockets()+"/3");
   var ol = $("objectives-list"); ol.innerHTML = "";
   window.DA.OBJECTIVES.forEach(function(o){
     var done = save.objectivesDone.indexOf(o.id)>=0;
