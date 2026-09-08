@@ -24,7 +24,8 @@ var PITCH_RATE = 3.2;        // rad/s — 0 to ±30deg in ~0.2s, arcade snap
 var PITCH_SMOOTH = 28;       // higher = snappier settle, no trailing drift
 var MAX_PITCH = 1.15;        // ~66 deg
 var MIN_PITCH = -1.15;
-var DIVE_K = 13.0;           // arcade dive assist along the path (feel it!)
+var DIVE_K = 8.0;            // arcade dive assist along the path (gravity does most now)
+var STEER_GAIN = 1.6;        // global trajectory responsiveness (glider ladder untouched)
 var REDLINE_K = 0.25;        // shared redline drag strength (soft top speed)
 var OVER_TOP_K = 0.6;        // extra drag past redline top
 var DEG = 180 / Math.PI;
@@ -62,8 +63,10 @@ function stepFlight(s, input, p, dt){
   if(s.pitch < MIN_PITCH){ s.pitch = MIN_PITCH; if(s.pitchVel < 0) s.pitchVel = 0; }
 
   // --- stall: simple and legible. Slow + trying to climb = fall out. ---
+  // A steep nose-up stalls EARLIER (wings give up sooner when yanked).
   var speed = Math.sqrt(s.vx*s.vx + s.vy*s.vy);
-  var stalled = (speed < p.stall && s.pitch > 0.18);
+  var stallMargin = (s.pitch > 0.5) ? 3 : 0;
+  var stalled = (speed < p.stall + stallMargin && s.pitch > 0.18);
   if(stalled){
     s.pitch -= 2.2 * dt; // nose falls fast on its own: STALL -> DIVE -> SPEED
     if(s.pitch < MIN_PITCH) s.pitch = MIN_PITCH;
@@ -79,7 +82,7 @@ function stepFlight(s, input, p, dt){
 
   // --- gravity: the engine of all fun (dives pay, climbs cost) ---
   s.vy -= GRAVITY * dt;
-  if(stalled) s.vy -= 9 * dt; // stalled wings barely hold you: drop decisively
+  if(stalled) s.vy -= 5 * dt; // stalled wings barely hold you: drop decisively
 
   // --- arcade dive assist: pointing downhill adds a controlled bonus push
   // along the path so dives feel powerful without touching top speeds much
@@ -91,30 +94,41 @@ function stepFlight(s, input, p, dt){
     s.vy += Math.sin(preDiveAng) * db * dt;
   }
 
-  // --- steering: pull the velocity vector toward the nose ---
-  // Better gliders turn harder; slow flight turns mushy; stalls barely turn.
-  // Pulling UP with speed bites extra hard (fast arcs); without speed it
-  // barely responds — HIGH SPEED + UP = climb, LOW SPEED + UP = stall.
+  // --- steering: INCREMENTAL perpendicular nudge toward the nose ---
+  // The velocity vector is rotated by a small capped angle each step, so
+  // gravity's vy contribution PERSISTS instead of being rebuilt away.
+  // Authority collapses at low speed (20-30%: gravity wins, you fall) and
+  // is full at healthy flight speed, with a touch extra when very fast.
+  // High speed + nose-up therefore arcs hard; low speed + nose-up mushes.
   speed = Math.sqrt(s.vx*s.vx + s.vy*s.vy);
   var velAng = Math.atan2(s.vy, s.vx);
-  var authority = clamp(speed / 12, 0.35, 1) * (stalled ? 0.2 : 1);
-  var diff0 = wrapAngle(s.pitch - velAng);
-  var climbGain = (diff0 > 0) ? (1 + 1.2 * Math.min(1, speed / 40)) : 1;
-  var steerRate = (p.control || 1.5) * authority * climbGain * 1.25;
-  var diff = diff0;
+  var authority = clamp((speed - 6) / 20, 0.2, 1) * (stalled ? 0.25 : 1);
+  if(speed > 55) authority *= 1.1;
+  var diff = wrapAngle(s.pitch - velAng);
+  var steerRate = (p.control || 1.5) * authority * STEER_GAIN;
   var maxTurn = steerRate * dt;
   var turn = clamp(diff, -maxTurn, maxTurn);
   var turnRate = turn / dt;
-  var newAng = velAng + turn;
+  if(Math.abs(turn) > 1e-9){
+    var ca = Math.cos(turn), sa = Math.sin(turn);
+    var rx = s.vx * ca - s.vy * sa;
+    var ry = s.vx * sa + s.vy * ca;
+    s.vx = rx; s.vy = ry;
+  }
 
-  // --- turn cost: smooth tracking is cheap, violent yanks bleed ---
-  // Losing ~turnK per radian yanked: a full 90deg slam costs ~5-15%.
-  speed = Math.sqrt(s.vx*s.vx + s.vy*s.vy);
-  speed *= Math.exp(-(p.turnK || 0.1) * Math.abs(turnRate) * dt);
+  // --- turn cost: only real yanks bleed. Tiny gravity-trim corrections
+  // ride free, so there is no constant drain death spiral.
+  var trAbs = Math.abs(turnRate);
+  if(trAbs > 0.6){
+    var cost = Math.exp(-(p.turnK || 0.1) * (trAbs - 0.6) * dt);
+    s.vx *= cost; s.vy *= cost;
+  }
 
   // --- drag: quadratic body drag + soft redline per glider ---
   // Below comfort: clean. Approaching top: drag swells. Past top: wall.
   // (No hard clamp — drag is the speed limit, plus a huge safety net.)
+  // Drag opposes CURRENT motion (already steered above — never rebuilt).
+  speed = Math.sqrt(s.vx*s.vx + s.vy*s.vy);
   var red = 0;
   if(speed > p.comfort){
     var span = Math.max(5, p.top - p.comfort);
@@ -123,11 +137,10 @@ function stepFlight(s, input, p, dt){
   }
   var dragF = (0.5 * speed * speed * 0.15 * p.drag) + (speed * speed * 0.004 * red);
   if(speed > 0.5){
-    var nx = s.vx / speed, ny = s.vy / speed;
-    // rebuild velocity along the steered direction, minus drag
-    var vNew = Math.max(0, speed - dragF / 1 * dt);
-    s.vx = Math.cos(newAng) * vNew;
-    s.vy = Math.sin(newAng) * vNew;
+    // drag opposes CURRENT motion (already steered above — never rebuilt)
+    var vNew = Math.max(0, speed - dragF * dt);
+    var sc = vNew / speed;
+    s.vx *= sc; s.vy *= sc;
   }
 
   // anti-NaN safety net only (drag is the real speed limit)
