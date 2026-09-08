@@ -129,9 +129,13 @@ function onRecord(){
 }
 function onCrash(info){
   var msgs;
-  if(info.water) msgs = ["💦 SPLASHDOWN!", "🌊 Belly-flop!", "🐟 The fish applaud."];
-  else if(info.severity === "gentle") msgs = ["🛬 Smooth touchdown!", "⛷️ Stylish rollout!", "🧈 Butter!"];
-  else if(info.severity === "brutal") msgs = ["💥 MEGA wipeout!", "☄️ Crater delivered!", "🩹 That one hurt."];
+  if(info.water){
+    msgs = info.severity === "mega" ? ["💦 MEGA SPLASH!", "🌊 Dennis vs. Ocean: ocean wins."]
+      : ["💦 SPLASHDOWN!", "🌊 Belly-flop!", "🐟 The fish applaud."];
+  }
+  else if(info.severity === "smooth") msgs = ["🛬 Butter-smooth!", "⛷️ What a rollout!", "🧈 The judges weep."];
+  else if(info.severity === "rough") msgs = ["❄️ Bumpy arrival!", "🛷 Rollout with style-ish."];
+  else if(info.severity === "mega") msgs = ["💥 MEGA wipeout!", "☄️ Crater delivered!", "🩹 That one hurt."];
   else msgs = ["💥 Wipeout!", "❄️ Face-first!", "🕳️ Sudden stop!"];
   toast(msgs[(Math.random()*msgs.length)|0]);
 }
@@ -224,11 +228,13 @@ function showResults(res){
   $("hud").classList.add("hidden"); $("touch-controls").classList.add("hidden");
   var st = res.stats, rw = res.rewards;
   var crashed = res.crash || {};
-  $("results-title").textContent = crashed.water ? "💦 Splashdown!"
-    : crashed.severity === "gentle" ? "🛬 What a landing!"
-    : crashed.severity === "brutal" ? "💥 Mega Wipeout!" : "❄️ Snow Snack!";
+  var sev = crashed.severity || "crash";
+  $("results-title").textContent = crashed.water ? (sev === "mega" ? "💦 Mega Splash!" : "💦 Splashdown!")
+    : sev === "smooth" ? "🛬 Butter-smooth landing!"
+    : sev === "rough" ? "⛷️ Bumpy but alive!"
+    : sev === "mega" ? "💥 Mega Wipeout!" : "❄️ Snow Snack!";
   var quotes = res.isRecord ? window.DA.GOOD_QUOTES
-    : crashed.severity === "gentle" ? window.DA.GENTLE_QUOTES : window.DA.QUOTES;
+    : sev === "smooth" ? window.DA.GENTLE_QUOTES : window.DA.QUOTES;
   $("results-quote").textContent = '"' + quotes[(Math.random()*quotes.length)|0] + '"';
   $("r-dist").textContent = window.DA.Physics.fmtDist(st.dist);
   $("r-dist-best").textContent = res.isRecord ? "🎉 NEW BEST!" : ("best " + window.DA.Physics.fmtDist(save.best.dist));

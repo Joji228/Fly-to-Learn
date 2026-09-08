@@ -11,11 +11,11 @@
 (function(){
 "use strict";
 
-var GRAVITY = 13.0;          // m/s^2
-var PITCH_RATE = 2.2;        // rad/s max pitch rate at full authority
+var GRAVITY = 13.0;          // m/s^2 — gravity is gravity, wings never scale it
+var PITCH_RATE = 1.5;        // rad/s max pitch rate (~86 deg/s): responsive, not instant
 var MAX_PITCH = 1.15;        // ~66 deg
 var MIN_PITCH = -1.15;
-var STALL_AOA = 0.55;        // ~31 deg effective AoA where wings let go
+var STALL_AOA = 0.55;        // base effective AoA where wings let go (~31 deg)
 var DEG = 180 / Math.PI;
 
 function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
@@ -26,26 +26,28 @@ function wrapAngle(a){
 }
 
 /* Lift coefficient from SIGNED effective AoA (arcade thin-airfoil curve):
-   linear up to ~18 deg, softens to a peak, collapses past stall. Negative
-   AoA gives NEGATIVE lift (nose-down at speed pushes the dive steeper). */
-function liftCoefFromAoa(aoaEff){
+   linear to ~16 deg, softens to a rounded peak, collapses past stall.
+   Negative AoA gives NEGATIVE lift (nose-down at speed pushes the dive
+   steeper). Moderate AoA is efficient; pinning high AoA is expensive. */
+function liftCoefFromAoa(aoaEff, stallAoa){
+  var sa = stallAoa || STALL_AOA;
   var a = Math.abs(aoaEff);
   var sgn = aoaEff < 0 ? -1 : 1;
   var cl;
-  if(a <= 0.32){ cl = 5.0 * aoaEff; }
-  else if(a <= STALL_AOA){
-    var k = (a - 0.32) / (STALL_AOA - 0.32);
-    cl = sgn * (1.6 * (1 - k) + 0.55 * k);
+  if(a <= 0.28){ cl = 5.0 * aoaEff; }
+  else if(a <= sa){
+    var k = (a - 0.28) / Math.max(0.05, sa - 0.28);
+    cl = sgn * (1.4 * (1 - k) + 0.5 * k);
   }
   else { cl = sgn * 0.30; }
-  if(cl > 1.6) cl = 1.6;
+  if(cl > 1.5) cl = 1.5;
   if(cl < -1.3) cl = -1.3;
   return cl;
 }
 
 /* One physics step. state: {x,y,vx,vy,pitch,pitchVel,fuel,airTime,speed}
    input: {up:bool,down:bool,boost:bool}
-   params: {liftArea,trim,stallSpeed,sink,cd0,kInd,thrust,fuelMax}
+   params: {liftArea,trim,stallSpeed,stallAoa,wings,cd0,kInd,thrust,fuelMax}
    returns {stalled, boosting} */
 function stepFlight(s, input, p, dt){
   if(!(dt > 0)) dt = 0.016;
@@ -63,8 +65,10 @@ function stepFlight(s, input, p, dt){
 
   // --- signed angle of attack (nose vs. velocity) + wing trim ---
   // (evaluated pre-input for control feel, re-evaluated for forces below)
+  // Better wings tolerate a slightly higher AoA before letting go.
+  var stallAoa = p.stallAoa || STALL_AOA;
   var aoaPre = wrapAngle(s.pitch - velAng) + (p.trim || 0);
-  var stalledPre = (Math.abs(aoaPre) > STALL_AOA) ||
+  var stalledPre = (Math.abs(aoaPre) > stallAoa) ||
                    (speed < p.stallSpeed && s.pitch > 0.15);
 
   // --- pitch control: smoothed rate with airspeed authority ---
@@ -83,11 +87,11 @@ function stepFlight(s, input, p, dt){
 
   var aoa = wrapAngle(s.pitch - velAng);
   var aoaEff = aoa + (p.trim || 0);
-  var stalled = (Math.abs(aoaEff) > STALL_AOA) ||
+  var stalled = (Math.abs(aoaEff) > stallAoa) ||
                 (speed < p.stallSpeed && s.pitch > 0.15);
 
-  var CL = liftCoefFromAoa(aoaEff);
-  if(stalled) CL *= 0.6; // lift collapses
+  var CL = liftCoefFromAoa(aoaEff, stallAoa);
+  if(stalled) CL *= 0.55; // lift collapses: severe, but only past high AoA (severe, but not a wall)
 
   // --- thin air: lift and (fish-oil) thrust fade with altitude ---
   // This keeps zoom-climbs viable but makes 10 km vertical rockets
@@ -106,9 +110,11 @@ function stepFlight(s, input, p, dt){
 
   // --- drag: parasite (fixed body ref area) + induced (grows with lift) ---
   // NOTE: parasite drag uses a fixed reference area so bigger wings do not
-  // magically add body drag; wings only add their (smaller) induced drag.
-  var CD = p.cd0 + (p.kInd || 0) * CL * CL;
-  if(stalled) CD *= 1.8;
+  // magically add body drag. Better wings instead waste less induced drag
+  // (smoother airflow), which is what makes them glide farther.
+  var wingK = 1 - 0.06 * (p.wings || 0); // x1.0 -> x0.52
+  var CD = p.cd0 + (p.kInd || 0) * wingK * CL * CL;
+  if(stalled) CD *= 2.0; // stalled flight is a barn door (smooth flight never goes here)
   var dragF = q * 0.15 * CD;
   var dx = 0, dy = 0;
   if(speed > 0.5){
@@ -117,7 +123,7 @@ function stepFlight(s, input, p, dt){
   }
 
   var ax = lx + dx;
-  var ay = -GRAVITY * (p.sink || 1) + ly + dy;
+  var ay = -GRAVITY + ly + dy;
 
   // --- booster: EXACTLY along the nose, no fudge factors ---
   // (breathes thin air too, but never fully quits — unfun otherwise)
@@ -165,11 +171,11 @@ function rampSlide(t, duration, launchSpeed){
 }
 
 function econReward(stat){
-  // stat: {dist, maxAlt, maxSpeedKmh, airTime}
-  var d = Math.floor(stat.dist * 0.6);
-  var a = Math.floor(stat.maxAlt * 0.8);
-  var sp = Math.floor(stat.maxSpeedKmh * 1.5);
-  var t = Math.floor(stat.airTime * 8);
+  // stat: {dist, maxAlt, maxSpeedKmh, airTime} — distance leads, rest assist
+  var d = Math.floor(stat.dist * 0.45);
+  var a = Math.floor(stat.maxAlt * 0.6);
+  var sp = Math.floor(stat.maxSpeedKmh * 1.0);
+  var t = Math.floor(stat.airTime * 6);
   return { dist:d, alt:a, speed:sp, time:t, total: d+a+sp+t };
 }
 

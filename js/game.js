@@ -32,7 +32,8 @@ function derivedParams(up){
     liftArea: DA.liftArea(up.wings),
     trim: DA.wingTrim(up.wings),
     stallSpeed: DA.stallSpeed(up.wings),
-    sink: DA.sinkMult(up.wings),
+    stallAoa: DA.stallAoa(up.wings),
+    wings: up.wings,
     cd0: DA.dragCoef(up.aero),
     kInd: DA.kindCoef(up.aero),
     thrust: DA.boosterThrust(up.booster),
@@ -130,6 +131,9 @@ function startRun(){
   Game.milestonesHit = {};
   Game.bestBeaten = false;
   Game.stallWarned = false;
+  Game.diveToastShown = false;
+  Game.diveFrom = null;
+  Game.rollFriction = 2.2;
   Game.crashTimer = 0; Game.crashSpin = 0; Game.crashedInfo = null;
   Game.particles.clear();
   Game.cam.x = Game.S.x - 120; Game.cam.y = 0;
@@ -217,6 +221,18 @@ function update(dt){
       if(window.DA.UI) window.DA.UI.onRecord();
     }
 
+    // "Nice dive!" — one subtle toast per flight when a real dive banks speed
+    if(!Game.diveToastShown){
+      if(Game.S.vy < -8 && Game.S.pitch < -0.1 && Game.diveFrom == null){
+        Game.diveFrom = Game.S.speed;
+      }
+      if(Game.diveFrom != null && Game.S.speed - Game.diveFrom > 8 && !Game.S.stalled){
+        Game.diveToastShown = true;
+        if(window.DA.UI) window.DA.UI.toast("⚡ Nice dive! Feel that energy?");
+      }
+      if(Game.S.vy > -3) Game.diveFrom = null;
+    }
+
     // milestones toast + sound
     DA.MILESTONES.forEach(function(m){
       if(!Game.milestonesHit[m.d] && st.dist >= m.d && m.d>0){
@@ -268,7 +284,7 @@ function update(dt){
     if(!ci.water){
       // snow: roll/slide out with friction; rollout distance still counts!
       Game.S.x += Game.S.vx*dt;
-      Game.S.vx *= Math.max(0, 1-2.2*dt);
+      Game.S.vx *= Math.max(0, 1-(Game.rollFriction||2.2)*dt);
       Game.S.y = DA.World.groundY(Game.S.x);
       Game.runStats.dist = Math.max(Game.runStats.dist, Math.max(0, Game.S.x));
       if(Math.abs(Game.S.vx) > 6 && Math.random()<0.4 && Game.save.settings.particles)
@@ -338,37 +354,59 @@ function crash(gy){
   var impactVy = -Game.S.vy; // positive = downward
   var speed = Game.S.speed;
   var water = DA.World.isWater(Game.S.x);
-  // severity tiers from vertical + total speed
-  var severity = "gentle";
-  if(impactVy > 20 || speed > 45) severity = "brutal";
-  else if(impactVy > 7 || speed > 26) severity = "firm";
+  // Landing skill: compare nose (pitch) against motion (velocity) plus the
+  // impact itself. Aligned + shallow + level-ish = smooth; sideways or
+  // nose-first = tumble. Water always splashes and stops dead.
+  var velAng = Math.atan2(Game.S.vy, Game.S.vx);
+  var misalign = Math.abs(DA.Physics.wrapAngle(Game.S.pitch - velAng));
+  var severity;
+  if(water){
+    if(impactVy > 16 || speed > 40) severity = "mega";
+    else if(impactVy > 8 || speed > 30) severity = "crash";
+    else severity = "rough";
+  } else if(impactVy < 6 && speed < 30 && misalign < 0.35 && Game.S.pitch > -0.45){
+    severity = "smooth"; // greased touchdown, rolls out long
+  } else if(impactVy < 12 && speed < 38 && misalign < 0.7){
+    severity = "rough";
+  } else if(impactVy > 20 || speed > 48){
+    severity = "mega";
+  } else {
+    severity = "crash";
+  }
   Game.phase = "crashed";
   Game.crashTimer = 0;
   if(water){
     // splashdown: stop dead, erupt, never slide on water
     Game.crashSpin = (Math.random()-0.5)*0.8;
     Game.S.vx = 0; Game.S.vy = 0;
-  } else if(severity === "gentle"){
-    Game.crashSpin = 0; // greased landing, rolls out
-    Game.S.vx *= 0.55;
+    Game.rollFriction = 99;
+  } else if(severity === "smooth"){
+    Game.crashSpin = 0;
+    Game.S.vx *= 0.7;
+    Game.rollFriction = 1.2; // long satisfying rollout
+  } else if(severity === "rough"){
+    Game.crashSpin = (Math.random()<0.5?-1:1)*0.8;
+    Game.S.vx *= 0.4;
+    Game.rollFriction = 2.2;
   } else {
-    Game.crashSpin = (Math.random()<0.5?-1:1) * (severity === "brutal" ? 2.2 : 1.2);
-    Game.S.vx *= (severity === "brutal" ? 0.1 : 0.3);
+    Game.crashSpin = (Math.random()<0.5?-1:1) * (severity === "mega" ? 2.5 : 1.5);
+    Game.S.vx *= (severity === "mega" ? 0.05 : 0.15);
+    Game.rollFriction = (severity === "mega" ? 4 : 3.5);
   }
   Game.shake = Game.save.settings.shake
-    ? (severity === "brutal" ? 1 : severity === "firm" ? 0.5 : 0) : 0;
+    ? (severity === "mega" ? 1 : severity === "crash" ? 0.7 : severity === "rough" ? 0.4 : 0) : 0;
   DA.Audio.stopBoost();
-  if(water){ DA.Audio.SFX.splash(); } else { DA.Audio.SFX.impact(severity === "gentle" ? false : true); }
+  if(water){ DA.Audio.SFX.splash(); } else { DA.Audio.SFX.impact(severity === "smooth" ? false : true); }
   DA.Audio.setWind(0,false);
   // particles
   if(Game.save.settings.particles){
     var cols = water ? ["#caf0f8","#90e0ef","#ffffff"] : ["#ffffff","#dee2e6","#adb5bd"];
-    var n = severity === "brutal" ? 46 : severity === "firm" ? 26 : 12;
-    Game.particles.burst(Game.S.x, gy+4, n, {speed: severity === "gentle" ? 70 : 160,
+    var n = severity === "mega" ? 46 : severity === "crash" ? 26 : severity === "rough" ? 16 : 10;
+    Game.particles.burst(Game.S.x, gy+4, n, {speed: severity === "smooth" ? 70 : 160,
       life:0.9, size:4, colors:cols, grav:260, vy:70});
-    if(severity === "brutal") flash();
+    if(severity === "mega") flash();
   }
-  Game.crashedInfo = { severity:severity, water:water, impactVy:impactVy, speed:speed };
+  Game.crashedInfo = { severity:severity, water:water, impactVy:impactVy, speed:speed, misalign:misalign };
   if(window.DA.UI) window.DA.UI.onCrash(Game.crashedInfo);
 }
 
@@ -386,7 +424,7 @@ function calcRewards(){
   var msBonus = 0;
   Object.keys(Game.milestonesHit).forEach(function(d){ msBonus += Math.round(Number(d)/50); });
   // gentle snow landings earn a small style bonus
-  var landBonus = (Game.crashedInfo && Game.crashedInfo.severity === "gentle" &&
+  var landBonus = (Game.crashedInfo && Game.crashedInfo.severity === "smooth" &&
                    !Game.crashedInfo.water && st.dist > 100) ? 25 : 0;
   var newObj = [];
   DA.OBJECTIVES.forEach(function(o){
@@ -449,8 +487,9 @@ function render(){
   g.save();
   g.translate(shx, shy);
   var crashed = Game.phase==="crashed";
-  // player scale is decoupled from world zoom: readable at any zoom
-  var playerScale = Math.pow(z, 0.35) * 1.22;
+  // player scale is decoupled from world zoom: readable at any zoom.
+  // Large desktop screens get a small readability bump (never gigantic).
+  var playerScale = Math.pow(z, 0.35) * 1.22 * (W >= 1600 ? 1.12 : W >= 1280 ? 1.05 : 1);
   window.DA.World.drawScene(g, W, H, Game.cam, z, {
     x:S.x, y:S.y, vx:S.vx, vy:S.vy, pitch:S.pitch,
     boosting:!!S.boosting, stalled:!!S.stalled,

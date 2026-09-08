@@ -19,14 +19,16 @@ function rampLipY(rampLvl){ return 14 + (rampLvl || 0) * 1.8; }       // lip hei
 // Sled: faster ride down the ramp (accel feel) + small launch bonus.
 function sledMult(l){ return 1 + l * 0.28; }
 function rampRideTime(sledLvl){ return Math.max(1.1, 2.3 / sledMult(sledLvl || 0)); }
-// Wings: bigger lifting surface, better trim, slower stall, less sink.
+// Wings: bigger lifting surface, better trim, slower + gentler stall,
+// less induced drag. Gravity is gravity — wings earn glide honestly.
 function liftArea(l){ return 0.15 + l * 0.022; }
 function wingTrim(l){ return 0.07 + l * 0.003; }
 function stallSpeed(l){ return 12 - l * 0.4; }                        // m/s
-function sinkMult(l){ return Math.max(0.6, 1 - l * 0.05); }           // gravity scale while gliding
+function stallAoa(l){ return 0.55 + l * 0.008; }                      // rad, wings let go later
+function wingInduced(l){ return 1 - 0.06 * l; }                       // induced-drag multiplier x1 -> x0.52
 // Aero: less parasite drag + less induced drag (keeps speed in maneuvers).
 function dragCoef(l){ return Math.max(0.016, 0.055 - l * 0.005); }
-function kindCoef(l){ return 0.30 - l * 0.014; }
+function kindCoef(l){ return 0.22 - l * 0.011; }
 // Booster: exact thrust along the nose (m/s^2).
 function boosterThrust(l){ return 14 + l * 11; }
 function fuelTime(l){ return 2.5 + l * 1.3; }                         // seconds of burn
@@ -35,64 +37,64 @@ var UPGRADES = {
   ramp: {
     name: "Launch Ramp", icon: "🚀",
     blurb: "Taller lip, steeper exit, hotter launch. The single best start.",
-    max: 8, base: 90, growth: 2.05,
+    max: 8, base: 270, growth: 2.05,
     desc: function(l){ return "Lip " + rampLipY(l).toFixed(0) + "m • exit " + launchAngleDeg(l).toFixed(0) + "° • base " + (20 + l*5).toFixed(0) + " m/s"; },
     next: function(l){ return l>=8 ? "MAXED — orbital dodo" : "→ lip " + rampLipY(l+1).toFixed(0) + "m • exit " + launchAngleDeg(l+1).toFixed(0) + "° • base " + (20 + (l+1)*5).toFixed(0) + " m/s"; }
   },
   sled: {
     name: "Waddle Sled", icon: "🛷",
     blurb: "Greased runners. Shorter ride, snappier accel, bonus launch speed.",
-    max: 8, base: 70, growth: 2.0,
+    max: 8, base: 230, growth: 2.0,
     desc: function(l){ return "Ride " + rampRideTime(l).toFixed(1) + "s • +" + (l*1.6).toFixed(1) + " m/s launch"; },
     next: function(l){ return l>=8 ? "MAXED — frictionless nonsense" : "→ ride " + rampRideTime(l+1).toFixed(1) + "s • +" + ((l+1)*1.6).toFixed(1) + " m/s launch"; }
   },
   wings: {
     name: "Wings (cardboard→titanium)", icon: "🪽",
-    blurb: "More lift, floatier glide, gentler sink. The best way to stay up.",
-    max: 8, base: 110, growth: 2.15,
-    desc: function(l){ return "Lift " + liftArea(l).toFixed(2) + " • stall " + Math.round(stallSpeed(l)*3.6) + " km/h • sink x" + sinkMult(l).toFixed(2); },
-    next: function(l){ return l>=8 ? "MAXED — basically an albatross" : "→ lift " + liftArea(l+1).toFixed(2) + " • stall " + Math.round(stallSpeed(l+1)*3.6) + " km/h • sink x" + sinkMult(l+1).toFixed(2); }
+    blurb: "More lift, cleaner glide, later stall. The best way to stay up.",
+    max: 8, base: 300, growth: 2.1,
+    desc: function(l){ return "Lift " + liftArea(l).toFixed(2) + " • stall " + Math.round(stallSpeed(l)*3.6) + " km/h • induced x" + wingInduced(l).toFixed(2); },
+    next: function(l){ return l>=8 ? "MAXED — basically an albatross" : "→ lift " + liftArea(l+1).toFixed(2) + " • stall " + Math.round(stallSpeed(l+1)*3.6) + " km/h • induced x" + wingInduced(l+1).toFixed(2); }
   },
   aero: {
     name: "Aerodynamics", icon: "💨",
     blurb: "Pointier helmet, slicker belly. Keeps speed through every maneuver.",
-    max: 8, base: 110, growth: 2.1,
+    max: 8, base: 300, growth: 2.0,
     desc: function(l){ return "Drag " + (dragCoef(l)*1000).toFixed(1) + " • induced " + kindCoef(l).toFixed(2); },
     next: function(l){ return l>=8 ? "MAXED — soap-bar dodo" : "→ drag " + (dragCoef(l+1)*1000).toFixed(1) + " • induced " + kindCoef(l+1).toFixed(2); }
   },
   booster: {
     name: "Sardine Booster", icon: "🔥",
     blurb: "Hold SPACE for thrust along your nose. Points where you point.",
-    max: 8, base: 130, growth: 2.2,
+    max: 8, base: 340, growth: 2.1,
     desc: function(l){ return "Thrust " + boosterThrust(l).toFixed(0) + " m/s² along nose"; },
     next: function(l){ return l>=8 ? "MAXED — illegal in 12 countries" : "→ thrust " + boosterThrust(l+1).toFixed(0) + " m/s² along nose"; }
   },
   fuel: {
     name: "Fuel Tank (fish oil)", icon: "🛢️",
     blurb: "Longer burn time for the booster. Fly now, smell later.",
-    max: 8, base: 90, growth: 2.0,
+    max: 8, base: 250, growth: 2.0,
     desc: function(l){ return fuelTime(l).toFixed(1) + "s of boost"; },
     next: function(l){ return l>=8 ? "MAXED — mobile ocean" : "→ " + fuelTime(l+1).toFixed(1) + "s of boost"; }
   }
 };
 
 var OBJECTIVES = [
-  { id:"d300",   text:"Reach 300 m",            bonus:50,   check:function(s){ return s.dist>=300; } },
-  { id:"d800",   text:"Reach 800 m",            bonus:140,  check:function(s){ return s.dist>=800; } },
-  { id:"d2000",  text:"Reach 2,000 m",          bonus:350,  check:function(s){ return s.dist>=2000; } },
-  { id:"d5000",  text:"Reach 5,000 m",          bonus:900,  check:function(s){ return s.dist>=5000; } },
-  { id:"d8000",  text:"Reach 8,000 m",          bonus:2200, check:function(s){ return s.dist>=8000; } },
-  { id:"d15000", text:"Reach 15,000 m. Absurd.",bonus:6000, check:function(s){ return s.dist>=15000; } },
-  { id:"a40",    text:"Climb above 40 m",       bonus:60,   check:function(s){ return s.maxAlt>=40; } },
-  { id:"a100",   text:"Climb above 100 m",      bonus:200,  check:function(s){ return s.maxAlt>=100; } },
-  { id:"a200",   text:"Climb above 200 m",      bonus:600,  check:function(s){ return s.maxAlt>=200; } },
-  { id:"s100",   text:"Hit 100 km/h",           bonus:80,   check:function(s){ return s.maxSpeedKmh>=100; } },
-  { id:"s160",   text:"Hit 160 km/h",           bonus:300,  check:function(s){ return s.maxSpeedKmh>=160; } },
-  { id:"s230",   text:"Hit 230 km/h. Screaming.",bonus:900, check:function(s){ return s.maxSpeedKmh>=230; } },
-  { id:"t10",    text:"Stay airborne 10 s",     bonus:70,   check:function(s){ return s.airTime>=10; } },
-  { id:"t20",    text:"Stay airborne 20 s",     bonus:280,  check:function(s){ return s.airTime>=20; } },
-  { id:"t35",    text:"Stay airborne 35 s",     bonus:800,  check:function(s){ return s.airTime>=35; } },
-  { id:"fuel",   text:"Use all your fuel",      bonus:90,   check:function(s){ return s.usedAllFuel; } }
+  { id:"d300",   text:"Reach 300 m",            bonus:25,   check:function(s){ return s.dist>=300; } },
+  { id:"d800",   text:"Reach 800 m",            bonus:70,   check:function(s){ return s.dist>=800; } },
+  { id:"d2000",  text:"Reach 2,000 m",          bonus:180,  check:function(s){ return s.dist>=2000; } },
+  { id:"d5000",  text:"Reach 5,000 m",          bonus:450,  check:function(s){ return s.dist>=5000; } },
+  { id:"d8000",  text:"Reach 8,000 m",          bonus:1100, check:function(s){ return s.dist>=8000; } },
+  { id:"d15000", text:"Reach 15,000 m. Absurd.",bonus:3000, check:function(s){ return s.dist>=15000; } },
+  { id:"a40",    text:"Climb above 40 m",       bonus:30,   check:function(s){ return s.maxAlt>=40; } },
+  { id:"a100",   text:"Climb above 100 m",      bonus:100,  check:function(s){ return s.maxAlt>=100; } },
+  { id:"a200",   text:"Climb above 200 m",      bonus:300,  check:function(s){ return s.maxAlt>=200; } },
+  { id:"s100",   text:"Hit 100 km/h",           bonus:40,   check:function(s){ return s.maxSpeedKmh>=100; } },
+  { id:"s160",   text:"Hit 160 km/h",           bonus:150,  check:function(s){ return s.maxSpeedKmh>=160; } },
+  { id:"s230",   text:"Hit 230 km/h. Screaming.",bonus:450, check:function(s){ return s.maxSpeedKmh>=230; } },
+  { id:"t10",    text:"Stay airborne 10 s",     bonus:35,   check:function(s){ return s.airTime>=10; } },
+  { id:"t20",    text:"Stay airborne 20 s",     bonus:140,  check:function(s){ return s.airTime>=20; } },
+  { id:"t35",    text:"Stay airborne 35 s",     bonus:400,  check:function(s){ return s.airTime>=35; } },
+  { id:"fuel",   text:"Use all your fuel",      bonus:45,   check:function(s){ return s.usedAllFuel; } }
 ];
 
 var MILESTONES = [
@@ -155,7 +157,8 @@ window.DA.rampRideTime = rampRideTime;
 window.DA.liftArea = liftArea;
 window.DA.wingTrim = wingTrim;
 window.DA.stallSpeed = stallSpeed;
-window.DA.sinkMult = sinkMult;
+window.DA.stallAoa = stallAoa;
+window.DA.wingInduced = wingInduced;
 window.DA.dragCoef = dragCoef;
 window.DA.kindCoef = kindCoef;
 window.DA.boosterThrust = boosterThrust;

@@ -408,9 +408,10 @@ function drawDodo(g, x, y, S, zoom, opts){
   var crashSpin = opts.crashSpin || 0;
   if(crashSpin) g.rotate(crashSpin);
 
-  // booster flame: points backwards along the nose (-nose vector)
+  // booster flame: points backwards along the nose (-nose vector),
+  // sized a touch by booster level so upgrades read visually
   if(S.boosting){
-    var f = 14 + Math.random()*16;
+    var f = (14 + Math.random()*16) * (1 + (S.boosterLvl||0)*0.06);
     g.fillStyle = "#ffbe0b";
     g.beginPath(); g.moveTo(-22*s, -4*s); g.lineTo(-22*s-f*s, 2*s); g.lineTo(-22*s, 8*s); g.closePath(); g.fill();
     g.fillStyle = "#fb5607";
