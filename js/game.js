@@ -135,10 +135,10 @@ function startRun(){
   Game.milestonesHit = {};
   Game.bestBeaten = false;
   Game.stallWarned = false;
-  Game.diveToastShown = false;
-  Game.diveFrom = null;
   Game.rollFriction = 2.2;
-  Game.crashTimer = 0; Game.crashSpin = 0; Game.crashedInfo = null;
+  Game.zoomPunch = 0;
+  Game.wasBoost = false;
+  Game.crashTimer = 0; Game.crashSpin = 0; Game.crashedInfo = null; Game.splash = null;
   Game.particles.clear();
   Game.cam.x = Game.S.x - 120; Game.cam.y = 0;
   Game.shake = 0;
@@ -182,10 +182,10 @@ function update(dt){
     Game.S.speed = v;
     Game.S.vx = Math.cos(Game.S.pitch)*v;
     Game.S.vy = Math.sin(Game.S.pitch)*v;
-    // snow spray scales with speed
+    // snow spray scales with speed (offsets in meters now)
     if(Game.save.settings.particles && Math.random() < 0.3 + k*0.6)
-      Game.particles.spawn({x:Game.S.x-14, y:Game.S.y-2, vx:-30-Math.random()*(40+v*2), vy:20+Math.random()*50,
-        life:0.6, size:2+Math.random()*3, color:"#ffffff", grav:120});
+      Game.particles.spawn({x:Game.S.x-3, y:Game.S.y-1, vx:-8-Math.random()*(10+v*0.5), vy:5+Math.random()*12,
+        life:0.6, size:2+Math.random()*3, color:"#ffffff", grav:30});
     updateCamera(dt, Game.rampT < 0.05);
     if(Game.rampT >= Game.rampDur){
       // LAUNCH! Velocity continues along the exit tangent with the
@@ -198,15 +198,16 @@ function update(dt){
       Game.S.pitchVel = 0;
       Game.S.speed = Game.P.launchSpeed;
       Game.S.y = DA.World.rampY(Game.S.x)+3;
-      Game.shake = Game.save.settings.shake ? 0.25 : 0;
-      if(window.DA.UI) window.DA.UI.toast("🕊️ LIFTOFF! Dive for speed, pull up to climb!");
+      Game.shake = Game.save.settings.shake ? 0.3 : 0;
+      Game.zoomPunch = 1; // brief FOV kick as the sled leaves the lip
+      if(window.DA.UI) window.DA.UI.onLaunch();
     }
   }
   else if(Game.phase === "fly"){
     var res = DA.Physics.stepFlight(Game.S, Game.input, Game.P, dt);
     Game.S.boosting = res.boosting;
     Game.S.stalled = res.stalled;
-    if(res.stalled && !Game.stallWarned){ Game.stallWarned = true; DA.Audio.SFX.stall(); if(window.DA.UI) window.DA.UI.toast("⚠️ STALL! Nose down to recover!"); }
+    if(res.stalled && !Game.stallWarned){ Game.stallWarned = true; DA.Audio.SFX.stall(); }
     if(!res.stalled && Game.S.speed > 14) Game.stallWarned = false;
 
     // stats
@@ -225,18 +226,7 @@ function update(dt){
       if(window.DA.UI) window.DA.UI.onRecord();
     }
 
-    // "Nice dive!" — one subtle toast per flight when a real dive banks speed
-    if(!Game.diveToastShown){
-      if(Game.S.vy < -8 && Game.S.pitch < -0.1 && Game.diveFrom == null){
-        Game.diveFrom = Game.S.speed;
-      }
-      if(Game.diveFrom != null && Game.S.speed - Game.diveFrom > 8 && !Game.S.stalled){
-        Game.diveToastShown = true;
-        if(window.DA.UI) window.DA.UI.toast("⚡ Nice dive! Feel that energy?");
-      }
-      if(Game.S.vy > -3) Game.diveFrom = null;
-    }
-
+    // "Nice dive!" is felt, not announced — no toast spam. Milestones only.
     // milestones toast + sound
     DA.MILESTONES.forEach(function(m){
       if(!Game.milestonesHit[m.d] && st.dist >= m.d && m.d>0){
@@ -247,31 +237,36 @@ function update(dt){
       }
     });
 
-    // exhaust + trail: emitted from the tail, backwards along the nose.
-    // (S.pitch is authoritative: the same angle thrust uses.)
+    // exhaust + trail: emitted from the tail (4m behind the nose), backwards
+    // along it. (S.pitch is authoritative: the same angle thrust uses.)
     var nx = Math.cos(Game.S.pitch), ny = Math.sin(Game.S.pitch);
-    var tailX = Game.S.x - nx*26, tailY = Game.S.y - ny*26;
+    var tailX = Game.S.x - nx*4, tailY = Game.S.y - ny*4;
     if(res.boosting && Game.save.settings.particles){
       for(var i=0;i<3;i++)
         Game.particles.spawn({x:tailX, y:tailY,
-          vx:-nx*(150+Game.S.speed*0.5)+(Math.random()-0.5)*40,
-          vy:-ny*(150+Game.S.speed*0.5)+(Math.random()-0.5)*40,
-          life:0.35+Math.random()*0.3, size:3+Math.random()*4,
+          vx:-nx*(50+Game.S.speed*1.5)+(Math.random()-0.5)*8,
+          vy:-ny*(50+Game.S.speed*1.5)+(Math.random()-0.5)*8,
+          life:0.3+Math.random()*0.25, size:3+Math.random()*4,
           color: Math.random()<0.5?"#ffbe0b":"#fb5607", drag:1.5});
       if(Math.random()<0.5)
-        Game.particles.spawn({x:tailX, y:tailY, vx:-nx*30, vy:-ny*30+12,
+        Game.particles.spawn({x:tailX, y:tailY, vx:-nx*12, vy:-ny*12+3,
           life:0.9, size:3, color:"rgba(200,200,200,0.7)", drag:1});
     } else if(Game.save.settings.particles && Game.S.speed>12 && Math.random()<0.35){
       // faint slipstream trail at speed
-      Game.particles.spawn({x:tailX, y:tailY, vx:-nx*25, vy:-ny*25+6,
+      Game.particles.spawn({x:tailX, y:tailY, vx:-nx*10, vy:-ny*10+2,
         life:0.8, size:2.5, color:"rgba(255,255,255,0.55)", drag:0.5});
     }
 
     // audio
     DA.Audio.setWind(Game.S.speed, res.boosting);
-    if(res.boosting) DA.Audio.startBoost(); else DA.Audio.stopBoost();
+    if(res.boosting) DA.Audio.startBoost(Game.P ? Math.min(1, Game.P.thrust/120) : 0.6);
+    else DA.Audio.stopBoost();
     // tiny camera kick the instant the booster lights (juice, not motion)
-    if(res.boosting && !Game.wasBoost && Game.save.settings.shake) Game.shake = Math.max(Game.shake, 0.12);
+    if(res.boosting && !Game.wasBoost){
+      if(Game.save.settings.shake) Game.shake = Math.max(Game.shake, 0.12);
+      Game.zoomPunch = Math.max(Game.zoomPunch, 0.7);
+      if(window.DA.UI) window.DA.UI.onBoostStart();
+    }
     Game.wasBoost = res.boosting;
 
     updateCamera(dt, false);
@@ -286,6 +281,7 @@ function update(dt){
   }
   else if(Game.phase === "crashed"){
     Game.crashTimer += dt;
+    if(Game.splash) Game.splash.t += dt;
     Game.crashSpin *= (1-2*dt);
     var ci = Game.crashedInfo || {};
     if(!ci.water){
@@ -295,12 +291,12 @@ function update(dt){
       Game.S.y = DA.World.groundY(Game.S.x);
       Game.runStats.dist = Math.max(Game.runStats.dist, Math.max(0, Game.S.x));
       if(Math.abs(Game.S.vx) > 6 && Math.random()<0.4 && Game.save.settings.particles)
-        Game.particles.spawn({x:Game.S.x-10, y:Game.S.y+2, vx:-Game.S.vx*0.3, vy:30+Math.random()*40,
-          life:0.5, size:3, color:"#ffffff", grav:200});
+        Game.particles.spawn({x:Game.S.x-2, y:Game.S.y+0.5, vx:-Game.S.vx*0.3, vy:8+Math.random()*10,
+          life:0.5, size:3, color:"#ffffff", grav:50});
     } else if(Game.crashTimer < 0.6 && Game.save.settings.particles && Math.random()<0.5){
       // splash keeps erupting briefly; the dodo itself stays put (no sliding on water!)
-      Game.particles.spawn({x:Game.S.x+(Math.random()-0.5)*20, y:Game.S.y+2, vx:(Math.random()-0.5)*60, vy:60+Math.random()*80,
-        life:0.7, size:3+Math.random()*3, color: Math.random()<0.5?"#caf0f8":"#ffffff", grav:300});
+      Game.particles.spawn({x:Game.S.x+(Math.random()-0.5)*4, y:Game.S.y+0.5, vx:(Math.random()-0.5)*12, vy:12+Math.random()*16,
+        life:0.7, size:3+Math.random()*3, color: Math.random()<0.5?"#caf0f8":"#ffffff", grav:60});
     }
     updateCamera(dt, false);
     var doneT = ci.water ? 1.0 : 1.8;
@@ -311,15 +307,17 @@ function update(dt){
 
   Game.particles.update(dt);
   if(Game.shake>0) Game.shake = Math.max(0, Game.shake - dt*3);
+  if(Game.zoomPunch>0) Game.zoomPunch = Math.max(0, Game.zoomPunch - dt*3.2);
 }
 
 /* Camera: zoom stays in a tight readable band; screen position is solved
-   FROM the zoom (cam = player - desiredScreenPos/zoom), so changing zoom
-   never shoves the player across the screen. Player sits ~36% from the left
-   with speed-scaled look-ahead; vertical framing follows climb/dive. */
+   FROM the zoom AND the pixels-per-meter scale, so neither zoom nor the
+   render scale ever shoves the player across the screen. Player sits ~38%
+   from the left with speed-scaled look-ahead; framing follows climb/dive. */
 function updateCamera(dt, snap){
   var S = Game.S;
   if(!S || !Game.W || !Game.H) return;
+  var PPM = window.DA.World.PPM || 5;
   var speed = S.speed || 0;
 
   var zT = 1.04 - speed*0.0011 - Math.max(0, S.y)*0.00003;
@@ -331,12 +329,12 @@ function updateCamera(dt, snap){
   var fx = 0.38; // player screen fraction from the left while flying right
   // look-ahead is budgeted in SCREEN space so narrow phones are not punished:
   // it may shift the player left by at most ~10% of the viewport width.
-  var lookPx = clamp(S.vx*1.1, -15, 90) + Math.min(30, speed*0.3);
+  var lookPx = clamp(S.vx*PPM*0.35, -15, 90) + Math.min(30, speed*PPM*0.06);
   lookPx = Math.min(lookPx, 0.10*Game.W);
-  var tx = S.x - fx*Game.W/z + lookPx/z;
+  var tx = S.x - fx*Game.W/(PPM*z) + lookPx/(PPM*z);
 
   var pf = 0.55 + clamp(S.vy*0.005, -0.10, 0.12); // climb: more sky; dive: more ground
-  var ty = S.y - (0.80-pf)*Game.H/z;
+  var ty = S.y - (0.80-pf)*Game.H/(PPM*z);
   if(ty < -40) ty = -40;
 
   if(snap){ Game.cam.x = tx; Game.cam.y = ty; return; }
@@ -348,9 +346,10 @@ function updateCamera(dt, snap){
 function playerScreenPos(){
   var S = Game.S;
   if(!S || !Game.W) return { fx:0, fy:0 };
+  var PPM = window.DA.World.PPM || 5;
   return {
-    fx: (S.x - Game.cam.x) * Game.zoom / Game.W,
-    fy: 0.80 - (S.y - Game.cam.y) * Game.zoom / Game.H
+    fx: (S.x - Game.cam.x) * PPM * Game.zoom / Game.W,
+    fy: 0.80 - (S.y - Game.cam.y) * PPM * Game.zoom / Game.H
   };
 }
 
@@ -403,15 +402,22 @@ function crash(gy){
   Game.shake = Game.save.settings.shake
     ? (severity === "mega" ? 1 : severity === "crash" ? 0.7 : severity === "rough" ? 0.4 : 0) : 0;
   DA.Audio.stopBoost();
-  if(water){ DA.Audio.SFX.splash(); } else { DA.Audio.SFX.impact(severity === "smooth" ? false : true); }
+  if(water){
+    DA.Audio.SFX.splash(severity === "mega" ? 2 : severity === "crash" ? 1 : 0);
+  } else if(severity === "smooth"){
+    DA.Audio.SFX.smooth();
+  } else {
+    DA.Audio.SFX.impact(severity === "mega" ? 2 : 1);
+  }
   DA.Audio.setWind(0,false);
-  // particles
+  // particles (burst at the impact point; speeds in m/s, sizes scale in draw)
   if(Game.save.settings.particles){
     var cols = water ? ["#caf0f8","#90e0ef","#ffffff"] : ["#ffffff","#dee2e6","#adb5bd"];
     var n = severity === "mega" ? 46 : severity === "crash" ? 26 : severity === "rough" ? 16 : 10;
-    Game.particles.burst(Game.S.x, gy+4, n, {speed: severity === "smooth" ? 70 : 160,
-      life:0.9, size:4, colors:cols, grav:260, vy:70});
+    Game.particles.burst(Game.S.x, gy+1, n, {speed: severity === "smooth" ? 14 : (water ? 22 : 30),
+      life:0.9, size:4, colors:cols, grav:55, vy:14});
     if(severity === "mega") flash();
+    if(water) Game.splash = { x:Game.S.x, t:0 }; // expanding splash rings overlay
   }
   Game.crashedInfo = { severity:severity, water:water, impactVy:impactVy, speed:speed, misalign:misalign };
   if(window.DA.UI) window.DA.UI.onCrash(Game.crashedInfo);
@@ -481,7 +487,8 @@ function render(){
   var g = Game.g, W = Game.W, H = Game.H;
   var S = Game.S;
   // zoom is owned by updateCamera; render just reads it (tight readable band)
-  var z = Game.zoom;
+  // zoomPunch adds a brief FOV kick on launch / boost ignition.
+  var z = Game.zoom * (1 + 0.07*(Game.zoomPunch||0));
   var sp = (S && S.speed) || 0;
   // subtle extra shake at extreme speed (feel, not camera motion)
   var shk = Game.shake;
@@ -501,7 +508,7 @@ function render(){
     x:S.x, y:S.y, vx:S.vx, vy:S.vy, pitch:S.pitch,
     boosting:!!S.boosting, stalled:!!S.stalled,
     glider:S.glider||0, sledLvl:S.sledLvl, boosterLvl:S.boosterLvl, aeroLvl:S.aeroLvl
-  }, { particles:Game.particles, crashSpin:Game.crashSpin, crashed:crashed, playerScale:playerScale });
+  }, { particles:Game.particles, crashSpin:Game.crashSpin, crashed:crashed, playerScale:playerScale, splash:Game.splash });
   // directional speed lines: streak along the actual motion direction
   if(S && sp > 30 && Game.phase==="fly"){
     var ang = Math.atan2(-S.vy, S.vx);

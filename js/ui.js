@@ -103,12 +103,18 @@ function updateHUD(){
   if(!G.S) return;
   $("hud-dist").textContent = window.DA.Physics.fmtDist(Math.max(0,G.S.x));
   $("hud-alt").textContent = Math.max(0,G.S.y).toFixed(0)+" m";
-  $("hud-speed").textContent = Math.round((G.S.speed||0)*3.6)+" km/h";
-  // redline: speed readout heats up as the glider strains past comfort
+  var spdKmh = Math.round((G.S.speed||0)*3.6);
   var spdEl = $("hud-speed");
+  spdEl.textContent = spdKmh+" km/h";
+  // redline: speed readout heats up as the glider strains past comfort
   if(G.P && (G.S.speed||0) > G.P.top) spdEl.style.color = "#ff5d5d";
   else if(G.P && (G.S.speed||0) > G.P.comfort) spdEl.style.color = "#ffb703";
   else spdEl.style.color = "#fff";
+  // punch the speed number on rapid gains (dopamine for diving/boosting)
+  if(G._lastSpd !== undefined && spdKmh - G._lastSpd > 6 && (G.phase==="fly")){
+    spdEl.classList.remove("punch"); void spdEl.offsetWidth; spdEl.classList.add("punch");
+  }
+  G._lastSpd = spdKmh;
   var hasBooster = !!(G.P && G.P.thrust > 0);
   var f = (G.S.fuelMax>0 && hasBooster) ? G.S.fuel/G.S.fuelMax : 0;
   var fill = $("fuel-fill");
@@ -117,6 +123,8 @@ function updateHUD(){
   fill.id = "fuel-fill";
   var fl = $("fuel-label");
   if(fl) fl.textContent = hasBooster ? "FUEL" : "NO BOOSTER";
+  var fb = $("fuel-bar");
+  if(fb) fb.classList.toggle("burning", !!G.S.boosting && hasBooster);
   $("hud-best").textContent = window.DA.Physics.fmtDist(save.best.dist);
   $("phase-label").textContent = G.phase==="ramp" ? "🛷 RAMP!" : (G.S.boosting?"🔥 BOOST!":(G.S.stalled?"⚠ STALL":"🕊️ FLY"));
   if(G.S.boosting) $("phase-label").style.color = "#ffb703"; else $("phase-label").style.color = "#fff";
@@ -132,8 +140,21 @@ function updateHUD(){
 
 function onRecord(){
   $("record-banner").classList.remove("hidden");
+  var hb = $("hud-best");
+  if(hb){ hb.classList.remove("bestflash"); void hb.offsetWidth; hb.classList.add("bestflash"); }
   window.DA.Audio.SFX.record();
   toast("🎉 NEW RECORD!");
+}
+// launch moment: punchy whoosh (the ramp sound already played at release)
+function onLaunch(){ window.DA.Audio.ensure(); window.DA.Audio.SFX.whoosh(); }
+// boost ignition: flash + fuel glow + speed punch reset
+function onBoostStart(){
+  window.DA.Audio.SFX.ignite();
+  var f = document.getElementById("flash");
+  if(f){ f.style.transition="none"; f.style.opacity="0.25"; f.style.background="#ffdca8";
+    requestAnimationFrame(function(){ f.style.transition="opacity 0.25s"; f.style.opacity="0"; setTimeout(function(){ f.style.background="#fff"; }, 300); }); }
+  var fb = $("fuel-bar");
+  if(fb){ fb.classList.remove("burning"); void fb.offsetWidth; fb.classList.add("burning"); }
 }
 function onCrash(info){
   var msgs;
@@ -248,7 +269,7 @@ function equipGlider(id){
   if(!save.glider.owned[id] || save.glider.equipped === id) return;
   save.glider.equipped = id;
   window.DA.Save.save(save);
-  window.DA.Audio.ensure(); window.DA.Audio.SFX.click();
+  window.DA.Audio.ensure(); window.DA.Audio.SFX.equip();
   toast("🪂 Equipped " + window.DA.GLIDERS[id].name + "!");
   renderShop();
   refreshMenu();
@@ -286,7 +307,7 @@ function drawPreview(){
     glider: save.glider.equipped,
     sledLvl: save.upgrades.sled,
     boosterLvl: save.upgrades.booster, aeroLvl: save.upgrades.aero
-  }, 1.15, {});
+  }, 1.5, {});
   g.fillStyle = "#123"; g.font = "bold 12px sans-serif"; g.textAlign="left";
   var gl2 = (window.DA.GLIDERS && window.DA.GLIDERS[save.glider.equipped]) || { name:"Bare Dodo" };
   g.fillText("Ramp "+save.upgrades.ramp+" • Sled "+save.upgrades.sled+" • "+gl2.name, 8, 16);
@@ -427,6 +448,7 @@ function enterPressed(){
 window.DA = window.DA || {};
 window.DA.UI = { init:init, showMenu:showMenu, showShop:showShop, showFlight:showFlight,
   updateHUD:updateHUD, showResults:showResults, onRecord:onRecord, onCrash:onCrash,
+  onLaunch:onLaunch, onBoostStart:onBoostStart,
   toast:toast, floatText:floatText, enterPressed:enterPressed, refreshMenu:refreshMenu, renderShop:renderShop,
   onRunStart:onRunStart };
 })();

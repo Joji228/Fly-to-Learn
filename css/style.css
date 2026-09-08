@@ -101,6 +101,13 @@ kbd{background:#000;border:1px solid #555;border-bottom-width:3px;border-radius:
 .gstat span{width:58px;flex:none;}
 .gstat .pips{flex:1;margin:0;}
 .gstat .pip{max-width:none;}
+/* HUD juice */
+#hud-speed{display:inline-block;}
+#hud-speed.punch{animation:spunch .3s ease;}
+@keyframes spunch{0%{transform:scale(1)}35%{transform:scale(1.35);color:var(--accent)}100%{transform:scale(1)}}
+#hud-best.bestflash{animation:bestflash .8s ease 2;}
+@keyframes bestflash{0%,100%{background:rgba(8,18,36,.72)}50%{background:rgba(255,183,3,.85);color:#3a2200}}
+#fuel-bar.burning{box-shadow:0 0 10px 2px rgba(255,159,28,.9);border-color:var(--accent);}
 .up-card{background:#0e1f3c;border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:12px;position:relative;
   transition:transform .12s, border-color .12s;}
 .up-card.maxed{border-color:var(--good);}

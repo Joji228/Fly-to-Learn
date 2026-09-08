@@ -20,10 +20,11 @@
 "use strict";
 
 var GRAVITY = 19.0;          // m/s^2 — dives must pay, immediately (redlines cap the tops)
-var PITCH_RATE = 2.6;        // rad/s — level to ±30deg in ~0.2-0.35s
-var PITCH_SMOOTH = 20;       // higher = snappier settle, less drift
+var PITCH_RATE = 3.2;        // rad/s — 0 to ±30deg in ~0.2s, arcade snap
+var PITCH_SMOOTH = 28;       // higher = snappier settle, no trailing drift
 var MAX_PITCH = 1.15;        // ~66 deg
 var MIN_PITCH = -1.15;
+var DIVE_K = 6.0;            // arcade dive assist along the path (feel it!)
 var REDLINE_K = 0.25;        // shared redline drag strength (soft top speed)
 var OVER_TOP_K = 0.6;        // extra drag past redline top
 var DEG = 180 / Math.PI;
@@ -79,6 +80,16 @@ function stepFlight(s, input, p, dt){
   // --- gravity: the engine of all fun (dives pay, climbs cost) ---
   s.vy -= GRAVITY * dt;
   if(stalled) s.vy -= 6 * dt; // stalled wings barely hold you
+
+  // --- arcade dive assist: pointing downhill adds a controlled bonus push
+  // along the path so dives feel powerful without touching top speeds much
+  // (redline drag still caps every glider). Subtle but unmistakable.
+  var preDiveAng = Math.atan2(s.vy, s.vx);
+  if(preDiveAng < -0.12 && s.pitch < -0.08){
+    var db = DIVE_K * Math.min(1, (-preDiveAng) / 0.6);
+    s.vx += Math.cos(preDiveAng) * db * dt;
+    s.vy += Math.sin(preDiveAng) * db * dt;
+  }
 
   // --- steering: pull the velocity vector toward the nose ---
   // Better gliders turn harder; slow flight turns mushy; stalls barely turn.
@@ -153,7 +164,7 @@ function fmtDist(m){
 }
 
 var api = { GRAVITY:GRAVITY, PITCH_RATE:PITCH_RATE, MAX_PITCH:MAX_PITCH, MIN_PITCH:MIN_PITCH,
-  clamp:clamp, wrapAngle:wrapAngle,
+  DIVE_K:DIVE_K, clamp:clamp, wrapAngle:wrapAngle,
   stepFlight:stepFlight, rampSlide:rampSlide, econReward:econReward, fmtDist:fmtDist };
 
 // browser + node compatibility
