@@ -25,16 +25,16 @@
 (function(){
 "use strict";
 
-var GRAVITY = 23.0;          // m/s^2 — falls are decisive, no moon gravity
+var GRAVITY = 30.0;          // m/s^2 — fast falls, fast dives, fast arcs
 var PITCH_RATE = 3.2;        // rad/s — 0 to ±30deg in ~0.2s, arcade snap
 var PITCH_SMOOTH = 28;       // higher = snappier settle, no trailing drift
 var MAX_PITCH = 1.15;        // ~66 deg
 var MIN_PITCH = -1.15;
-var DIVE_K = 10.0;           // arcade dive assist along the path (feel it!)
-var STEER_GAIN = 2.0;        // global trajectory responsiveness (glider ladder untouched)
-var BARE_SINK = 9.0;         // extra fall for the glider-less: no free gliding
+var DIVE_K = 14.0;           // arcade dive assist along the path (feel it!)
+var STEER_GAIN = 2.4;        // global trajectory responsiveness (glider ladder untouched)
+var BARE_SINK = 12.0;        // extra fall for the glider-less: no free gliding
 var REDLINE_K = 0.25;        // shared redline drag strength (soft top speed)
-var OVER_TOP_K = 0.6;        // extra drag past redline top
+var OVER_TOP_K = 0.8;        // extra drag past redline top
 var DEG = 180 / Math.PI;
 
 function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
@@ -75,7 +75,7 @@ function stepFlight(s, input, p, dt){
   var stallMargin = (s.pitch > 0.5) ? 3 : 0;
   var stalled = (speed < p.stall + stallMargin && s.pitch > 0.18);
   if(stalled){
-    s.pitch -= 2.2 * dt; // nose falls fast on its own: STALL -> DIVE -> SPEED
+    s.pitch -= 2.8 * dt; // nose falls fast: STALL -> DIVE -> SPEED, quickly
     if(s.pitch < MIN_PITCH) s.pitch = MIN_PITCH;
   }
 
@@ -89,7 +89,7 @@ function stepFlight(s, input, p, dt){
 
   // --- gravity: the engine of all fun (dives pay, climbs cost) ---
   s.vy -= GRAVITY * dt;
-  if(stalled) s.vy -= 5 * dt; // stalled wings barely hold you: drop decisively
+  if(stalled) s.vy -= 7 * dt; // stalled wings barely hold you: drop decisively
   // NO GLIDER = NO GLIDING: bare Dennis falls like a body, always.
   // (Gliders rely on steering to fight this; bare steering is ~15%.)
   var bare = !!p.bare;
@@ -121,7 +121,7 @@ function stepFlight(s, input, p, dt){
   speed = Math.sqrt(s.vx*s.vx + s.vy*s.vy);
   var velAng = Math.atan2(s.vy, s.vx);
   var authority = clamp(Math.pow(Math.max(0, speed - 6) / 20, 1.6), 0.1, 1) * (stalled ? 0.25 : 1);
-  if(bare) authority *= 0.15;
+  if(bare) authority *= 0.12;
   if(speed > 55) authority *= 1.1;
   var diff = wrapAngle(s.pitch - velAng);
   var steerRate = (p.control || 1.5) * authority * STEER_GAIN;
@@ -156,7 +156,7 @@ function stepFlight(s, input, p, dt){
     if(speed > p.top) red += OVER_TOP_K;
   }
   var dragF = (0.5 * speed * speed * 0.15 * p.drag) + (speed * speed * 0.004 * red);
-  if(bare) dragF *= 1.8;
+  if(bare) dragF *= 2.0;
   if(speed > 0.5){
     // drag opposes CURRENT motion (already steered above — never rebuilt)
     var vNew = Math.max(0, speed - dragF * dt);
