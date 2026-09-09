@@ -132,6 +132,12 @@ function refreshMenu(){
   $("menu-best-dist").textContent = "Best: " + window.DA.Physics.fmtDist(save.best.dist);
   $("menu-flights").textContent = "Flights: " + save.flights;
   $("menu-cash").textContent = "$" + save.money.toLocaleString();
+  // SHOP glows on the menu whenever a new purchase is affordable
+  var sb = $("btn-shop");
+  if(sb){
+    var nx = nextAffordable();
+    sb.classList.toggle("attn", !!(nx && nx.price <= save.money));
+  }
 }
 
 function showFlight(){
@@ -326,6 +332,7 @@ function rocketName(id){
 }
 function renderShop(){
   $("shop-cash").textContent = "$" + save.money.toLocaleString();
+  computeHotPick();
   renderGliders();
   renderRockets();
   renderTracks();
@@ -345,9 +352,10 @@ function statBar(label, v){
   return '<div class="gstat"><span>'+label+'</span><div class="pips">'+bars+'</div></div>';
 }
 function equipCard(opts){
-  // shared card builder: {name, tag, status, barsHtml, preview(draw fn), btnText, btnDisabled, onBtn, flashId}
+  // shared card builder: {name, tag, status, barsHtml, preview(draw fn),
+  // btnText, btnDisabled, onBtn, flashId, equipped, dim, hot}
   var card = document.createElement("div");
-  card.className = "up-card gcard" + (opts.equipped ? " maxed" : "") + (opts.dim ? " cant" : "");
+  card.className = "up-card gcard" + (opts.equipped ? " maxed" : "") + (opts.dim ? " cant" : "") + (opts.hot ? " hotpick" : "");
   if(opts.flashId) card.id = opts.flashId;
   var cv = document.createElement("canvas");
   cv.width = 160; cv.height = 90; cv.className = "gprev";
@@ -381,14 +389,15 @@ function renderGliders(){
     if(gl.id === 0) return; // Bare Dodo is the free baseline, not a shop card
     var owned = !!save.glider.owned[gl.id];
     var equipped = (eq === gl.id);
+    var hot = isHotPick("glider", gl.id);
     wrap.appendChild(equipCard({
       name: gl.name, tag: gl.tag,
       status: equipped ? "EQUIPPED" : owned ? "OWNED" : "$" + gl.price.toLocaleString(),
       barsHtml: statBar("GLIDE", gl.bars.fly) + statBar("SPEED", gl.bars.speed) + statBar("CONTROL", gl.bars.ctrl),
       preview: function(cv){ window.DA.drawGliderPreview(cv, gl.id); },
       equipped: equipped, dim: !owned && gl.price > save.money,
-      flashId: "card-glider-" + gl.id,
-      btnText: equipped ? "✔ EQUIPPED" : owned ? "EQUIP" : "BUY — $" + gl.price.toLocaleString(),
+      flashId: "card-glider-" + gl.id, hot: hot,
+      btnText: (hot && !equipped && !owned ? "★ " : "") + (equipped ? "✔ EQUIPPED" : owned ? "EQUIP" : "BUY — $" + gl.price.toLocaleString()),
       btnDisabled: equipped || (!owned && gl.price > save.money),
       onBtn: equipped ? null : owned
         ? (function(id){ return function(){ equipGlider(id); }; })(gl.id)
@@ -409,14 +418,15 @@ function renderRockets(){
   window.DA.ROCKETS.forEach(function(rk){
     var owned = !!save.rocket.owned[rk.id];
     var equipped = (eq === rk.id);
+    var hot = isHotPick("rocket", rk.id);
     wrap.appendChild(equipCard({
       name: rk.name, tag: rk.tag,
       status: equipped ? "EQUIPPED" : owned ? "OWNED" : "$" + rk.price.toLocaleString(),
       barsHtml: statBar("THRUST", rk.bars.thrust) + statBar("BURN", rk.bars.burn),
       preview: function(cv){ window.DA.drawRocketPreview(cv, rk.id); },
       equipped: equipped, dim: !owned && rk.price > save.money,
-      flashId: "card-rocket-" + rk.id,
-      btnText: equipped ? "✔ EQUIPPED" : owned ? "EQUIP" : "BUY — $" + rk.price.toLocaleString(),
+      flashId: "card-rocket-" + rk.id, hot: hot,
+      btnText: (hot && !equipped && !owned ? "★ " : "") + (equipped ? "✔ EQUIPPED" : owned ? "EQUIP" : "BUY — $" + rk.price.toLocaleString()),
       btnDisabled: equipped || (!owned && rk.price > save.money),
       onBtn: equipped ? null : owned
         ? (function(id){ return function(){ equipRocket(id); }; })(rk.id)
@@ -433,27 +443,46 @@ function renderTracks(){
   head.className = "glider-head";
   head.textContent = "🔧 WORKSHOP — permanent upgrades";
   grid.appendChild(head);
-  ["ramp","sled","aero"].forEach(function(k){
+  ["ramp","sled","aero","fuel"].forEach(function(k){
     var u = window.DA.UPGRADES[k];
     if(!u) return;
-    var lvl = save.upgrades[k];
+    var lvl = save.upgrades[k] || 0;
     var maxed = lvl>=u.max;
     var price = maxed?0:window.DA.priceOf(k,lvl);
+    var hot = isHotPick("track", k);
     var card = document.createElement("div");
-    card.className = "up-card" + (maxed?" maxed":"") + (price>save.money&&!maxed?" cant":"");
+    card.className = "up-card" + (maxed?" maxed":"") + (price>save.money&&!maxed?" cant":"") + (hot?" hotpick":"");
     card.id = "card-"+k;
+    var cv = document.createElement("canvas");
+    cv.width = 160; cv.height = 90; cv.className = "gprev";
+    card.appendChild(cv);
+    try{ if(window.DA.drawPartPreview) window.DA.drawPartPreview(cv, k, lvl); }catch(e){}
     var pips = "";
     for(var i=0;i<u.max;i++) pips += '<div class="pip'+(i<lvl?' on':'')+'"></div>';
-    card.innerHTML =
+    var extra = "";
+    if(k === "fuel"){ // show real burn seconds for the equipped rocket
+      var rq = save.rocket.equipped;
+      if(rq >= 0 && window.DA.ROCKETS && window.DA.ROCKETS[rq]){
+        var base = window.DA.ROCKETS[rq].burn;
+        extra = '<div class="up-next">Burn with ' + window.DA.ROCKETS[rq].name + ': ' +
+          (base*window.DA.fuelMult(lvl)).toFixed(1) + "s" +
+          (maxed ? "" : " → " + (base*window.DA.fuelMult(lvl+1)).toFixed(1) + "s") + "</div>";
+      } else {
+        extra = '<div class="up-next">No rocket equipped — buy one to burn anything!</div>';
+      }
+    }
+    var info = document.createElement("div");
+    info.innerHTML =
       '<div class="up-top"><span class="up-name">'+u.icon+' '+u.name+'</span><span class="up-lvl">Lv '+lvl+'/'+u.max+'</span></div>' +
       '<div class="pips">'+pips+'</div>' +
       '<div class="up-desc">'+u.blurb+'</div>' +
       '<div class="up-desc" style="color:#fff">Now: '+u.desc(lvl)+'</div>' +
-      '<div class="up-next">'+u.next(lvl)+'</div>';
+      '<div class="up-next">'+u.next(lvl)+'</div>' + extra;
+    card.appendChild(info);
     var btn = document.createElement("button");
     btn.className = "buy-btn";
     if(maxed){ btn.textContent = "★ MAXED ★"; btn.disabled = true; }
-    else { btn.textContent = "BUY — $" + price.toLocaleString(); btn.disabled = price>save.money; }
+    else { btn.textContent = (hot?"★ ":"") + "BUY — $" + price.toLocaleString(); btn.disabled = price>save.money; }
     btn.onclick = (function(key, p){
       return function(){ buy(key, p); };
     })(k, price);
@@ -513,17 +542,51 @@ function equipRocket(id){
   renderShop();
   refreshMenu();
 }
-/* Next affordable equipment? Used for the results-screen nudge. */
+/* Next affordable purchase of any kind (equipment or track level).
+   Used for the menu SHOP glow, the results nudge, and the in-shop hotpick. */
 function nextAffordable(){
   var cands = [];
   if(window.DA.GLIDERS) window.DA.GLIDERS.forEach(function(gl){
-    if(gl.id !== 0 && !save.glider.owned[gl.id]) cands.push({ label:"🪂 " + gl.name, price:gl.price });
+    if(gl.id !== 0 && !save.glider.owned[gl.id]) cands.push({ type:"glider", id:gl.id, label:"🪂 " + gl.name, price:gl.price });
   });
   if(window.DA.ROCKETS) window.DA.ROCKETS.forEach(function(rk){
-    if(!save.rocket.owned[rk.id]) cands.push({ label:"🚀 " + rk.name, price:rk.price });
+    if(!save.rocket.owned[rk.id]) cands.push({ type:"rocket", id:rk.id, label:"🚀 " + rk.name, price:rk.price });
+  });
+  ["ramp","sled","aero","fuel"].forEach(function(k){
+    var u = window.DA.UPGRADES[k];
+    if(!u) return;
+    var lvl = save.upgrades[k] || 0;
+    if(lvl < u.max) cands.push({ type:"track", id:k, label:u.icon + " " + u.name + " Lv " + (lvl+1), price:window.DA.priceOf(k, lvl) });
   });
   cands.sort(function(a,b){ return a.price - b.price; });
   return cands.length ? cands[0] : null;
+}
+/* Cheapest AFFORDABLE purchase right now (for the in-shop hotpick). */
+var hotPick = null;
+function computeHotPick(){
+  hotPick = null;
+  var cands = [];
+  if(window.DA.GLIDERS) window.DA.GLIDERS.forEach(function(gl){
+    if(gl.id !== 0 && !save.glider.owned[gl.id] && gl.price <= save.money)
+      cands.push({ type:"glider", id:gl.id, price:gl.price });
+  });
+  if(window.DA.ROCKETS) window.DA.ROCKETS.forEach(function(rk){
+    if(!save.rocket.owned[rk.id] && rk.price <= save.money)
+      cands.push({ type:"rocket", id:rk.id, price:rk.price });
+  });
+  ["ramp","sled","aero","fuel"].forEach(function(k){
+    var u = window.DA.UPGRADES[k];
+    if(!u) return;
+    var lvl = save.upgrades[k] || 0;
+    if(lvl >= u.max) return;
+    var pr = window.DA.priceOf(k, lvl);
+    if(pr <= save.money) cands.push({ type:"track", id:k, price:pr });
+  });
+  cands.sort(function(a,b){ return a.price - b.price; });
+  if(cands.length) hotPick = cands[0];
+}
+function isHotPick(type, id){
+  return !!hotPick && hotPick.type === type && String(hotPick.id) === String(id);
 }
 
 function buy(key, price){
@@ -629,6 +692,15 @@ function showResults(res){
     }, 120*(i+1));
   });
   setTimeout(function(){ if(id === runId) animateMoney(totalEl, rw.total, id); }, 120*(rows.length+1));
+  // default loop: FLIGHT -> RESULTS -> SHOP. After counting finishes plus a
+  // beat, glide into the shop — unless the player already chose otherwise
+  // (PLAY AGAIN bumps runId; SHOP/Menu hide this screen; phase changes).
+  setTimeout(function(){
+    if(id !== runId) return;
+    if(window.DA.Game.phase !== "results") return;
+    if($("screen-results").classList.contains("hidden")) return;
+    showShop();
+  }, 120*(rows.length+1) + 1500);
   // affordable nudge: point at the next equipment ("one more flight" fuel)
   var od2 = $("results-objectives");
   var next = nextAffordable();

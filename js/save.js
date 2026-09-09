@@ -41,7 +41,7 @@ function freshRocket(){
 function defaults(){
   return {
     money: 0,
-    upgrades: { ramp:0, sled:0, aero:0 },
+    upgrades: { ramp:0, sled:0, aero:0, fuel:0 },
     glider: freshGlider(),
     rocket: freshRocket(),
     best: { dist:0, alt:0, speedKmh:0, airTime:0 },
@@ -98,8 +98,14 @@ function load(){
     if(d && typeof d === "object"){
       if(typeof d.money === "number" && isFinite(d.money)) s.money = Math.max(0, Math.floor(d.money));
       if(d.upgrades && typeof d.upgrades === "object"){
+        // legacy 0-8 fuel track (always stored alongside a booster key) is NOT
+        // the new 0-5 tank: it refunds as cash below, so never load it as a level
+        var legacyFuel = (typeof d.upgrades.booster === "number" && typeof d.upgrades.fuel === "number");
         for(var k in s.upgrades){
-          if(typeof d.upgrades[k] === "number") s.upgrades[k] = num(d.upgrades[k], 0, 8, 0);
+          if(k === "fuel" && legacyFuel) continue;
+          // per-track max comes from the shop def (fuel caps at 5); old saves default in
+          var mx = (window.DA.UPGRADES && window.DA.UPGRADES[k]) ? window.DA.UPGRADES[k].max : 8;
+          if(typeof d.upgrades[k] === "number") s.upgrades[k] = num(d.upgrades[k], 0, mx, 0);
         }
       }
       // --- glider: new shape, else old 10-glider shape, else legacy wings ---
@@ -127,6 +133,7 @@ function load(){
         }
         if(typeof d.upgrades.fuel === "number"){
           s.money += Math.min(2000, 250 * num(d.upgrades.fuel, 0, 8, 0)); // retired fuel tanks buy Dennis lunch
+          s.upgrades.fuel = 0; // ...and never double-dip as new tank levels
         }
       }
       if(d.best && typeof d.best === "object"){

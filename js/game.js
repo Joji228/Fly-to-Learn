@@ -41,7 +41,7 @@ function derivedParams(up, gliderId, rocketId){
     top: G.top + aero * 2,
     stall: G.stall,
     thrust: R ? R.thrust : 0,   // no rocket equipped: SPACE does nothing
-    fuelMax: R ? R.burn : 0,
+    fuelMax: R ? R.burn * DA.fuelMult(up.fuel || 0) : 0, // tank upgrade stretches every rocket
     launchSpeed: DA.launchSpeed(up.ramp, up.sled),
     launchAngle: DA.launchAngleDeg(up.ramp) * Math.PI/180
   };

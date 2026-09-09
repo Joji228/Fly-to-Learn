@@ -300,11 +300,96 @@ function drawGliderPreview(canvas, id) {
 }
 
 
+/* Workshop part thumbnails: ramp / sled / aero / fuel.
+   Same sky-and-snow stage as the glider previews so cards look consistent. */
+function drawPartPreview(canvas, kind, level){
+  if(!canvas || typeof canvas.getContext !== "function") return;
+  try{
+    var ctx = canvas.getContext("2d");
+    if(!ctx) return;
+    var w = canvas.width || 160, h = canvas.height || 90;
+    if(!isFinite(w) || w <= 0) w = 160;
+    if(!isFinite(h) || h <= 0) h = 90;
+    var lv = Math.max(0, Math.min(8, level || 0));
+    var grd = ctx.createLinearGradient(0, 0, 0, h);
+    grd.addColorStop(0, "#7ec0ee"); grd.addColorStop(0.7, "#cfe8f7"); grd.addColorStop(1, "#e8f3fa");
+    ctx.fillStyle = grd; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, h-16, w, 16);
+    ctx.fillStyle = "#dfe7ec"; ctx.fillRect(0, h-16, w, 2);
+    ctx.save();
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+    var cx = w*0.5, cy = h*0.58, OUT = "#2b2d42";
+    try{
+      if(kind === "ramp"){
+        // snowy hill + wooden launch ramp, taller/fancier with level
+        ctx.fillStyle = "#f4f8ff";
+        ctx.beginPath(); ctx.moveTo(0,h-16); ctx.quadraticCurveTo(w*0.35,h-46-lv*2,w*0.62,h-30-lv*3); ctx.lineTo(w,h-16); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = "#7f5539"; ctx.lineWidth = 9;
+        ctx.beginPath(); ctx.moveTo(w*0.18,h-20); ctx.quadraticCurveTo(w*0.4,h-44-lv*2,w*0.62,h-34-lv*3); ctx.stroke();
+        ctx.strokeStyle = "#e9c46a"; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(w*0.18,h-24); ctx.quadraticCurveTo(w*0.4,h-48-lv*2,w*0.62,h-38-lv*3); ctx.stroke();
+        ctx.fillStyle = "#e63946";
+        ctx.fillRect(w*0.6,h-58-lv*3,4,20); // flag pole
+        ctx.beginPath(); ctx.moveTo(w*0.6+4,h-58-lv*3); ctx.lineTo(w*0.6+20,h-53-lv*3); ctx.lineTo(w*0.6+4,h-48-lv*3); ctx.closePath(); ctx.fill();
+      } else if(kind === "sled"){
+        // red runner sled, sleeker + stripes with level
+        ctx.fillStyle = lv >= 5 ? "#e63946" : "#9c6644";
+        ctx.strokeStyle = OUT; ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx-42,cy+12); ctx.lineTo(cx+38,cy+12); ctx.lineTo(cx+30,cy+2); ctx.lineTo(cx-34,cy+2); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#ffd60a"; ctx.fillRect(cx-38,cy+4,72,3);
+        ctx.fillStyle = "#495057"; // runners
+        ctx.fillRect(cx-44,cy+14,10,5); ctx.fillRect(cx+28,cy+14,10,5);
+        ctx.strokeStyle = "rgba(255,255,255,0.7)"; ctx.lineWidth = 2; // speed shine
+        ctx.beginPath(); ctx.moveTo(cx-30,cy+7); ctx.lineTo(cx+10,cy+7); ctx.stroke();
+        if(lv >= 3){ ctx.fillStyle = "#80ed99"; ctx.beginPath(); ctx.arc(cx+18,cy-6,4,0,7); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth=1.5; ctx.stroke(); }
+      } else if(kind === "aero"){
+        // aviator helmet, pointier + goggles with level
+        ctx.fillStyle = "#219ebc"; ctx.strokeStyle = OUT; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(cx,cy+2,24,Math.PI*0.95,Math.PI*2.05); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#17829d";
+        ctx.beginPath(); ctx.moveTo(cx+8,cy-18-lv*1.5); ctx.lineTo(cx+30,cy-16); ctx.lineTo(cx+8,cy-8); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "rgba(200,235,250,0.9)"; // goggles
+        rr2(ctx,cx-20,cy-8,34,13,6); ctx.fill(); ctx.strokeStyle = "#5b3a29"; ctx.lineWidth = 2; ctx.stroke();
+        ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.moveTo(cx-14,cy-4); ctx.lineTo(cx-6,cy+1); ctx.stroke();
+        ctx.strokeStyle = "#5b3a29"; ctx.lineWidth = 2; // strap
+        ctx.beginPath(); ctx.moveTo(cx-24,cy+2); ctx.quadraticCurveTo(cx,cy+12,cx+24,cy+2); ctx.stroke();
+      } else { // fuel
+        // fish-oil tank: barrel, pipes, gauge, level pips on the tank
+        ctx.fillStyle = "#e36414"; ctx.strokeStyle = OUT; ctx.lineWidth = 2.5;
+        rr2(ctx,cx-24,cy-22,48,40,8); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#fb8500";
+        rr2(ctx,cx-24,cy-22,48,12,8); ctx.fill();
+        ctx.fillStyle = "#ffd60a"; // hazard band
+        ctx.fillRect(cx-24,cy-2,48,6);
+        ctx.fillStyle = "#343a40";
+        for(var i=0;i<5;i++){ ctx.fillRect(cx-20+i*9,cy+8,5,7); } // level pips on tank
+        ctx.fillStyle = lv > 0 ? "#80ed99" : "#495057";
+        for(var j=0;j<Math.min(5,lv);j++){ ctx.fillRect(cx-20+j*9,cy+8,5,7); }
+        ctx.strokeStyle = "#8d99ae"; ctx.lineWidth = 4; // pipes
+        ctx.beginPath(); ctx.moveTo(cx+24,cy-12); ctx.lineTo(cx+38,cy-12); ctx.lineTo(cx+38,cy+8); ctx.stroke();
+        ctx.fillStyle = "#edf2f4"; ctx.strokeStyle = OUT; ctx.lineWidth = 2; // gauge
+        ctx.beginPath(); ctx.arc(cx-32,cy-14,7,0,7); ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = "#e63946"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(cx-32,cy-14); ctx.lineTo(cx-32+5*Math.cos(-0.6+lv*0.18),cy-14+5*Math.sin(-0.6+lv*0.18)); ctx.stroke();
+        ctx.fillStyle = "#212529"; // fish logo
+        ctx.beginPath(); ctx.ellipse(cx,cy-13,7,4,0,0,7); ctx.fill();
+        ctx.beginPath(); g2(ctx,cx+7,cy-13); ctx.fill();
+      }
+    } catch(e){}
+    ctx.restore();
+  } catch(e2){}
+}
+function g2(ctx, x, y){ ctx.moveTo(x,y-4); ctx.lineTo(x+6,y); ctx.lineTo(x,y+4); ctx.closePath(); }
+
 window.DA.GLIDERS = GLIDERS;
 window.DA.ROCKETS = ROCKETS;
 window.DA.drawGlider = drawGlider;
 window.DA.drawRocket = drawRocket;
 window.DA.drawGliderPreview = drawGliderPreview;
 window.DA.drawRocketPreview = drawRocketPreview;
+window.DA.drawPartPreview = drawPartPreview;
 
 })();

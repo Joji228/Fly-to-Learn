@@ -7,6 +7,7 @@
 /* ---------- upgrade math (single source of truth) ---------- */
 function priceOf(key, level){ // level = current level, price for next
   var u = UPGRADES[key];
+  if(u.prices) return u.prices[Math.min(level, u.prices.length-1)];
   return Math.round(u.base * Math.pow(u.growth, level) / 5) * 5;
 }
 // Ramp: better launch geometry (higher lip, steeper exit) + base speed.
@@ -21,6 +22,9 @@ function sledMult(l){ return 1 + l * 0.28; }
 function rampRideTime(sledLvl){ return Math.max(0.8, 1.2 - (sledLvl || 0) * 0.05); }
 // Rockets are equipment now (see ROCKETS in gliders.js): thrust + burn come
 // from the equipped rocket, not from an 8-level meter.
+// ROCKET FUEL is a permanent 5-level tank upgrade: multiplies burn time.
+var FUEL_MULTS = [1, 1.2, 1.4, 1.65, 1.9, 2.2];
+function fuelMult(l){ return FUEL_MULTS[Math.max(0, Math.min(5, l || 0))]; }
 // Aero: less parasite drag + less induced drag (keeps speed in maneuvers).
 function dragCoef(l){ return Math.max(0.016, 0.055 - l * 0.005); }
 function kindCoef(l){ return 0.22 - l * 0.011; }
@@ -46,6 +50,13 @@ var UPGRADES = {
     max: 8, base: 300, growth: 2.0,
     desc: function(l){ return "Drag x" + (1-0.055*l).toFixed(2) + " • top +" + (l*2) + " m/s"; },
     next: function(l){ return l>=8 ? "MAXED — soap-bar dodo" : "→ drag x" + (1-0.055*(l+1)).toFixed(2) + " • top +" + ((l+1)*2) + " m/s"; }
+  },
+  fuel: {
+    name: "Rocket Fuel", icon: "🛢️",
+    blurb: "Bigger fish-oil tank. Every rocket burns longer.",
+    max: 5, prices: [350, 900, 2000, 4500, 9000],
+    desc: function(l){ return "Tank x" + fuelMult(l).toFixed(2) + " fuel (" + Math.round((fuelMult(l)-1)*100) + "% extra burn)"; },
+    next: function(l){ return l>=5 ? "MAXED — mobile ocean" : "→ tank x" + fuelMult(l+1).toFixed(2) + " fuel (" + Math.round((fuelMult(l+1)-1)*100) + "% extra burn)"; }
   }
 };
 
@@ -127,6 +138,8 @@ window.DA.sledMult = sledMult;
 window.DA.rampRideTime = rampRideTime;
 window.DA.dragCoef = dragCoef;
 window.DA.kindCoef = kindCoef;
+window.DA.fuelMult = fuelMult;
+window.DA.FUEL_MULTS = FUEL_MULTS;
 window.DA.OBJECTIVES = OBJECTIVES;
 window.DA.MILESTONES = MILESTONES;
 window.DA.QUOTES = QUOTES;
