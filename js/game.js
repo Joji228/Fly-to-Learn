@@ -34,6 +34,7 @@ function derivedParams(up, gliderId, rocketId){
   var aero = up.aero || 0;
   return {
     bare: gliderId === 0, // NO GLIDER = NO GLIDING (falling-body flight mode)
+    sinkBias: G.sink || 0, // mandatory glide sink: nose-level never means path-level
     control: G.control,
     drag: G.drag * (1 - 0.055 * aero), // aero shaves body drag, honestly stacked
     turnK: G.turnK,
@@ -221,7 +222,7 @@ function update(dt){
     st.maxSpeedKmh = Math.max(st.maxSpeedKmh, kmh);
     st.airTime = Game.S.airTime;
     st.maxSpeed = Math.max(st.maxSpeed||0, Game.S.speed);
-    if(Game.S.fuel<=0) st.usedAllFuel = true;
+    if(Game.S.fuelMax > 0 && Game.S.fuel<=0) st.usedAllFuel = true; // needs a real tank that ran dry
 
     // record?
     if(!Game.bestBeaten && st.dist > Game.save.best.dist && Game.save.best.dist>0){

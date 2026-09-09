@@ -31,8 +31,8 @@ var PITCH_SMOOTH = 28;       // higher = snappier settle, no trailing drift
 var MAX_PITCH = 1.15;        // ~66 deg
 var MIN_PITCH = -1.15;
 var STEER_GAIN = 3.0;        // global trajectory responsiveness (glider ladder untouched)
-var DIVE_K = 4.0;            // SMALL downhill push: dive snap without free energy
-                             // (must stay weak enough that porpoising always decays)
+var DIVE_K = 8.0;            // downhill-only entry snap (too weak to sustain flight)
+var OVER_TOP_K = 1.0;        // extra drag past redline top: firm but brief overshoot OK
 var BARE_SINK = 12.0;        // extra fall for the glider-less: no free gliding
 var REDLINE_K = 0.25;        // shared redline drag strength (soft top speed)
 var OVER_TOP_K = 1.5;        // extra drag past redline top: the wall holds
@@ -47,7 +47,7 @@ function wrapAngle(a){
 
 /* One physics step. state: {x,y,vx,vy,pitch,pitchVel,fuel,airTime,speed}
    input: {up:bool,down:bool,boost:bool}
-   params: {control,drag,turnK,comfort,top,stall,thrust,fuelMax,bare}
+   params: {control,drag,turnK,comfort,top,stall,thrust,fuelMax,bare,sinkBias}
    returns {stalled, boosting} */
 function stepFlight(s, input, p, dt){
   if(!(dt > 0)) dt = 0.016;
@@ -117,6 +117,9 @@ function stepFlight(s, input, p, dt){
   // --- steering: INCREMENTAL perpendicular nudge toward the nose ---
   // The velocity vector is rotated by a small capped angle each step, so
   // gravity's vy contribution PERSISTS instead of being rebuilt away.
+  // MANDATORY GLIDE SINK: we steer toward (pitch - sinkBias), never toward
+  // pitch itself, so nose-level always settles into a descending path.
+  // Better gliders sink less; nothing sinks zero; bare Dodo plummets.
   // Authority is superlinear in speed: it collapses hard below ~20 m/s
   // (gravity wins, you fall — no low-speed hovering, no self-recovery
   // into a mushy level hover) and is full at healthy flight speed, with
@@ -131,7 +134,7 @@ function stepFlight(s, input, p, dt){
   speed = Math.sqrt(s.vx*s.vx + s.vy*s.vy);
   var velAng = Math.atan2(s.vy, s.vx);
   var authority = clamp(Math.pow(Math.max(0, speed - 6) / 20, 1.6), 0.1, 1) * (stalled ? 0.25 : 1);
-  var diff = wrapAngle(s.pitch - velAng);
+  var diff = wrapAngle((s.pitch - (p.sinkBias || 0)) - velAng);
   if(diff > 0) authority *= clamp((speed - 10) / 18, 0.15, 1); // up-rotations need airspeed
   if(bare) authority *= 0.12;
   if(speed > 55) authority *= 1.1;

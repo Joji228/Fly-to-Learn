@@ -322,6 +322,13 @@ function onCrash(info){
 }
 
 /* ---------- SHOP: loadout preview, gliders, rockets, workshop ---------- */
+var SVG_WING = '<svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 L21 19 L12 15.5 L3 19 Z" fill="currentColor"/><path d="M12 3 L12 15.5" stroke="#0b1626" stroke-width="1.6"/></svg>';
+var SVG_ROCKET = '<svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1c3 2.5 4.5 6.5 4.5 10.5l2.5 3.5-3.5-.5c-.8 1-1.9 1.7-3.5 2-1.6-.3-2.7-1-3.5-2l-3.5.5L7.5 11.5C7.5 7.5 9 3.5 12 1z" fill="currentColor"/><circle cx="12" cy="9" r="2" fill="#0b1626"/><path d="M10 17.5 L12 22 L14 17.5" fill="currentColor"/></svg>';
+var SVG_GEAR = '<svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5zM12 1l1.4 3a8 8 0 0 1 2.5 1.1L19 3.8l1.2 2.1-2.4 2.2a8 8 0 0 1 0 2.6l2.4 2.2-1.2 2.1-3.1-1.3a8 8 0 0 1-2.5 1.1L12 19l-1.4-3a8 8 0 0 1-2.5-1.1L5 16.2l-1.2-2.1 2.4-2.2a8 8 0 0 1 0-2.6L3.8 7.1 5 5l3.1 1.3a8 8 0 0 1 2.5-1.1L12 1z" fill="currentColor" fill-rule="evenodd"/></svg>';
+function secHead(icon, title, sub){
+  return '<span class="sec-title">' + icon + "<b>" + title + "</b>" +
+    (sub ? "<small>" + sub + "</small>" : "") + "</span>";
+}
 function gliderName(id){
   var g = window.DA.GLIDERS && window.DA.GLIDERS[id];
   return g ? g.name : "Bare Dodo";
@@ -342,7 +349,25 @@ function renderShop(){
     " • 🚀 " + rocketName(save.rocket.equipped);
 }
 function totalLv(){ var t=0; for(var k in save.upgrades) t+=save.upgrades[k]; return t; }
-function ownedGliders(){ var n=0, g = save.glider.owned; for(var i=0;i<g.length;i++) if(g[i]) n++; return n; }
+function maxLv(){
+  var t=0;
+  for(var k in save.upgrades){
+    var u = window.DA.UPGRADES[k];
+    t += u ? u.max : 8;
+  }
+  return t;
+}
+function ownedGliders(){
+  // collectible gliders only: Bare Dodo (id 0) is the free baseline, not stock
+  var n=0, g = save.glider.owned;
+  for(var i=1;i<g.length;i++) if(g[i]) n++;
+  return n;
+}
+function gliderStockCount(){
+  var n=0, all = window.DA.GLIDERS || [];
+  for(var i=1;i<all.length;i++) n++;
+  return n;
+}
 function ownedRockets(){ var n=0, r = save.rocket.owned; for(var i=0;i<r.length;i++) if(r[i]) n++; return n; }
 
 /* ---------- GLIDER HANGAR: exactly 5 buyable gliders (id 1-5) ---------- */
@@ -355,10 +380,10 @@ function equipCard(opts){
   // shared card builder: {name, tag, status, barsHtml, preview(draw fn),
   // btnText, btnDisabled, onBtn, flashId, equipped, dim, hot}
   var card = document.createElement("div");
-  card.className = "up-card gcard" + (opts.equipped ? " maxed" : "") + (opts.dim ? " cant" : "") + (opts.hot ? " hotpick" : "");
+  card.className = "up-card gcard" + (opts.equipped ? " maxed equipped" : "") + (opts.dim ? " cant" : "") + (opts.hot ? " hotpick" : "");
   if(opts.flashId) card.id = opts.flashId;
   var cv = document.createElement("canvas");
-  cv.width = 160; cv.height = 90; cv.className = "gprev";
+  cv.width = 320; cv.height = 180; cv.className = "gprev";
   card.appendChild(cv);
   var info = document.createElement("div");
   info.innerHTML =
@@ -382,8 +407,8 @@ function renderGliders(){
   var eq = save.glider.equipped;
   var head = document.createElement("div");
   head.className = "glider-head";
-  head.innerHTML = "🪂 <b>GLIDERS</b> — equipped: <b>" +
-    (window.DA.GLIDERS[eq] ? window.DA.GLIDERS[eq].name : "Bare Dodo") + "</b>";
+  head.innerHTML = secHead(SVG_WING, "GLIDERS",
+    "equipped: <b>" + (window.DA.GLIDERS[eq] ? window.DA.GLIDERS[eq].name : "Bare Dodo") + "</b>");
   wrap.appendChild(head);
   window.DA.GLIDERS.forEach(function(gl){
     if(gl.id === 0) return; // Bare Dodo is the free baseline, not a shop card
@@ -413,7 +438,7 @@ function renderRockets(){
   var eq = save.rocket.equipped;
   var head = document.createElement("div");
   head.className = "glider-head";
-  head.innerHTML = "🚀 <b>ROCKET BOOSTERS</b> — equipped: <b>" + rocketName(eq) + "</b>";
+  head.innerHTML = secHead(SVG_ROCKET, "ROCKET BOOSTERS", "equipped: <b>" + rocketName(eq) + "</b>");
   wrap.appendChild(head);
   window.DA.ROCKETS.forEach(function(rk){
     var owned = !!save.rocket.owned[rk.id];
@@ -441,7 +466,7 @@ function renderTracks(){
   grid.innerHTML = "";
   var head = document.createElement("div");
   head.className = "glider-head";
-  head.textContent = "🔧 WORKSHOP — permanent upgrades";
+  head.innerHTML = secHead(SVG_GEAR, "WORKSHOP", "permanent upgrades");
   grid.appendChild(head);
   ["ramp","sled","aero","fuel"].forEach(function(k){
     var u = window.DA.UPGRADES[k];
@@ -454,7 +479,7 @@ function renderTracks(){
     card.className = "up-card" + (maxed?" maxed":"") + (price>save.money&&!maxed?" cant":"") + (hot?" hotpick":"");
     card.id = "card-"+k;
     var cv = document.createElement("canvas");
-    cv.width = 160; cv.height = 90; cv.className = "gprev";
+    cv.width = 320; cv.height = 180; cv.className = "gprev";
     card.appendChild(cv);
     try{ if(window.DA.drawPartPreview) window.DA.drawPartPreview(cv, k, lvl); }catch(e){}
     var pips = "";
@@ -608,22 +633,35 @@ function buy(key, price){
 function drawPreview(){
   var c = $("preview-canvas");
   var g = c.getContext("2d");
-  g.clearRect(0,0,c.width,c.height);
-  var grd = g.createLinearGradient(0,0,0,c.height);
+  var W = c.width || 420, H = c.height || 200;
+  g.clearRect(0,0,W,H);
+  var grd = g.createLinearGradient(0,0,0,H);
   grd.addColorStop(0,"#87b5d6"); grd.addColorStop(1,"#e3f2fd");
-  g.fillStyle = grd; g.fillRect(0,0,c.width,c.height);
-  g.fillStyle = "#fff"; g.fillRect(0,c.height-30,c.width,30);
+  g.fillStyle = grd; g.fillRect(0,0,W,H);
+  // soft sun glow
+  var sun = g.createRadialGradient(W*0.82,H*0.22,4,W*0.82,H*0.22,60);
+  sun.addColorStop(0,"rgba(255,246,200,0.9)"); sun.addColorStop(1,"rgba(255,246,200,0)");
+  g.fillStyle = sun; g.fillRect(0,0,W,H);
+  g.fillStyle = "#fff"; g.fillRect(0,H-32,W,32);
+  g.fillStyle = "#dfe7ec"; g.fillRect(0,H-32,W,3);
   // snow hill
   g.fillStyle = "#f4f8ff";
-  g.beginPath(); g.moveTo(0,c.height-30); g.quadraticCurveTo(90,c.height-90,200,c.height-44); g.lineTo(360,c.height-36); g.lineTo(360,c.height-30); g.closePath(); g.fill();
-  window.DA.World.drawDodo(g, 150, 95, {
+  g.beginPath(); g.moveTo(0,H-32);
+  g.quadraticCurveTo(W*0.25,H-100,W*0.55,H-52);
+  g.lineTo(W,H-40); g.lineTo(W,H-32); g.closePath(); g.fill();
+  g.fillStyle = "rgba(120,150,200,0.25)";
+  g.beginPath(); g.ellipse(W*0.3,H-34,60,8,0,0,7); g.fill();
+  window.DA.World.drawDodo(g, W*0.42, H-72, {
     pitch: -0.15, vx: 20, vy: 4, boosting:false, stalled:false,
     glider: save.glider.equipped, rocket: save.rocket.equipped,
     sledLvl: save.upgrades.sled, aeroLvl: save.upgrades.aero
-  }, 1.5, {});
-  g.fillStyle = "#123"; g.font = "bold 12px sans-serif"; g.textAlign="left";
-  g.fillText("🪂 " + gliderName(save.glider.equipped) + "  •  🚀 " + rocketName(save.rocket.equipped), 8, 16);
-  g.fillText("Ramp "+save.upgrades.ramp+" • Sled "+save.upgrades.sled+" • Aero "+save.upgrades.aero, 8, 32);
+  }, 1.9, {});
+  g.fillStyle = "#123"; g.font = "bold 13px sans-serif"; g.textAlign="left";
+  g.fillText("Ramp "+save.upgrades.ramp+" • Sled "+save.upgrades.sled+" • Aero "+save.upgrades.aero+" • Fuel Lv "+(save.upgrades.fuel||0)+"/5", 10, 20);
+  var lg = $("loadout-glider"), lr = $("loadout-rocket"), lf = $("loadout-fuel");
+  if(lg) lg.textContent = gliderName(save.glider.equipped);
+  if(lr) lr.textContent = rocketName(save.rocket.equipped);
+  if(lf) lf.textContent = "Lv " + (save.upgrades.fuel || 0) + " / 5";
 }
 
 /* ---------- RESULTS ---------- */
@@ -746,8 +784,8 @@ function renderStats(){
     statBox("FLIGHTS", ""+save.flights) +
     statBox("TOTAL EARNED", "$"+save.totalEarned.toLocaleString()) +
     statBox("WALLET", "$"+save.money.toLocaleString()) +
-    statBox("PILOT LEVEL", "Lv "+totalLv()+"/24") +
-    statBox("GLIDERS", ownedGliders()+"/6") +
+    statBox("PILOT LEVEL", "Lv "+totalLv()+"/"+maxLv()) +
+    statBox("GLIDERS OWNED", ownedGliders()+"/"+gliderStockCount()) +
     statBox("ROCKETS", ownedRockets()+"/3");
   var ol = $("objectives-list"); ol.innerHTML = "";
   window.DA.OBJECTIVES.forEach(function(o){

@@ -13,10 +13,10 @@ function priceOf(key, level){ // level = current level, price for next
 // Ramp: better launch geometry (higher lip, steeper exit) + base speed.
 function launchSpeed(rampLvl, sledLvl){
   var r = rampLvl || 0, s = sledLvl || 0;
-  return 28 + r * 2.5 + s * 1.0;
+  return 36 + r * 2.5 + s * 1.0;
 }
 function launchAngleDeg(rampLvl){ return 9 + (rampLvl || 0) * 1.5; } // == ramp exit tangent, see World.rampY
-function rampLipY(rampLvl){ return 14 + (rampLvl || 0) * 1.8; }       // lip height in m, matches ramp track
+function rampLipY(rampLvl){ return 19 + (rampLvl || 0) * 1.6; }       // lip height in m, matches ramp track
 // Sled: FASTER ride (impatience is a virtue) + small launch bonus.
 function sledMult(l){ return 1 + l * 0.28; }
 function rampRideTime(sledLvl){ return Math.max(0.8, 1.2 - (sledLvl || 0) * 0.05); }
@@ -34,8 +34,8 @@ var UPGRADES = {
     name: "Launch Ramp", icon: "🚀",
     blurb: "Taller lip, steeper exit, hotter launch. The single best start.",
     max: 8, base: 270, growth: 2.05,
-    desc: function(l){ return "Lip " + rampLipY(l).toFixed(0) + "m • exit " + launchAngleDeg(l).toFixed(0) + "° • base " + (28 + l*2.5).toFixed(0) + " m/s"; },
-    next: function(l){ return l>=8 ? "MAXED — orbital dodo" : "→ lip " + rampLipY(l+1).toFixed(0) + "m • exit " + launchAngleDeg(l+1).toFixed(0) + "° • base " + (28 + (l+1)*2.5).toFixed(0) + " m/s"; }
+    desc: function(l){ return "Lip " + rampLipY(l).toFixed(0) + "m • exit " + launchAngleDeg(l).toFixed(0) + "° • base " + (36 + l*2.5).toFixed(0) + " m/s"; },
+    next: function(l){ return l>=8 ? "MAXED — orbital dodo" : "→ lip " + rampLipY(l+1).toFixed(0) + "m • exit " + launchAngleDeg(l+1).toFixed(0) + "° • base " + (36 + (l+1)*2.5).toFixed(0) + " m/s"; }
   },
   sled: {
     name: "Waddle Sled", icon: "🛷",

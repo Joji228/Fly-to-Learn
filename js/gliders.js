@@ -4,12 +4,12 @@ if (typeof window === "undefined") { return; }
 if (!window.DA) { window.DA = {}; }
 
 var GLIDERS = [
- {id:0,name:"Bare Dodo",tag:"No gear. Just Dennis and gravity.",price:0,control:1.1,drag:0.085,turnK:0.16,comfort:20,top:32,stall:12,bars:{fly:1,speed:2,ctrl:2},desc:"Flapping counts as trying. Results may vary. They vary."},
- {id:1,name:"Paper Dart",tag:"A giant folded paper plane. Somehow counts.",price:200,control:2.0,drag:0.048,turnK:0.13,comfort:30,top:50,stall:11,bars:{fly:3,speed:5,ctrl:4},desc:"Folded from a very large homework assignment. Flies great until it rains."},
- {id:2,name:"Rainbow Kite Rig",tag:"A loud kite. Surprisingly obedient.",price:700,control:2.7,drag:0.058,turnK:0.10,comfort:32,top:54,stall:8,bars:{fly:5,speed:6,ctrl:9},desc:"Visible from three islands away. Comes with extra string and zero stealth."},
- {id:3,name:"The Compromise",tag:"Wood, cloth, tape. A real glider. Mostly.",price:1900,control:2.1,drag:0.048,turnK:0.09,comfort:38,top:62,stall:9,bars:{fly:6,speed:7,ctrl:6},desc:"Built from spare shed parts and strong opinions. Rattles in a reassuring way."},
- {id:4,name:"Needlefish",tag:"A sleek speed wing. Do not sneeze while flying.",price:5500,control:1.9,drag:0.026,turnK:0.10,comfort:58,top:95,stall:12,bars:{fly:7,speed:10,ctrl:5},desc:"Goes very fast in one direction. Landing is left as an exercise for Dennis."},
- {id:5,name:"Black Swan X-1",tag:"Experimental carbon. Probably legal.",price:17000,control:2.9,drag:0.018,turnK:0.04,comfort:68,top:110,stall:9,bars:{fly:10,speed:10,ctrl:10},desc:"Hums ominously and glows for no reason. The manual is just a winking face."}
+ {id:0,name:"Bare Dodo",tag:"No gear. Just Dennis and gravity.",price:0,control:1.1,drag:0.085,turnK:0.16,comfort:20,top:32,stall:12,sink:0.38,bars:{fly:1,speed:2,ctrl:2},desc:"Flapping counts as trying. Results may vary. They vary."},
+ {id:1,name:"Paper Dart",tag:"A giant folded paper plane. Somehow counts.",price:200,control:2.0,drag:0.050,turnK:0.13,comfort:30,top:50,stall:11,sink:0.09,bars:{fly:3,speed:5,ctrl:4},desc:"Folded from a very large homework assignment. Flies great until it rains."},
+ {id:2,name:"Rainbow Kite Rig",tag:"A loud kite. Surprisingly obedient.",price:700,control:2.7,drag:0.044,turnK:0.09,comfort:32,top:56,stall:8,sink:0.085,bars:{fly:5,speed:6,ctrl:9},desc:"Visible from three islands away. Comes with extra string and zero stealth."},
+ {id:3,name:"The Compromise",tag:"Wood, cloth, tape. A real glider. Mostly.",price:1900,control:2.6,drag:0.038,turnK:0.08,comfort:38,top:64,stall:8,sink:0.07,bars:{fly:7,speed:7,ctrl:7},desc:"Built from spare shed parts and strong opinions. Rattles in a reassuring way."},
+ {id:4,name:"Needlefish",tag:"A sleek speed wing. Do not sneeze while flying.",price:5500,control:2.4,drag:0.026,turnK:0.08,comfort:58,top:95,stall:9,sink:0.055,bars:{fly:8,speed:10,ctrl:7},desc:"Goes very fast in one direction. Landing is left as an exercise for Dennis."},
+ {id:5,name:"Black Swan X-1",tag:"Experimental carbon. Probably legal.",price:17000,control:2.9,drag:0.018,turnK:0.04,comfort:68,top:110,stall:8,sink:0.04,bars:{fly:10,speed:10,ctrl:10},desc:"Hums ominously and glows for no reason. The manual is just a winking face."}
 ];
 
 var ROCKETS = [
