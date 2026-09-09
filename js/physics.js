@@ -10,10 +10,16 @@
      TOO STEEP -> speed collapses, you stall and fall (lower nose to recover)
      BOOST     -> rapid acceleration EXACTLY where the nose points
 
-   How it works: the glider gently STEERS its velocity vector toward the
-   pitch (limited turn rate = control). Plain gravity then does the energy
-   magic: dives accelerate, climbs decelerate, level glides. No AoA curves,
-   no induced-drag equations, no thin air. Momentum you can feel.
+   How it works: the glider nudges its velocity vector toward the pitch
+   with small capped rotations, so gravity's fall PERSISTS instead of being
+   rebuilt away. Plain gravity then does the energy magic: dives accelerate,
+   climbs decelerate, level glides. No AoA curves, no induced-drag equations,
+   no thin air. Momentum you can feel.
+
+   NO GLIDER = NO GLIDING: Bare Dodo (p.bare) flies like a falling body —
+   ~15% steering, heavy extra sink, fast horizontal bleed. The first real
+   glider is a massive unlock because suddenly momentum, steering, glide,
+   dives and pull-ups all start working.
 
    Exported for game loop AND for node test simulations. */
 (function(){
@@ -24,8 +30,9 @@ var PITCH_RATE = 3.2;        // rad/s — 0 to ±30deg in ~0.2s, arcade snap
 var PITCH_SMOOTH = 28;       // higher = snappier settle, no trailing drift
 var MAX_PITCH = 1.15;        // ~66 deg
 var MIN_PITCH = -1.15;
-var DIVE_K = 8.0;            // arcade dive assist along the path (gravity does most now)
-var STEER_GAIN = 1.6;        // global trajectory responsiveness (glider ladder untouched)
+var DIVE_K = 10.0;           // arcade dive assist along the path (feel it!)
+var STEER_GAIN = 2.0;        // global trajectory responsiveness (glider ladder untouched)
+var BARE_SINK = 9.0;         // extra fall for the glider-less: no free gliding
 var REDLINE_K = 0.25;        // shared redline drag strength (soft top speed)
 var OVER_TOP_K = 0.6;        // extra drag past redline top
 var DEG = 180 / Math.PI;
@@ -39,7 +46,7 @@ function wrapAngle(a){
 
 /* One physics step. state: {x,y,vx,vy,pitch,pitchVel,fuel,airTime,speed}
    input: {up:bool,down:bool,boost:bool}
-   params: {control,drag,turnK,comfort,top,stall,thrust,fuelMax}
+   params: {control,drag,turnK,comfort,top,stall,thrust,fuelMax,bare}
    returns {stalled, boosting} */
 function stepFlight(s, input, p, dt){
   if(!(dt > 0)) dt = 0.016;
@@ -83,6 +90,13 @@ function stepFlight(s, input, p, dt){
   // --- gravity: the engine of all fun (dives pay, climbs cost) ---
   s.vy -= GRAVITY * dt;
   if(stalled) s.vy -= 5 * dt; // stalled wings barely hold you: drop decisively
+  // NO GLIDER = NO GLIDING: bare Dennis falls like a body, always.
+  // (Gliders rely on steering to fight this; bare steering is ~15%.)
+  var bare = !!p.bare;
+  if(bare) s.vy -= BARE_SINK * dt;
+  // Slow flight sinks hard: below ~12 m/s no wing can hold you up, so the
+  // fall steepens instead of porpoising in place. Healthy speed unaffected.
+  if(speed < 12) s.vy -= (12 - speed) * 1.2 * dt;
 
   // --- arcade dive assist: pointing downhill adds a controlled bonus push
   // along the path so dives feel powerful without touching top speeds much
@@ -97,12 +111,17 @@ function stepFlight(s, input, p, dt){
   // --- steering: INCREMENTAL perpendicular nudge toward the nose ---
   // The velocity vector is rotated by a small capped angle each step, so
   // gravity's vy contribution PERSISTS instead of being rebuilt away.
-  // Authority collapses at low speed (20-30%: gravity wins, you fall) and
-  // is full at healthy flight speed, with a touch extra when very fast.
-  // High speed + nose-up therefore arcs hard; low speed + nose-up mushes.
+  // Authority is superlinear in speed: it collapses hard below ~20 m/s
+  // (gravity wins, you fall — no low-speed hovering, no self-recovery
+  // into a mushy level hover) and is full at healthy flight speed, with
+  // a touch extra when very fast.
+  // Bare Dodo gets ~15% authority on top: enough to aim the fall, never
+  // enough to fly. High speed + nose-up therefore arcs hard for gliders;
+  // low speed + nose-up mushes for everyone.
   speed = Math.sqrt(s.vx*s.vx + s.vy*s.vy);
   var velAng = Math.atan2(s.vy, s.vx);
-  var authority = clamp((speed - 6) / 20, 0.2, 1) * (stalled ? 0.25 : 1);
+  var authority = clamp(Math.pow(Math.max(0, speed - 6) / 20, 1.6), 0.1, 1) * (stalled ? 0.25 : 1);
+  if(bare) authority *= 0.15;
   if(speed > 55) authority *= 1.1;
   var diff = wrapAngle(s.pitch - velAng);
   var steerRate = (p.control || 1.5) * authority * STEER_GAIN;
@@ -128,6 +147,7 @@ function stepFlight(s, input, p, dt){
   // Below comfort: clean. Approaching top: drag swells. Past top: wall.
   // (No hard clamp — drag is the speed limit, plus a huge safety net.)
   // Drag opposes CURRENT motion (already steered above — never rebuilt).
+  // Bare bodies are extra draggy: horizontal speed bleeds out quickly.
   speed = Math.sqrt(s.vx*s.vx + s.vy*s.vy);
   var red = 0;
   if(speed > p.comfort){
@@ -136,6 +156,7 @@ function stepFlight(s, input, p, dt){
     if(speed > p.top) red += OVER_TOP_K;
   }
   var dragF = (0.5 * speed * speed * 0.15 * p.drag) + (speed * speed * 0.004 * red);
+  if(bare) dragF *= 1.8;
   if(speed > 0.5){
     // drag opposes CURRENT motion (already steered above — never rebuilt)
     var vNew = Math.max(0, speed - dragF * dt);

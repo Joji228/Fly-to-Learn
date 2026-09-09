@@ -33,6 +33,7 @@ function derivedParams(up, gliderId, rocketId){
   var R = (DA.ROCKETS && rocketId >= 0) ? DA.ROCKETS[rocketId] : null;
   var aero = up.aero || 0;
   return {
+    bare: gliderId === 0, // NO GLIDER = NO GLIDING (falling-body flight mode)
     control: G.control,
     drag: G.drag * (1 - 0.055 * aero), // aero shaves body drag, honestly stacked
     turnK: G.turnK,
