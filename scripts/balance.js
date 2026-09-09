@@ -45,7 +45,8 @@ function flyGlider(gid, up) {
     t += dt;
     if (S.y <= 0 && t > 0.5) break;
   }
-  return { dist: Math.max(0, S.x), air: t, alt: maxAlt, top: maxSpd * 3.6, launch: spd * 3.6 };
+  // lip-relative distance, like the game HUD (launch at x=140)
+  return { dist: Math.max(0, S.x - 140), air: t, alt: maxAlt, top: maxSpd * 3.6, launch: spd * 3.6 };
 }
 
 console.log("glider | launch | distance | airtime | maxAlt | maxSpeed");

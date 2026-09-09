@@ -31,7 +31,12 @@ var PITCH_SMOOTH = 28;       // higher = snappier settle, no trailing drift
 var MAX_PITCH = 1.15;        // ~66 deg
 var MIN_PITCH = -1.15;
 var STEER_GAIN = 3.0;        // global trajectory responsiveness (glider ladder untouched)
-var DIVE_K = 8.0;            // downhill-only entry snap (too weak to sustain flight)
+// DIVE_K removed (was 8.0): the downhill-only entry snap turned out to be
+// a free-energy pump — each porpoise cycle harvested it on the way down
+// and kept the change, so active porpoising with efficient wings flew
+// forever (proven by sim: 36 km+ unpowered). Gravity alone powers every
+// fall now; each descent must be repaid on the climb back, so porpoising
+// always decays. Dive entries stay snappy (gravity is 30 m/s^2).
 var OVER_TOP_K = 1.25;       // extra drag past redline top: firm, brief overshoot OK
 var BARE_SINK = 12.0;        // extra fall for the glider-less: no free gliding
 var REDLINE_K = 0.25;        // shared redline drag strength (soft top speed)
@@ -47,7 +52,7 @@ function wrapAngle(a){
 /* One physics step. state: {x,y,vx,vy,pitch,pitchVel,fuel,airTime,speed}
    input: {up:bool,down:bool,boost:bool}
    params: {control,drag,turnK,comfort,top,stall,thrust,fuelMax,bare,sinkBias}
-   returns {stalled, boosting} */
+    returns {stalled, boosting, turb} */
 function stepFlight(s, input, p, dt){
   if(!(dt > 0)) dt = 0.016;
   if(dt > 1/30) dt = 1/30;
@@ -70,9 +75,11 @@ function stepFlight(s, input, p, dt){
   if(s.pitch < MIN_PITCH){ s.pitch = MIN_PITCH; if(s.pitchVel < 0) s.pitchVel = 0; }
 
   // --- stall: simple and legible. Slow + trying to climb = fall out. ---
-  // A steep nose-up stalls EARLIER (wings give up sooner when yanked).
+  // A steep nose-up stalls EARLIER (yanked wings give up sooner), so a
+  // slow high-nose hang falls out instead of hovering in place. Fast zoom
+  // climbs at healthy speed stay far above the raised line and are unaffected.
   var speed = Math.sqrt(s.vx*s.vx + s.vy*s.vy);
-  var stallMargin = (s.pitch > 0.5) ? 3 : 0;
+  var stallMargin = (s.pitch > 0.5) ? Math.min(12, 3 + (s.pitch - 0.5) * 40) : 0;
   var stalled = (speed < p.stall + stallMargin && s.pitch > 0.18);
   if(stalled){
     s.pitch -= 2.8 * dt; // nose falls fast: STALL -> DIVE -> SPEED, quickly
@@ -96,22 +103,12 @@ function stepFlight(s, input, p, dt){
   // (Gliders rely on steering to fight this; bare steering is ~15%.)
   var bare = !!p.bare;
   if(bare) s.vy -= BARE_SINK * dt;
-  // Slow flight sinks hard: below ~12 m/s no wing can hold you up, so the
-  // fall steepens instead of porpoising in place. Healthy speed unaffected.
-  if(speed < 12) s.vy -= (12 - speed) * 1.2 * dt;
 
   // NOTE: no fall-assist pump — gravity alone powers every fall, so each
   // descent must be repaid on the climb back. Free descent energy turns
-  // porpoising into perpetual motion; honest gravity plus drag guarantees
-  // every flight eventually ends. Redline drag still caps each glider's top.
-  // A SMALL downhill-only nudge (DIVE_K) sharpens dive entries; it is far
-  // too weak to sustain flight on its own (proven by sim: all runs land).
-  var preDiveAng = Math.atan2(s.vy, s.vx);
-  if(preDiveAng < -0.08 && s.pitch < -0.05){
-    var db = DIVE_K * Math.min(1, (-preDiveAng) / 0.6);
-    s.vx += Math.cos(preDiveAng) * db * dt;
-    s.vy += Math.sin(preDiveAng) * db * dt;
-  }
+  // porpoising into perpetual motion (a downhill-only snap of 8 was proven
+  // to sustain 36 km+ unpowered flights); honest gravity plus drag
+  // guarantees every flight eventually ends. Redline drag caps top speed.
 
   // --- steering: INCREMENTAL perpendicular nudge toward the nose ---
   // The velocity vector is rotated by a small capped angle each step, so
@@ -134,7 +131,7 @@ function stepFlight(s, input, p, dt){
   var velAng = Math.atan2(s.vy, s.vx);
   var authority = clamp(Math.pow(Math.max(0, speed - 6) / 20, 1.6), 0.1, 1) * (stalled ? 0.25 : 1);
   var diff = wrapAngle((s.pitch - (p.sinkBias || 0)) - velAng);
-  if(diff > 0) authority *= clamp((speed - 10) / 18, 0.15, 1); // up-rotations need airspeed
+  if(diff > 0) authority *= clamp((speed - 16) / 12, 0.05, 1); // up-rotations need real airspeed
   if(bare) authority *= 0.12;
   if(speed > 55) authority *= 1.1;
   var steerRate = (p.control || 1.5) * authority * STEER_GAIN;
@@ -155,6 +152,32 @@ function stepFlight(s, input, p, dt){
     var cost = Math.exp(-(p.turnK || 0.1) * (trAbs - 0.6) * dt);
     s.vx *= cost; s.vy *= cost;
   }
+  // --- saturated-trim heater: a SUSTAINED one-direction hover is expensive.
+  // Pinning the trim against its cap with a LARGE sustained tracking error
+  // (|diff| > ~26 deg) in the SAME direction for many seconds (high-lift
+  // mush) builds heat, which bleeds energy until the hover collapses.
+  // Small corrections never qualify (absolute-error gate), so cruise and
+  // feathered piloting stay cool; brief yanks qualify but flip every
+  // second or two, which restarts the clock. It builds SLOWLY (full in
+  // ~10 s) and cools FAST, and the bleed is QUADRATIC in heat: small
+  // warmth costs ~nothing, full heat costs a lot. A minutes-long steady
+  // hover therefore pays full rate for 95%+ of its life and dies, while
+  // normal flight — even clumsy bang-bang corrections — pays ~nothing.
+  // No speed gate anywhere in this.
+  if(typeof s.hoverHeat !== "number" || !isFinite(s.hoverHeat)) s.hoverHeat = 0;
+  var unsat = Math.abs(diff) - maxTurn;
+  var tdir = (turn > 1e-9) ? 1 : ((turn < -1e-9) ? -1 : 0);
+  if(unsat > 0.2 && tdir !== 0 && Math.abs(diff) > 0.45){
+    if((s.hoverHeat > 0 ? 1 : ((s.hoverHeat < 0) ? -1 : 0)) === tdir && Math.abs(s.hoverHeat) > 1e-9)
+      s.hoverHeat = Math.max(-1.2, Math.min(1.2, s.hoverHeat + tdir * dt / 8));
+    else s.hoverHeat = tdir * dt / 8; // flip (or start): restart the clock
+  } else if(s.hoverHeat > 0) s.hoverHeat = Math.max(0, s.hoverHeat - 5 * dt);
+  else if(s.hoverHeat < 0) s.hoverHeat = Math.min(0, s.hoverHeat + 5 * dt);
+  if(s.hoverHeat > 0.01 || s.hoverHeat < -0.01){
+    var hh = s.hoverHeat * s.hoverHeat;
+    var heatCost = Math.exp(-0.5 * hh * dt);
+    s.vx *= heatCost; s.vy *= heatCost;
+  }
 
   // --- drag: quadratic body drag + soft redline per glider ---
   // Below comfort: clean. Approaching top: drag swells. Past top: wall.
@@ -169,6 +192,14 @@ function stepFlight(s, input, p, dt){
     if(speed > p.top) red += OVER_TOP_K;
   }
   var dragF = (0.5 * speed * speed * 0.15 * p.drag) + (speed * speed * 0.004 * red);
+  // --- upper-air turbulence: a dodo does not belong up here. Above ~150 m
+  // the ride shakes and bleeds speed, so banked boost altitude spends
+  // itself instead of floating forever. Low flight (where every stock
+  // glider lives) is completely untouched; diving back down recovers
+  // clean air. This is what guarantees long high flights always decay.
+  var turb = 0;
+  if(s.y > 150) turb = Math.min(1, (s.y - 150) / 150);
+  dragF += turb * 6.0;
   if(bare) dragF *= 2.0;
   if(speed > 0.5){
     // drag opposes CURRENT motion (already steered above — never rebuilt)
@@ -188,15 +219,7 @@ function stepFlight(s, input, p, dt){
   if(s.x < 0){ s.x = 0; if(s.vx < 0) s.vx = 0; }
   s.airTime += dt;
   s.speed = Math.sqrt(s.vx*s.vx + s.vy*s.vy);
-  return { stalled:stalled, boosting:boosting };
-}
-
-/* Ramp slide speed profile 0..launchSpeed (HUD + feel; actual launch uses
-   the built-up speed along the ramp exit tangent). */
-function rampSlide(t, duration, launchSpeed){
-  var k = clamp(t / duration, 0, 1);
-  var eased = k*k*(3-2*k)*0.4 + k*k*0.6;
-  return eased * launchSpeed;
+  return { stalled:stalled, boosting:boosting, turb:turb };
 }
 
 function econReward(stat){
@@ -215,8 +238,8 @@ function fmtDist(m){
 }
 
 var api = { GRAVITY:GRAVITY, PITCH_RATE:PITCH_RATE, MAX_PITCH:MAX_PITCH, MIN_PITCH:MIN_PITCH,
-  DIVE_K:DIVE_K, clamp:clamp, wrapAngle:wrapAngle,
-  stepFlight:stepFlight, rampSlide:rampSlide, econReward:econReward, fmtDist:fmtDist };
+  DIVE_K:0, clamp:clamp, wrapAngle:wrapAngle, // DIVE_K retired (was an energy pump); kept as 0 for API compat
+  stepFlight:stepFlight, econReward:econReward, fmtDist:fmtDist };
 
 // browser + node compatibility
 if(typeof window !== "undefined"){ window.DA = window.DA || {}; window.DA.Physics = api; }

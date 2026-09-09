@@ -11,6 +11,7 @@ function init(s){
   buildSpeedo();
   renderShop();
   refreshMenu();
+  refreshModeBtn();
   applySettingsToInputs();
   window.DA.Audio.setEnabled(save.settings.sfx, save.settings.music);
   if(save.settings.music) window.DA.Audio.startMusic();
@@ -41,6 +42,24 @@ function bindButtons(){
     toast("💸 Wallet emptied. Bold strategy.");
   };
   $("btn-resume").onclick = function(){ click(); window.DA.pauseGame(false); };
+  // shop section nav: the hangar is long; jumping beats hunting
+  function navTo(id){
+    return function(){
+      click();
+      var el = $(id);
+      if(el && el.scrollIntoView){
+        try{ el.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "start" }); }
+        catch(e){ try{ el.scrollIntoView(); }catch(e2){} }
+      }
+    };
+  }
+  $("nav-gliders").onclick = navTo("glider-grid");
+  $("nav-rockets").onclick = navTo("rocket-grid");
+  $("nav-workshop").onclick = navTo("shop-grid");
+  $("btn-mode").onclick = function(){ click(); switchMode(); };
+  $("btn-export").onclick = function(){ click(); exportSave(); };
+  $("btn-import").onclick = function(){ click(); $("import-file").click(); };
+  $("import-file").onchange = function(e){ importSave(e); };
   $("btn-restart").onclick = function(){
     click();
     window.DA.pauseGame(false);
@@ -87,12 +106,71 @@ function giveMoney(n){
   toast("🎮 +$" + n.toLocaleString() + " added. Spend it wisely-ish.");
 }
 function updateMuteBtn(){ $("btn-mute-hud").textContent = save.settings.sfx ? "🔊" : "🔇"; }
+/* Campaign <-> sandbox: separate saves, separate progress. Switching saves
+   the current mode first so nothing is lost, then reloads the other. */
+function refreshModeBtn(){
+  var b = $("btn-mode");
+  if(b) b.textContent = "🗂️ Mode: " + (window.DA.Save.getMode() === "sandbox" ? "Sandbox" : "Campaign");
+}
+function switchMode(){
+  window.DA.Save.save(save); // bank current mode first
+  var next = window.DA.Save.getMode() === "sandbox" ? "campaign" : "sandbox";
+  window.DA.Save.setMode(next);
+  save = window.DA.Save.load();
+  window.DA.Game.save = save;
+  if(window.DA.Game.particles) window.DA.Game.particles.enabled = save.settings.particles;
+  applySettingsToInputs(); refreshMenu(); renderShop(); refreshModeBtn();
+  window.DA.Audio.setEnabled(save.settings.sfx, save.settings.music);
+  toast(next === "sandbox" ? "🗂️ Sandbox save — separate progress, same sky." : "🗂️ Campaign save — the grind continues.");
+}
+function exportSave(){
+  try{
+    var blob = new Blob([window.DA.Save.exportJSON()], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "dodo-airways-" + window.DA.Save.getMode() + ".json";
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ try{ URL.revokeObjectURL(a.href); a.remove(); }catch(e){} }, 500);
+    toast("💾 Save exported. Guard it with your life.");
+  }catch(e){ toast("❌ Export failed in this browser."); }
+}
+function importSave(e){
+  try{
+    var f = e && e.target && e.target.files && e.target.files[0];
+    if(!f) return;
+    var rd = new FileReader();
+    rd.onload = function(){
+      try{
+        save = window.DA.Save.importJSON(String(rd.result || ""));
+        window.DA.Game.save = save;
+        if(window.DA.Game.particles) window.DA.Game.particles.enabled = save.settings.particles;
+        applySettingsToInputs(); refreshMenu(); renderShop(); refreshModeBtn();
+        window.DA.Audio.setEnabled(save.settings.sfx, save.settings.music);
+        toast("📥 Save imported. Welcome back, Dennis.");
+      }catch(err){ toast("❌ That file is not a valid save."); }
+      try{ e.target.value = ""; }catch(e2){}
+    };
+    rd.readAsText(f);
+  }catch(e2){ toast("❌ Import failed in this browser."); }
+}
+/* Reduced motion: OS preference OR shake toggle off. Kills CSS animation
+   globally (body class) and gates JS-driven flashes / FOV punches. */
+function reducedMotion(){
+  try{
+    if(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
+  }catch(e){}
+  return !save.settings.shake;
+}
+function applyMotionClass(){
+  try{ document.body.classList.toggle("reduced-motion", reducedMotion()); }catch(e){}
+}
 function applySettingsToInputs(){
   $("set-sfx").checked = save.settings.sfx;
   $("set-music").checked = save.settings.music;
   $("set-shake").checked = save.settings.shake;
   $("set-particles").checked = save.settings.particles;
   updateMuteBtn();
+  applyMotionClass();
 }
 
 var subReturn = "menu";
@@ -142,6 +220,10 @@ function refreshMenu(){
 
 function showFlight(){
   hideAll();
+  // FIX: drop focus from any menu button — a focused LAUNCH/PLAY AGAIN
+  // button would ALSO fire on Space/Enter mid-flight (double launch /
+  // stuck booster). Flying starts with no focused control.
+  try{ if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); }catch(e){}
   $("hud").classList.remove("hidden");
   setSpeedoVisible(true);
   $("touch-controls").classList.remove("hidden");
@@ -154,7 +236,10 @@ function showFlight(){
 function updateHUD(){
   var G = window.DA.Game;
   if(!G.S) return;
-  $("hud-dist").textContent = window.DA.Physics.fmtDist(Math.max(0,G.S.x));
+  // lip-relative distance (0 at launch) — same origin as milestones/landing
+  var LX = (window.DA.LAUNCH_X === undefined) ? 140 : window.DA.LAUNCH_X;
+  var dist = (window.DA.flightDist ? window.DA.flightDist() : Math.max(0, G.S.x - LX));
+  $("hud-dist").textContent = window.DA.Physics.fmtDist(dist);
   $("hud-alt").textContent = Math.max(0,G.S.y).toFixed(0)+" m";
   updateSpeedo(G);
   var hasBooster = !!(G.P && G.P.thrust > 0);
@@ -170,7 +255,7 @@ function updateHUD(){
   $("hud-best").textContent = window.DA.Physics.fmtDist(save.best.dist);
   // pause panel run readout (kept fresh live; shown only when paused)
   var pd = $("pause-stat-dist"), ps2 = $("pause-stat-speed"), pa = $("pause-stat-alt");
-  if(pd) pd.textContent = window.DA.Physics.fmtDist(Math.max(0,G.S.x));
+  if(pd) pd.textContent = window.DA.Physics.fmtDist(dist);
   if(ps2) ps2.textContent = Math.round((G.S.speed||0)*3.6)+" km/h";
   if(pa) pa.textContent = Math.max(0,G.S.y).toFixed(0)+" m";
   $("phase-label").textContent = G.phase==="ramp" ? "🛷 RAMP!" : (G.S.boosting?"🔥 BOOST!":(G.S.stalled?"⚠ STALL":"🕊️ FLY"));
@@ -302,6 +387,7 @@ function onLaunch(){ window.DA.Audio.ensure(); window.DA.Audio.SFX.whoosh(); }
 // boost ignition: flash + fuel glow + speed punch reset
 function onBoostStart(){
   window.DA.Audio.SFX.ignite();
+  if(reducedMotion()) return;
   var f = document.getElementById("flash");
   if(f){ f.style.transition="none"; f.style.opacity="0.25"; f.style.background="#ffdca8";
     requestAnimationFrame(function(){ f.style.transition="opacity 0.25s"; f.style.opacity="0"; setTimeout(function(){ f.style.background="#fff"; }, 300); }); }
@@ -349,6 +435,12 @@ function rocketName(id){
 }
 function renderShop(){
   $("shop-cash").textContent = "$" + save.money.toLocaleString();
+  // savings-goal line: same wallet number as the affordable nudge
+  var sg = $("shop-goal"), goal = savingsGoal();
+  if(sg) sg.textContent = goal
+    ? ("🎯 SAVINGS GOAL: " + goal.label + " $" + goal.price.toLocaleString() +
+       " — $" + save.money.toLocaleString() + " saved (" + goal.pct + "%)")
+    : "🎯 No goal — everything maxed. Magnificent.";
   computeHotPick();
   renderGliders();
   renderRockets();
@@ -417,18 +509,22 @@ function renderGliders(){
   var eq = save.glider.equipped;
   var head = document.createElement("div");
   head.className = "glider-head";
-  head.innerHTML = secHead(SVG_WING, "GLIDERS",
-    "equipped: <b>" + (window.DA.GLIDERS[eq] ? window.DA.GLIDERS[eq].name : "Bare Dodo") + "</b>");
+  head.innerHTML = secHead(SVG_WING, "GLIDERS", sectionSummary("glider"));
   wrap.appendChild(head);
   window.DA.GLIDERS.forEach(function(gl){
     if(gl.id === 0) return; // Bare Dodo is the free baseline, not a shop card
     var owned = !!save.glider.owned[gl.id];
     var equipped = (eq === gl.id);
     var hot = isHotPick("glider", gl.id);
+    // comparison deltas vs the equipped glider (same bars the shop shows)
+    var egl = window.DA.GLIDERS[eq] || window.DA.GLIDERS[0];
+    var delta = (gl.id === eq) ? "" : '<div class="up-next">vs ' + egl.name + ": GLIDE " +
+      fmtDelta(gl.bars.fly - egl.bars.fly) + " • SPEED " + fmtDelta(gl.bars.speed - egl.bars.speed) +
+      " • CTRL " + fmtDelta(gl.bars.ctrl - egl.bars.ctrl) + "</div>";
     wrap.appendChild(equipCard({
       name: gl.name, tag: gl.tag,
       status: equipped ? "EQUIPPED" : owned ? "OWNED" : "$" + gl.price.toLocaleString(),
-      barsHtml: statBar("GLIDE", gl.bars.fly) + statBar("SPEED", gl.bars.speed) + statBar("CONTROL", gl.bars.ctrl),
+      barsHtml: statBar("GLIDE", gl.bars.fly) + statBar("SPEED", gl.bars.speed) + statBar("CONTROL", gl.bars.ctrl) + delta,
       preview: function(cv){ window.DA.drawGliderPreview(cv, gl.id); },
       equipped: equipped, dim: !owned && gl.price > save.money,
       flashId: "card-glider-" + gl.id, hot: hot,
@@ -448,16 +544,21 @@ function renderRockets(){
   var eq = save.rocket.equipped;
   var head = document.createElement("div");
   head.className = "glider-head";
-  head.innerHTML = secHead(SVG_ROCKET, "ROCKET BOOSTERS", "equipped: <b>" + rocketName(eq) + "</b>");
+  head.innerHTML = secHead(SVG_ROCKET, "ROCKET BOOSTERS", sectionSummary("rocket"));
   wrap.appendChild(head);
   window.DA.ROCKETS.forEach(function(rk){
     var owned = !!save.rocket.owned[rk.id];
     var equipped = (eq === rk.id);
     var hot = isHotPick("rocket", rk.id);
+    // real numbers (same table the physics uses) + deltas vs equipped
+    var erk = (eq >= 0 && window.DA.ROCKETS[eq]) ? window.DA.ROCKETS[eq] : null;
+    var rdelta = '<div class="up-next">THRUST ' + rk.thrust + " • BURN " + rk.burn.toFixed(1) + "s" +
+      ((erk && erk.id !== rk.id) ? ("  (vs " + erk.name + ": " + fmtDelta(rk.thrust - erk.thrust) +
+        " thrust • " + fmtDelta(Math.round((rk.burn - erk.burn) * 10) / 10) + "s burn)") : "") + "</div>";
     wrap.appendChild(equipCard({
       name: rk.name, tag: rk.tag,
       status: equipped ? "EQUIPPED" : owned ? "OWNED" : "$" + rk.price.toLocaleString(),
-      barsHtml: statBar("THRUST", rk.bars.thrust) + statBar("BURN", rk.bars.burn),
+      barsHtml: statBar("THRUST", rk.bars.thrust) + statBar("BURN", rk.bars.burn) + rdelta,
       preview: function(cv){ window.DA.drawRocketPreview(cv, rk.id); },
       equipped: equipped, dim: !owned && rk.price > save.money,
       flashId: "card-rocket-" + rk.id, hot: hot,
@@ -476,7 +577,7 @@ function renderTracks(){
   grid.innerHTML = "";
   var head = document.createElement("div");
   head.className = "glider-head";
-  head.innerHTML = secHead(SVG_GEAR, "WORKSHOP", "permanent upgrades");
+  head.innerHTML = secHead(SVG_GEAR, "WORKSHOP", sectionSummary("track"));
   grid.appendChild(head);
   ["ramp","sled","aero","fuel"].forEach(function(k){
     var u = window.DA.UPGRADES[k];
@@ -619,10 +720,36 @@ function rankedPurchases(affordableOnly){
   cands.sort(function(a,b){ return (a.prio - b.prio) || (a.price - b.price); });
   return cands;
 }
+/* Section summaries: every shop section gets a live one-liner (owned /
+   equipped / next buy) so the hangar reads at a glance. */
+function nextInSection(type){
+  var cands = rankedPurchases(false);
+  for(var i = 0; i < cands.length; i++) if(cands[i].type === type) return cands[i];
+  return null;
+}
+function sectionSummary(type){
+  var nx = nextInSection(type);
+  var tail = nx ? (" • next: " + nx.label + " $" + nx.price.toLocaleString()) : " • all maxed ★";
+  if(type === "glider") return "owned " + ownedGliders() + "/" + gliderStockCount() + " • equipped: " + gliderName(save.glider.equipped) + tail;
+  if(type === "rocket") return "owned " + ownedRockets() + "/3 • equipped: " + rocketName(save.rocket.equipped) + tail;
+  return "Lv " + totalLv() + "/" + maxLv() + tail;
+}
 /* Next purchase to point at (menu SHOP glow, results nudge). */
 function nextAffordable(){
   var cands = rankedPurchases(false);
   return cands.length ? cands[0] : null;
+}
+/* Savings goal: ONE wallet number, shared by the affordable nudge and the
+   goal line. The goal is simply the next recommended purchase. */
+function savingsGoal(){
+  var nx = nextAffordable();
+  if(!nx) return null;
+  return { label: nx.label, price: nx.price,
+    pct: Math.min(100, Math.floor(100 * save.money / Math.max(1, nx.price))) };
+}
+function fmtDelta(d, suffix){
+  if(d === 0) return "±0";
+  return (d > 0 ? "+" : "") + d + (suffix || "");
 }
 /* Cheapest AFFORDABLE purchase right now (for the in-shop hotpick). */
 var hotPick = null;
@@ -844,14 +971,31 @@ function enterPressed(){
   if(!$("screen-menu").classList.contains("hidden")) window.DA.startRun();
   else if(!$("screen-results").classList.contains("hidden")) window.DA.startRun();
 }
+/* ESC backs out one screen level: sub-screens return to where they came
+   from, the shop returns to the menu. Results/menu/flight ignore it
+   (results auto-advances; flight uses ESC for pause, handled in game.js). */
+function escapePressed(){
+  if(!$("screen-stats").classList.contains("hidden") ||
+     !$("screen-settings").classList.contains("hidden") ||
+     !$("screen-cheats").classList.contains("hidden")) goBackFromSub();
+  else if(!$("screen-shop").classList.contains("hidden")) showMenu();
+}
 
 window.DA = window.DA || {};
 window.DA.UI = { init:init, showMenu:showMenu, showShop:showShop, showFlight:showFlight,
   updateHUD:updateHUD, showResults:showResults, onRecord:onRecord, onCrash:onCrash,
   onLaunch:onLaunch, onBoostStart:onBoostStart,
-  toast:toast, floatText:floatText, enterPressed:enterPressed, refreshMenu:refreshMenu, renderShop:renderShop,
+  reducedMotion:reducedMotion,
+  toast:toast, floatText:floatText, enterPressed:enterPressed, escapePressed:escapePressed, refreshMenu:refreshMenu, renderShop:renderShop,
   onRunStart:onRunStart,
   /* test hook: rank purchases for a synthetic save without touching live state */
-  testRank: function(saveState){ var real = save; save = saveState; var r; try{ r = rankedPurchases(false); }finally{ save = real; } return r; } };
+  testRank: function(saveState){ var real = save; save = saveState; var r; try{ r = rankedPurchases(false); }finally{ save = real; } return r; },
+  /* test hook: section summaries + savings goal for a synthetic save */
+  testShopText: function(saveState){
+    var real = save; save = saveState; var r;
+    try{ r = { glider: sectionSummary("glider"), rocket: sectionSummary("rocket"), track: sectionSummary("track"), goal: savingsGoal() }; }
+    finally{ save = real; }
+    return r;
+  } };
 })();
 

@@ -5,17 +5,17 @@ if (!window.DA) { window.DA = {}; }
 
 var GLIDERS = [
  {id:0,name:"Bare Dodo",tag:"No gear. Just Dennis and gravity.",price:0,control:1.1,drag:0.085,turnK:0.16,comfort:20,top:32,stall:12,sink:0.38,bars:{fly:1,speed:2,ctrl:2},desc:"Flapping counts as trying. Results may vary. They vary."},
- {id:1,name:"Paper Dart",tag:"A giant folded paper plane. Somehow counts.",price:200,control:2.0,drag:0.050,turnK:0.13,comfort:30,top:50,stall:11,sink:0.09,bars:{fly:3,speed:5,ctrl:4},desc:"Folded from a very large homework assignment. Flies great until it rains."},
- {id:2,name:"Rainbow Kite Rig",tag:"A loud kite. Surprisingly obedient.",price:700,control:2.5,drag:0.044,turnK:0.09,comfort:32,top:56,stall:8,sink:0.085,bars:{fly:5,speed:6,ctrl:6},desc:"Visible from three islands away. Comes with extra string and zero stealth."},
- {id:3,name:"The Compromise",tag:"Wood, cloth, tape. A real glider. Mostly.",price:1900,control:2.6,drag:0.038,turnK:0.08,comfort:38,top:64,stall:8,sink:0.07,bars:{fly:7,speed:7,ctrl:7},desc:"Built from spare shed parts and strong opinions. Rattles in a reassuring way."},
- {id:4,name:"Needlefish",tag:"A sleek speed wing. Do not sneeze while flying.",price:5500,control:2.7,drag:0.026,turnK:0.08,comfort:58,top:95,stall:9,sink:0.055,bars:{fly:8,speed:10,ctrl:8},desc:"Goes very fast in one direction. Landing is left as an exercise for Dennis."},
- {id:5,name:"Black Swan X-1",tag:"Experimental carbon. Probably legal.",price:17000,control:2.9,drag:0.022,turnK:0.07,comfort:68,top:110,stall:8,sink:0.05,bars:{fly:10,speed:10,ctrl:10},desc:"Hums ominously and glows for no reason. The manual is just a winking face."}
+ {id:1,name:"Paper Dart",tag:"A giant folded paper plane. Somehow counts.",price:200,control:2.0,drag:0.045,turnK:0.13,comfort:30,top:50,stall:11,sink:0.12,bars:{fly:3,speed:5,ctrl:4},desc:"Folded from a very large homework assignment. Flies great until it rains."},
+ {id:2,name:"Rainbow Kite Rig",tag:"A loud kite. Surprisingly obedient.",price:700,control:2.5,drag:0.040,turnK:0.09,comfort:32,top:56,stall:8,sink:0.11,bars:{fly:5,speed:6,ctrl:6},desc:"Visible from three islands away. Comes with extra string and zero stealth."},
+ {id:3,name:"The Compromise",tag:"Wood, cloth, tape. A real glider. Mostly.",price:1900,control:2.6,drag:0.034,turnK:0.08,comfort:38,top:64,stall:8,sink:0.105,bars:{fly:7,speed:7,ctrl:7},desc:"Built from spare shed parts and strong opinions. Rattles in a reassuring way."},
+ {id:4,name:"Needlefish",tag:"A sleek speed wing. Do not sneeze while flying.",price:5500,control:2.7,drag:0.023,turnK:0.08,comfort:58,top:95,stall:9,sink:0.09,bars:{fly:8,speed:10,ctrl:8},desc:"Goes very fast in one direction. Landing is left as an exercise for Dennis."},
+ {id:5,name:"Black Swan X-1",tag:"Experimental carbon. Probably legal.",price:17000,control:2.9,drag:0.020,turnK:0.07,comfort:68,top:110,stall:8,sink:0.08,bars:{fly:10,speed:10,ctrl:10},desc:"Hums ominously and glows for no reason. The manual is just a winking face."}
 ];
 
 var ROCKETS = [
- {id:0,name:"Puddle-Jumper",tag:"A fish-oil rocket. Smells like victory.",price:350,thrust:45,burn:2.2,bars:{thrust:3,burn:4},desc:"One rusty tube of dreams. Hold SPACE and apologize to physics."},
- {id:1,name:"Twin Sardine Rig",tag:"Two rockets. Twice the poor decisions.",price:2800,thrust:85,burn:3.4,bars:{thrust:6,burn:7},desc:"Synchronized sardine combustion. Dennis flies. Seagulls relocate."},
- {id:2,name:"Dodo-Star Engine",tag:"Experimental. The warning label just says 'wow'.",price:12000,thrust:150,burn:5.0,bars:{thrust:10,burn:10},desc:"Three nozzles, one glow, zero regrets. The sky files a complaint."}
+ {id:0,name:"Puddle-Jumper",tag:"A fish-oil rocket. Smells like victory.",price:350,thrust:30,burn:1.4,bars:{thrust:3,burn:4},desc:"One rusty tube of dreams. Hold SPACE and apologize to physics."},
+ {id:1,name:"Twin Sardine Rig",tag:"Two rockets. Twice the poor decisions.",price:2800,thrust:60,burn:2.0,bars:{thrust:6,burn:7},desc:"Synchronized sardine combustion. Dennis flies. Seagulls relocate."},
+ {id:2,name:"Dodo-Star Engine",tag:"Experimental. The warning label just says 'wow'.",price:12000,thrust:105,burn:1.8,bars:{thrust:10,burn:10},desc:"Three nozzles, one glow, zero regrets. The sky files a complaint."}
 ];
 
 function clampId(id, max) {

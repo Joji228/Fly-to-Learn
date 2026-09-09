@@ -77,6 +77,9 @@
         <button id="btn-stats" class="btn">📊 Stats</button>
         <button id="btn-settings" class="btn">⚙ Settings</button>
       </div>
+      <div class="menu-row">
+        <button id="btn-mode" class="btn" title="Campaign and sandbox keep separate saves">🗂️ Mode: Campaign</button>
+      </div>
       <div class="howto">
         <div class="step"><span><kbd>A</kbd> <kbd>◀</kbd></span><span><b>Nose up</b> — trade speed for altitude</span></div>
         <div class="step"><span><kbd>D</kbd> <kbd>▶</kbd></span><span><b>Nose down</b> — dive to gain speed</span></div>
@@ -94,6 +97,7 @@
           <h2>SHOP</h2>
         </div>
         <div id="shop-cash" class="cash">$0</div>
+        <div id="shop-goal" class="goal-line"></div>
         <div class="shop-head-btns">
           <button id="btn-shop-fly" class="big-btn small">🛷 FLY AGAIN</button>
           <button id="btn-shop-back" class="btn">← Menu</button>
@@ -112,6 +116,12 @@
           </div>
         </aside>
         <div class="shop-main">
+          <div class="shop-nav">
+            <span class="shop-nav-label">Jump to:</span>
+            <button id="nav-gliders" class="btn mini">🪂 Gliders</button>
+            <button id="nav-rockets" class="btn mini">🚀 Rockets</button>
+            <button id="nav-workshop" class="btn mini">⚙ Workshop</button>
+          </div>
           <div id="glider-grid"></div>
           <div id="rocket-grid"></div>
           <div id="shop-grid"></div>
@@ -162,6 +172,11 @@
       <label class="set-row"><input type="checkbox" id="set-music" checked> Music</label>
       <label class="set-row"><input type="checkbox" id="set-shake" checked> Screen shake</label>
       <label class="set-row"><input type="checkbox" id="set-particles" checked> Particles</label>
+      <div class="menu-row">
+        <button id="btn-export" class="btn" title="Download this mode's save as JSON">💾 Export save</button>
+        <button id="btn-import" class="btn" title="Load a save from a JSON file">📥 Import save</button>
+        <input type="file" id="import-file" accept="application/json,.json" class="hidden">
+      </div>
       <div class="menu-row">
         <button id="btn-cheats" class="btn">🎮 Cheats</button>
         <button id="btn-reset-save" class="btn danger">🗑 Reset save</button>

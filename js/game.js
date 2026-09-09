@@ -13,6 +13,7 @@ var Game = {
   input: { up:false, down:false, boost:false },
   runStats: null,
   raf: 0, lastT: 0,
+  acc: 0, // fixed-step accumulator: sim advances in exact 1/60 s slices
   paused: false,
   milestonesHit: {},
   save: null,
@@ -25,6 +26,27 @@ var Game = {
 };
 
 function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+function reducedMotion(){
+  try{ return !!(window.DA.UI && window.DA.UI.reducedMotion && window.DA.UI.reducedMotion()); }
+  catch(e){ return false; }
+}
+
+/* Distance origin: the lip. Distance is measured from launch (x=140),
+   so the readout starts at 0 at launch and milestones, landing and the
+   HUD all share the same origin. */
+var LAUNCH_X = 140;
+function flightDist(){ return Game.S ? Math.max(0, Game.S.x - LAUNCH_X) : 0; }
+
+/* Ramp ride profile: cubic position fraction f(k), k = ride progress 0..1.
+   f(0)=0, f(1)=1, f'(0)=0 (starts at rest), f'(1)=S (arrives at launch
+   velocity: S = launchVx * rideDur / TRACK_LEN). Monotone for S in [0,1].
+   The SAME fraction drives HUD speed (f * launchSpeed), so position
+   derivative, HUD speed and the launch impulse all agree at the lip. */
+var RAMP_TRACK_LEN = 200; // ride: x -60 -> 140
+function rampProfile(k, S){
+  var a = S - 2, b = 3 - S;
+  return (a*k + b)*k*k;
+}
 
 function derivedParams(up, gliderId, rocketId){
   var DA = window.DA;
@@ -84,8 +106,12 @@ function bindInput(){
     if(e.code==="ArrowLeft"||e.code==="KeyA") Game.input.up = true;
     else if(e.code==="ArrowRight"||e.code==="KeyD") Game.input.down = true;
     else if(e.code==="Space"){ Game.input.boost = true; e.preventDefault(); }
-    else if(e.code==="KeyP"||e.code==="Escape"){
+    else if(e.code==="KeyP"){
       if(Game.phase==="fly"||Game.phase==="ramp") pause(!Game.paused);
+    } else if(e.code==="Escape"){
+      // in-flight: pause/resume; on menus: back out one screen level
+      if(Game.phase==="fly"||Game.phase==="ramp") pause(!Game.paused);
+      else if(window.DA.UI && window.DA.UI.escapePressed) window.DA.UI.escapePressed();
     } else if(e.code==="Enter"){
       if(window.DA.UI) window.DA.UI.enterPressed();
     }
@@ -125,7 +151,7 @@ function startRun(){
     x: -60, y: window.DA.World.rampY(-60)+2,
     vx: 0, vy: 0, pitch: Math.atan(window.DA.World.rampSlopeY(-60)), pitchVel: 0, speed: 0,
     fuel: Game.P.fuelMax, fuelMax: Game.P.fuelMax,
-    airTime: 0,
+    airTime: 0, hoverHeat: 0, // saturated-trim heater memory (physics-owned, per-flight)
     glider: gid, rocket: rid,
     sledLvl: up.sled, aeroLvl: up.aero,
     boosting: false, stalled: false
@@ -134,6 +160,8 @@ function startRun(){
   Game.rampDur = window.DA.rampRideTime(up.sled); // sled = accel: shorter ride
   Game.phase = "ramp";
   Game.paused = false;
+  Game.acc = 0; // never carry a stale backlog into a fresh run
+  Game.zoomPunch = 0;
   clearInputs();
   Game.runStats = { dist:0, maxAlt:0, maxSpeedKmh:0, airTime:0, usedAllFuel:false, maxSpeed:0 };
   Game.milestonesHit = {};
@@ -166,7 +194,9 @@ function pause(on){
   if(Game.phase!=="ramp" && Game.phase!=="fly") return;
   Game.paused = !!on;
   document.getElementById("screen-pause").classList.toggle("hidden", !Game.paused);
-  if(Game.paused){ window.DA.Audio.stopBoost(); window.DA.Audio.setWind(0,false); }
+  // touch buttons must not stay live under the pause overlay (stuck booster)
+  try{ document.getElementById("touch-controls").classList.toggle("hidden", Game.paused); }catch(e){}
+  if(Game.paused){ clearInputs(); window.DA.Audio.stopBoost(); window.DA.Audio.setWind(0,false); }
 }
 
 function update(dt){
@@ -175,14 +205,17 @@ function update(dt){
   if(Game.phase === "ramp"){
     Game.rampT += dt;
     var k = Math.min(1, Game.rampT / Game.rampDur);
-    // Ride the actual ramp track: position follows it, nose follows its
-    // tangent, speed builds to launch speed — no teleport at the lip.
-    var eased = k*k*(3-2*k)*0.35 + k*k*0.65;
-    Game.S.x = -60 + 200*eased;
+    // Ride the actual ramp track with the cubic profile (see rampProfile):
+    // starts at rest, arrives at EXACTLY launch velocity. Position
+    // derivative, HUD speed and the launch impulse all agree at the lip.
+    var exitA = DA.World.rampExitAngle();
+    var send = Game.P.launchSpeed * Math.cos(exitA) * Game.rampDur / RAMP_TRACK_LEN;
+    var f = rampProfile(k, send);
+    Game.S.x = -60 + RAMP_TRACK_LEN*f;
     Game.S.y = DA.World.rampY(Game.S.x)+2;
     Game.S.pitch = Math.atan(DA.World.rampSlopeY(Game.S.x));
     Game.S.pitchVel = 0;
-    var v = DA.Physics.rampSlide(Game.rampT, Game.rampDur, Game.P.launchSpeed);
+    var v = f * Game.P.launchSpeed;
     Game.S.speed = v;
     Game.S.vx = Math.cos(Game.S.pitch)*v;
     Game.S.vy = Math.sin(Game.S.pitch)*v;
@@ -203,7 +236,7 @@ function update(dt){
       Game.S.speed = Game.P.launchSpeed;
       Game.S.y = DA.World.rampY(Game.S.x)+3;
       Game.shake = Game.save.settings.shake ? 0.3 : 0;
-      Game.zoomPunch = 1; // brief FOV kick as the sled leaves the lip
+      if(!reducedMotion()) Game.zoomPunch = 1; // brief FOV kick as the sled leaves the lip
       if(window.DA.UI) window.DA.UI.onLaunch();
     }
   }
@@ -214,9 +247,9 @@ function update(dt){
     if(res.stalled && !Game.stallWarned){ Game.stallWarned = true; DA.Audio.SFX.stall(); }
     if(!res.stalled && Game.S.speed > 14) Game.stallWarned = false;
 
-    // stats
+    // stats (lip-relative: 0 at launch, same origin as HUD/milestones)
     var st = Game.runStats;
-    st.dist = Math.max(0, Game.S.x);
+    st.dist = flightDist();
     st.maxAlt = Math.max(st.maxAlt, Game.S.y);
     var kmh = Game.S.speed*3.6;
     st.maxSpeedKmh = Math.max(st.maxSpeedKmh, kmh);
@@ -268,7 +301,7 @@ function update(dt){
     // tiny camera kick the instant the booster lights (juice, not motion)
     if(res.boosting && !Game.wasBoost){
       if(Game.save.settings.shake) Game.shake = Math.max(Game.shake, 0.12);
-      Game.zoomPunch = Math.max(Game.zoomPunch, 0.7);
+      if(!reducedMotion()) Game.zoomPunch = Math.max(Game.zoomPunch, 0.7);
       if(window.DA.UI) window.DA.UI.onBoostStart();
     }
     Game.wasBoost = res.boosting;
@@ -293,7 +326,7 @@ function update(dt){
       Game.S.x += Game.S.vx*dt;
       Game.S.vx *= Math.max(0, 1-(Game.rollFriction||2.2)*dt);
       Game.S.y = DA.World.groundY(Game.S.x);
-      Game.runStats.dist = Math.max(Game.runStats.dist, Math.max(0, Game.S.x));
+      Game.runStats.dist = Math.max(Game.runStats.dist, flightDist());
       if(Math.abs(Game.S.vx) > 6 && Math.random()<0.4 && Game.save.settings.particles)
         Game.particles.spawn({x:Game.S.x-2, y:Game.S.y+0.5, vx:-Game.S.vx*0.3, vy:8+Math.random()*10,
           life:0.5, size:3, color:"#ffffff", grav:50});
@@ -428,6 +461,7 @@ function crash(gy){
 }
 
 function flash(){
+  if(reducedMotion()) return;
   var f = document.getElementById("flash");
   f.style.transition="none"; f.style.opacity="0.7";
   requestAnimationFrame(function(){ f.style.transition="opacity 0.4s"; f.style.opacity="0"; });
@@ -474,15 +508,31 @@ function finishRun(){
   if(window.DA.UI) window.DA.UI.showResults(Game.lastResult);
 }
 
+/* Fixed-step simulation: the sim (ramp ride, flight physics, crash rollout)
+   always advances in exact STEP slices, no matter the display refresh rate.
+   Inputs are sampled once per slice, so identical input schedules produce
+   identical flights at 20/30/60/120 FPS. Rendering/HUD still run every rAF.
+   Backlog beyond 5 slices in one frame is dropped (spiral-of-death guard
+   for heavy hitches — the sim slows instead of freezing). */
+var STEP = 1/60;
+var MAX_STEPS = 5;
 function loop(t){
-  var dt = Math.min(0.05, (t - Game.lastT)/1000 || 0.016);
+  var raw = (t - Game.lastT)/1000 || 0.016;
   Game.lastT = t;
+  if(!(raw > 0)) raw = 0.016;
+  if(raw > 0.25) raw = 0.25; // background-tab / hitch guard
   if(Game.phase==="ramp"||Game.phase==="fly"||Game.phase==="crashed"){
-    update(dt);
+    if(Game.paused){ Game.acc = 0; }
+    else {
+      Game.acc += raw;
+      var n = 0;
+      while(Game.acc >= STEP && n < MAX_STEPS){ update(STEP); n++; Game.acc -= STEP; }
+      if(n === MAX_STEPS) Game.acc = 0;
+    }
     render();
     if(window.DA.UI) window.DA.UI.updateHUD();
   } else if(Game.phase==="menu"||Game.phase==="shop"){
-    renderMenuBackdrop(dt, t);
+    renderMenuBackdrop(raw, t);
   }
   Game.raf = requestAnimationFrame(loop);
 }
@@ -575,6 +625,9 @@ window.DA.pauseGame = pause;
 window.DA.abandonRun = abandon;
 window.DA.derivedParams = derivedParams;
 window.DA.gameLoop = loop;
+window.DA.flightDist = flightDist; // lip-relative distance (HUD/milestones/landing share it)
+window.DA.LAUNCH_X = LAUNCH_X;
+window.DA.rampProfile = rampProfile; // exported for regression tests
 window.DA.updateCamera = updateCamera;
 window.DA.playerScreenPos = playerScreenPos;
 })();

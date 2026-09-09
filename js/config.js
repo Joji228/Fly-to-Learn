@@ -16,7 +16,7 @@ function launchSpeed(rampLvl, sledLvl){
   return 36 + r * 2.5 + s * 1.0;
 }
 function launchAngleDeg(rampLvl){ return 9 + (rampLvl || 0) * 1.5; } // == ramp exit tangent, see World.rampY
-function rampLipY(rampLvl){ return 19 + (rampLvl || 0) * 1.6; }       // lip height in m, matches ramp track
+function rampLipY(rampLvl){ return 26 + (rampLvl || 0) * 1.6; }       // lip height in m, matches ramp track
 // Sled: FASTER ride (impatience is a virtue) + small launch bonus.
 function sledMult(l){ return 1 + l * 0.28; }
 function rampRideTime(sledLvl){ return Math.max(0.8, 1.2 - (sledLvl || 0) * 0.05); }
@@ -60,13 +60,16 @@ var UPGRADES = {
   }
 };
 
+/* Objectives are LIP-RELATIVE (0 at launch). Top tier sits just past what
+   the tuning bots reach (~3.3 km) so it stays an epic-but-honest stretch
+   goal for skilled pilots (~4 km), not a dead entry. */
 var OBJECTIVES = [
-  { id:"d300",   text:"Reach 300 m",            bonus:25,   check:function(s){ return s.dist>=300; } },
-  { id:"d800",   text:"Reach 800 m",            bonus:70,   check:function(s){ return s.dist>=800; } },
-  { id:"d2000",  text:"Reach 2,000 m",          bonus:180,  check:function(s){ return s.dist>=2000; } },
-  { id:"d5000",  text:"Reach 5,000 m",          bonus:450,  check:function(s){ return s.dist>=5000; } },
-  { id:"d8000",  text:"Reach 8,000 m",          bonus:1100, check:function(s){ return s.dist>=8000; } },
-  { id:"d15000", text:"Reach 15,000 m. Absurd.",bonus:3000, check:function(s){ return s.dist>=15000; } },
+  { id:"d250",  text:"Reach 250 m",            bonus:25,   check:function(s){ return s.dist>=250; } },
+  { id:"d600",  text:"Reach 600 m",            bonus:70,   check:function(s){ return s.dist>=600; } },
+  { id:"d1200", text:"Reach 1,200 m",          bonus:180,  check:function(s){ return s.dist>=1200; } },
+  { id:"d2000", text:"Reach 2,000 m",          bonus:450,  check:function(s){ return s.dist>=2000; } },
+  { id:"d3000", text:"Reach 3,000 m",          bonus:1100, check:function(s){ return s.dist>=3000; } },
+  { id:"d3500", text:"Reach 3,500 m. Absurd.", bonus:2000, check:function(s){ return s.dist>=3500; } },
   { id:"a40",    text:"Climb above 40 m",       bonus:30,   check:function(s){ return s.maxAlt>=40; } },
   { id:"a100",   text:"Climb above 100 m",      bonus:100,  check:function(s){ return s.maxAlt>=100; } },
   { id:"a200",   text:"Climb above 200 m",      bonus:300,  check:function(s){ return s.maxAlt>=200; } },
@@ -79,19 +82,18 @@ var OBJECTIVES = [
   { id:"fuel",   text:"Use all your fuel",      bonus:45,   check:function(s){ return s.usedAllFuel; } }
 ];
 
+/* Milestone thresholds are LIP-RELATIVE (distance is measured from launch,
+   x=140): each value is the geographic point minus 140 so toasts still pop
+   over the right scenery. Only reachable scenery gets a milestone — the
+   far procedural backdrop (castle, volcano, statue, aliens, moon) lies
+   beyond honest flight range, so it stays art, not promises. */
 var MILESTONES = [
   { d:0,     label:"🧪 Launch Facility" },
-  { d:500,   label:"🌊 Shoreline" },
-  { d:1200,  label:"🎣 Fishing boats — they wave" },
-  { d:2000,  label:"🧊 Icebergs" },
-  { d:3000,  label:"🐋 Whale watching you" },
-  { d:4500,  label:"🏙️ Distant city" },
-  { d:6000,  label:"🏔️ The Pointy Mountains" },
-  { d:8000,  label:"🏰 Castle of Questionable Physics" },
-  { d:11000, label:"🌋 Volcano (do not land here)" },
-  { d:15000, label:"🗽 Statue of Dennis" },
-  { d:20000, label:"🛸 Aliens taking notes" },
-  { d:30000, label:"🌙 Basically the moon. Congrats." }
+  { d:360,   label:"🌊 Shoreline" },
+  { d:1060,  label:"🎣 Fishing boats — they wave" },
+  { d:1860,  label:"🧊 Icebergs" },
+  { d:2860,  label:"🐋 Whale watching you" },
+  { d:3660,  label:"🏙️ Distant city" }
 ];
 
 var QUOTES = [

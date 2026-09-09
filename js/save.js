@@ -6,8 +6,27 @@
    booster level -> rocket tier, legacy fuel levels -> modest cash refund. */
 (function(){
 "use strict";
-var KEY = "dodoAirwaysSaveV1";
+/* Save format v2. Campaign and sandbox keep SEPARATE keys so each mode's
+   progress survives independently. v1 -> v2 migration: best.dist moves to
+   the launch-relative origin (minus the old 140 m lip offset). */
+var KEY_CAMPAIGN = "dodoAirwaysSaveV1";
+var KEY_SANDBOX = "dodoAirwaysSandboxV1";
+var MODE_KEY = "dodoAirwaysModeV1";
+var SAVE_VERSION = 2;
+var LIP_OFFSET = 140; // pre-v2 best distances were measured from x=0
 var NGL = 6, NRK = 3;
+
+var currentMode = "campaign";
+try{
+  var m = localStorage.getItem(MODE_KEY);
+  if(m === "sandbox") currentMode = "sandbox";
+}catch(e){}
+function getMode(){ return currentMode; }
+function setMode(m){
+  currentMode = (m === "sandbox") ? "sandbox" : "campaign";
+  try{ localStorage.setItem(MODE_KEY, currentMode); }catch(e){}
+}
+function keyFor(mode){ return (mode || currentMode) === "sandbox" ? KEY_SANDBOX : KEY_CAMPAIGN; }
 
 // legacy wings 0-8 (or old glider id 0-9) -> new glider id 0-5
 function wingsToGlider(w){
@@ -40,6 +59,8 @@ function freshRocket(){
 
 function defaults(){
   return {
+    version: SAVE_VERSION,
+    mode: currentMode,
     money: 0,
     upgrades: { ramp:0, sled:0, aero:0, fuel:0 },
     glider: freshGlider(),
@@ -89,10 +110,11 @@ function sanitizeRocket(r){
   return out;
 }
 
-function load(){
+function load(mode){
   var s = defaults();
+  s.mode = (mode || currentMode);
   try{
-    var raw = localStorage.getItem(KEY);
+    var raw = localStorage.getItem(keyFor(mode));
     if(!raw) return s;
     var d = JSON.parse(raw);
     if(d && typeof d === "object"){
@@ -140,6 +162,8 @@ function load(){
         ["dist","alt","speedKmh","airTime"].forEach(function(kk){
           if(typeof d.best[kk] === "number" && isFinite(d.best[kk])) s.best[kk] = Math.max(0, d.best[kk]);
         });
+        // v1 -> v2: best distance moves to the launch-relative origin
+        if(d.version !== SAVE_VERSION) s.best.dist = Math.max(0, s.best.dist - LIP_OFFSET);
       }
       if(typeof d.flights === "number" && isFinite(d.flights)) s.flights = Math.max(0, Math.floor(d.flights));
       if(Array.isArray(d.objectivesDone)) s.objectivesDone = d.objectivesDone.filter(function(x){ return typeof x === "string"; });
@@ -152,13 +176,29 @@ function load(){
   return s;
 }
 
-function save(s){
-  try{ localStorage.setItem(KEY, JSON.stringify(s)); }catch(e){}
+function save(s, mode){
+  try{
+    if(s && typeof s === "object"){ s.version = SAVE_VERSION; s.mode = (mode || currentMode); }
+    localStorage.setItem(keyFor(mode), JSON.stringify(s));
+  }catch(e){}
 }
-function reset(){
-  try{ localStorage.removeItem(KEY); }catch(e){}
+function reset(mode){
+  try{ localStorage.removeItem(keyFor(mode)); }catch(e){}
+}
+/* Export / import the CURRENT mode's save as JSON (settings screen). */
+function exportJSON(mode){
+  try{ return localStorage.getItem(keyFor(mode)) || JSON.stringify(defaults()); }
+  catch(e){ return JSON.stringify(defaults()); }
+}
+function importJSON(text, mode){
+  var d = JSON.parse(text); // throws on invalid JSON: caller reports it
+  if(!d || typeof d !== "object" || Array.isArray(d)) throw new Error("not a save file");
+  try{ localStorage.setItem(keyFor(mode), JSON.stringify(d)); }catch(e){}
+  return load(mode); // re-read through the full sanitize + migrate path
 }
 
 window.DA = window.DA || {};
-window.DA.Save = { load:load, save:save, reset:reset, defaults:defaults };
+window.DA.Save = { load:load, save:save, reset:reset, defaults:defaults,
+  getMode:getMode, setMode:setMode, exportJSON:exportJSON, importJSON:importJSON,
+  SAVE_VERSION:SAVE_VERSION };
 })();

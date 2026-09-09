@@ -679,12 +679,15 @@ function drawProp(g, x, y, kind, s, seed){
 
 function drawRamp(g, SX, SY, zoom){
   var pts = [];
-  for(var x=-60; x<=140; x+=10) pts.push([SX(x), SY(groundY(x)+2)]);
+  // NOTE: rampY (the track), never groundY: at x=140 groundY resolves to
+  // terrain (~1 m) while the lip is ~26 m up — the old call drew a cliff
+  // at the endpoint. The sled rides rampY; so does the drawing.
+  for(var x=-60; x<=140; x+=10) pts.push([SX(x), SY(rampY(x)+2)]);
   g.save();
   g.lineCap = "round";
   g.strokeStyle = "#4a3728"; g.lineWidth = 7*zoom; // supports
   for(var x2=-40; x2<=120; x2+=40){
-    g.beginPath(); g.moveTo(SX(x2), SY(groundY(x2))); g.lineTo(SX(x2), SY(groundY(x2))+52*zoom); g.stroke();
+    g.beginPath(); g.moveTo(SX(x2), SY(rampY(x2))); g.lineTo(SX(x2), SY(rampY(x2))+52*zoom); g.stroke();
   }
   g.strokeStyle = "#7f5539"; g.lineWidth = 12*zoom; // wooden frame
   g.beginPath();
@@ -702,7 +705,7 @@ function drawRamp(g, SX, SY, zoom){
   for(var k2=1;k2<pts.length;k2++) g.lineTo(pts[k2][0], pts[k2][1]-5);
   g.stroke();
   // start gate: two posts + banner
-  var bx = SX(-60), by = SY(groundY(-60)+2);
+  var bx = SX(-60), by = SY(rampY(-60)+2);
   g.fillStyle = "#5b3a29";
   g.fillRect(bx-30, by-72, 9, 48); g.fillRect(bx+21, by-72, 9, 48);
   g.fillStyle = "#e63946";

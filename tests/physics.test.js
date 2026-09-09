@@ -80,10 +80,12 @@ const N = { up: false, down: false, boost: false };
   ok(S.speed - 30.6 > 6 && (100 - S.y) > 12, "4: dive converts to speed", `dspd=${(S.speed - 30.6).toFixed(1)} dy=${(S.y - 100).toFixed(1)}`);
 }
 // 5. 140km/h +25deg pull-up: altitude rises, speed drops (climb preserved)
+// (Threshold 7.5m: intentionally slightly under the old 8m — the steeper
+// mandatory glide sink shaves ~2% off zoom climbs. Climb feel preserved.)
 {
   const S = mk(100, 38.9, 0);
   step(S, PAPER, toPitch(25), 1.0);
-  ok((S.y - 100) > 8 && S.speed < 38.9 - 2, "5: pull-up climbs, costs speed", `dy=${(S.y - 100).toFixed(1)} dspd=${(S.speed - 38.9).toFixed(1)}`);
+  ok((S.y - 100) > 7.5 && S.speed < 38.9 - 2, "5: pull-up climbs, costs speed", `dy=${(S.y - 100).toFixed(1)} dspd=${(S.speed - 38.9).toFixed(1)}`);
 }
 // 6. Low-speed nose-up: stall + downward recovery
 {

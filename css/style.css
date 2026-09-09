@@ -204,9 +204,13 @@ kbd{background:#050b18;border:1px solid #4a5a7a;border-bottom-width:3px;border-r
 .cash{font-size:32px;font-weight:900;color:var(--accent);text-shadow:0 0 16px rgba(255,183,3,.45);
   font-variant-numeric:tabular-nums;}
 .shop-head-btns{display:flex;gap:8px;align-items:center;}
-/* hangar body: sticky loadout rail + scrolling equipment */
-.shop-body{display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:18px;align-items:start;
-  flex:1;min-height:0;}
+/* hangar body: sticky loadout rail + scrolling equipment.
+   The explicit minmax row is load-bearing: it caps the row at the card
+   height so .shop-main gets a bounded box and actually scrolls. (An
+   implicit auto row lets the item size to content, which silently kills
+   wheel scrolling and clips everything below the fold.) */
+.shop-body{display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:18px;align-items:stretch;
+  grid-template-rows:minmax(0,1fr);flex:1;min-height:0;max-height:100%;overflow:hidden;}
 .shop-side{position:sticky;top:0;min-height:0;max-height:100%;overflow-y:auto;}
 #hangar-preview{display:flex;flex-direction:column;gap:10px;background:rgba(0,0,0,.34);
   border:1px solid rgba(255,183,3,.3);border-radius:var(--r-md);padding:14px;margin:0;
@@ -219,7 +223,7 @@ kbd{background:#050b18;border:1px solid #4a5a7a;border-bottom-width:3px;border-r
   background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:var(--r-sm);padding:7px 10px;font-size:12px;}
 .loadout-row span{font-weight:900;letter-spacing:2px;color:var(--muted);font-size:10px;}
 .loadout-row b{font-size:13px;text-align:right;}
-.shop-main{min-width:0;overflow-y:auto;min-height:0;padding-right:6px;}
+.shop-main{min-width:0;overflow-y:auto;min-height:0;max-height:100%;padding-right:6px;overscroll-behavior:contain;}
 .shop-main::-webkit-scrollbar{width:10px;}
 .shop-main::-webkit-scrollbar-thumb{background:#2a4a80;border-radius:6px;}
 .sec-title{display:flex;align-items:center;gap:10px;}
@@ -433,3 +437,20 @@ kbd{background:#050b18;border:1px solid #4a5a7a;border-bottom-width:3px;border-r
   .hud-value{font-size:13px;}
   .hud-stat.speed .hud-value{font-size:15px;}
 }
+/* savings-goal line: same wallet number as the affordable nudge */
+.goal-line{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.4px;
+  background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.14);border-radius:999px;
+  padding:4px 12px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
+/* equipment previews breathe gently (transform-only, cheap) */
+.gprev{animation:prevbob 3.2s ease-in-out infinite;}
+#preview-canvas{animation:prevbob 4.1s ease-in-out infinite;}
+@keyframes prevbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+/* shop section quick-nav: long hangar, no hunting */
+.shop-nav{position:sticky;top:0;z-index:5;display:flex;gap:8px;align-items:center;
+  padding:8px 10px;margin-bottom:12px;background:rgba(8,18,36,.92);
+  border:1px solid rgba(255,255,255,.14);border-radius:var(--r-sm);}
+.shop-nav-label{font-size:11px;font-weight:900;letter-spacing:1px;color:var(--muted);}
+.btn.mini{font-size:12px;padding:6px 12px;}
+/* reduced motion: honor the OS setting / shake toggle everywhere */
+.reduced-motion *,.reduced-motion *::before,.reduced-motion *::after{
+  animation:none !important;transition:none !important;}
