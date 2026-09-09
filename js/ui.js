@@ -329,6 +329,16 @@ function secHead(icon, title, sub){
   return '<span class="sec-title">' + icon + "<b>" + title + "</b>" +
     (sub ? "<small>" + sub + "</small>" : "") + "</span>";
 }
+/* Vector icons for workshop tracks (cards show real icons, not emoji). */
+var SVG_PART = {
+  ramp: '<svg class="item-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 20 L14 20 L20 8 L16 8 L10 18 L2 18 Z" fill="currentColor"/><path d="M14 20 L20 8" stroke="#0b1626" stroke-width="1.4"/><circle cx="18" cy="5.5" r="1.6" fill="currentColor"/></svg>',
+  sled: '<svg class="item-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13 L19 13 L17 9 L5 9 Z" fill="currentColor"/><rect x="2" y="15" width="5" height="3" rx="1.5" fill="currentColor"/><rect x="17" y="15" width="5" height="3" rx="1.5" fill="currentColor"/><path d="M6 9 L12 4 L12 9 Z" fill="currentColor"/></svg>',
+  aero: '<svg class="item-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 15 C7 15 12 12 19 5 L21 7 C15 13 9 17 4 17 Z" fill="currentColor"/><path d="M15 17 L19 21 L20 18 Z" fill="currentColor"/></svg>',
+  fuel: '<svg class="item-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="4" width="10" height="16" rx="3" fill="currentColor"/><rect x="7" y="9" width="10" height="3" fill="#0b1626" opacity=".45"/><circle cx="12" cy="15" r="2.2" fill="#0b1626"/></svg>'
+};
+function partIcon(key, fallback){
+  return SVG_PART[key] || fallback || "";
+}
 function gliderName(id){
   var g = window.DA.GLIDERS && window.DA.GLIDERS[id];
   return g ? g.name : "Bare Dodo";
@@ -383,7 +393,7 @@ function equipCard(opts){
   card.className = "up-card gcard" + (opts.equipped ? " maxed equipped" : "") + (opts.dim ? " cant" : "") + (opts.hot ? " hotpick" : "");
   if(opts.flashId) card.id = opts.flashId;
   var cv = document.createElement("canvas");
-  cv.width = 320; cv.height = 180; cv.className = "gprev";
+  cv.width = 480; cv.height = 270; cv.className = "gprev";
   card.appendChild(cv);
   var info = document.createElement("div");
   info.innerHTML =
@@ -479,7 +489,7 @@ function renderTracks(){
     card.className = "up-card" + (maxed?" maxed":"") + (price>save.money&&!maxed?" cant":"") + (hot?" hotpick":"");
     card.id = "card-"+k;
     var cv = document.createElement("canvas");
-    cv.width = 320; cv.height = 180; cv.className = "gprev";
+    cv.width = 480; cv.height = 270; cv.className = "gprev";
     card.appendChild(cv);
     try{ if(window.DA.drawPartPreview) window.DA.drawPartPreview(cv, k, lvl); }catch(e){}
     var pips = "";
@@ -498,7 +508,7 @@ function renderTracks(){
     }
     var info = document.createElement("div");
     info.innerHTML =
-      '<div class="up-top"><span class="up-name">'+u.icon+' '+u.name+'</span><span class="up-lvl">Lv '+lvl+'/'+u.max+'</span></div>' +
+      '<div class="up-top"><span class="up-name">' + partIcon(k, u.icon) + " " + u.name + '</span><span class="up-lvl">Lv '+lvl+'/'+u.max+'</span></div>' +
       '<div class="pips">'+pips+'</div>' +
       '<div class="up-desc">'+u.blurb+'</div>' +
       '<div class="up-desc" style="color:#fff">Now: '+u.desc(lvl)+'</div>' +
@@ -567,47 +577,58 @@ function equipRocket(id){
   renderShop();
   refreshMenu();
 }
-/* Next affordable purchase of any kind (equipment or track level).
-   Used for the menu SHOP glow, the results nudge, and the in-shop hotpick. */
-function nextAffordable(){
-  var cands = [];
-  if(window.DA.GLIDERS) window.DA.GLIDERS.forEach(function(gl){
-    if(gl.id !== 0 && !save.glider.owned[gl.id]) cands.push({ type:"glider", id:gl.id, label:"🪂 " + gl.name, price:gl.price });
-  });
-  if(window.DA.ROCKETS) window.DA.ROCKETS.forEach(function(rk){
-    if(!save.rocket.owned[rk.id]) cands.push({ type:"rocket", id:rk.id, label:"🚀 " + rk.name, price:rk.price });
-  });
-  ["ramp","sled","aero","fuel"].forEach(function(k){
-    var u = window.DA.UPGRADES[k];
-    if(!u) return;
-    var lvl = save.upgrades[k] || 0;
-    if(lvl < u.max) cands.push({ type:"track", id:k, label:u.icon + " " + u.name + " Lv " + (lvl+1), price:window.DA.priceOf(k, lvl) });
-  });
-  cands.sort(function(a,b){ return a.price - b.price; });
-  return cands.length ? cands[0] : null;
+/* Progression-aware recommendations (priority beats raw price):
+   first glider > first rocket > next glider > next rocket >
+   fuel (only with a rocket) > ramp/aero > sled. Fuel without a rocket
+   is never recommended. */
+function hasRealGlider(){
+  for(var i=1;i<save.glider.owned.length;i++) if(save.glider.owned[i]) return true;
+  return false;
 }
-/* Cheapest AFFORDABLE purchase right now (for the in-shop hotpick). */
-var hotPick = null;
-function computeHotPick(){
-  hotPick = null;
+function hasRocket(){
+  for(var j=0;j<save.rocket.owned.length;j++) if(save.rocket.owned[j]) return true;
+  return false;
+}
+function rankedPurchases(affordableOnly){
   var cands = [];
+  var realGlider = hasRealGlider(), rocket = hasRocket();
+  function consider(type, id, label, price, prio){
+    if(affordableOnly && price > save.money) return;
+    cands.push({ type:type, id:id, label:label, price:price, prio:prio });
+  }
   if(window.DA.GLIDERS) window.DA.GLIDERS.forEach(function(gl){
-    if(gl.id !== 0 && !save.glider.owned[gl.id] && gl.price <= save.money)
-      cands.push({ type:"glider", id:gl.id, price:gl.price });
+    if(gl.id === 0 || save.glider.owned[gl.id]) return;
+    // first real glider is THE unlock; later ones are tier upgrades
+    var first = !realGlider && gl.id === 1;
+    consider("glider", gl.id, "🪂 " + gl.name, gl.price, first ? 0 : 2);
   });
   if(window.DA.ROCKETS) window.DA.ROCKETS.forEach(function(rk){
-    if(!save.rocket.owned[rk.id] && rk.price <= save.money)
-      cands.push({ type:"rocket", id:rk.id, price:rk.price });
+    if(save.rocket.owned[rk.id]) return;
+    var firstR = realGlider && !rocket && rk.id === 0;
+    consider("rocket", rk.id, "🚀 " + rk.name, rk.price, firstR ? 1 : 3);
   });
   ["ramp","sled","aero","fuel"].forEach(function(k){
     var u = window.DA.UPGRADES[k];
     if(!u) return;
     var lvl = save.upgrades[k] || 0;
     if(lvl >= u.max) return;
-    var pr = window.DA.priceOf(k, lvl);
-    if(pr <= save.money) cands.push({ type:"track", id:k, price:pr });
+    if(k === "fuel" && !rocket) return; // tank with no rocket helps nobody
+    var prio = (k === "fuel") ? 4 : (k === "sled" ? 6 : 5);
+    consider("track", k, u.icon + " " + u.name + " Lv " + (lvl+1), window.DA.priceOf(k, lvl), prio);
   });
-  cands.sort(function(a,b){ return a.price - b.price; });
+  cands.sort(function(a,b){ return (a.prio - b.prio) || (a.price - b.price); });
+  return cands;
+}
+/* Next purchase to point at (menu SHOP glow, results nudge). */
+function nextAffordable(){
+  var cands = rankedPurchases(false);
+  return cands.length ? cands[0] : null;
+}
+/* Cheapest AFFORDABLE purchase right now (for the in-shop hotpick). */
+var hotPick = null;
+function computeHotPick(){
+  hotPick = null;
+  var cands = rankedPurchases(true);
   if(cands.length) hotPick = cands[0];
 }
 function isHotPick(type, id){
@@ -829,5 +850,8 @@ window.DA.UI = { init:init, showMenu:showMenu, showShop:showShop, showFlight:sho
   updateHUD:updateHUD, showResults:showResults, onRecord:onRecord, onCrash:onCrash,
   onLaunch:onLaunch, onBoostStart:onBoostStart,
   toast:toast, floatText:floatText, enterPressed:enterPressed, refreshMenu:refreshMenu, renderShop:renderShop,
-  onRunStart:onRunStart };
+  onRunStart:onRunStart,
+  /* test hook: rank purchases for a synthetic save without touching live state */
+  testRank: function(saveState){ var real = save; save = saveState; var r; try{ r = rankedPurchases(false); }finally{ save = real; } return r; } };
 })();
+

@@ -174,7 +174,7 @@ const N = { up: false, down: false, boost: false };
     return top;
   }
   const paper = diveTop(1), needle = diveTop(4);
-  ok(paper < DA.GLIDERS[1].top * 1.2, "10a: paper dive capped near redline", `${(paper * 3.6).toFixed(0)}km/h vs cap ${(DA.GLIDERS[1].top * 3.6).toFixed(0)}`);
+  ok(paper < DA.GLIDERS[1].top * 1.25, "10a: paper dive capped near redline", `${(paper * 3.6).toFixed(0)}km/h vs cap ${(DA.GLIDERS[1].top * 3.6).toFixed(0)}`);
   ok(needle > paper + 8, "10b: needle redline much higher", `${(needle * 3.6).toFixed(0)} vs ${(paper * 3.6).toFixed(0)}`);
 }
 

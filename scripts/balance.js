@@ -50,8 +50,10 @@ function flyGlider(gid, up) {
 
 console.log("glider | launch | distance | airtime | maxAlt | maxSpeed");
 console.log("-------|--------|----------|---------|--------|----------");
+const rows = [];
 for (const g of DA.GLIDERS) {
   const r = flyGlider(g.id, { ramp: 0, sled: 0, aero: 0, fuel: 0 });
+  rows.push({ g, r });
   console.log(
     (g.name + "                    ").slice(0, 20) + " | " +
     String(r.launch.toFixed(0) + "km/h").padStart(6) + " | " +
@@ -61,3 +63,27 @@ for (const g of DA.GLIDERS) {
     String(r.top.toFixed(0) + "km/h").padStart(8)
   );
 }
+// regression flags: suspicious jumps a tuner should look at
+console.log("--- warnings ---");
+let warns = 0;
+function warn(m) { warns++; console.log("WARN " + m); }
+for (let i = 2; i < rows.length; i++) {
+  if (rows[i].r.air > rows[i - 1].r.air * 1.7)
+    warn(rows[i].g.name + " airtime " + rows[i].r.air.toFixed(1) + "s is >1.7x " +
+      rows[i - 1].g.name + " (" + rows[i - 1].r.air.toFixed(1) + "s)");
+  if (rows[i].r.dist <= rows[i - 1].r.dist)
+    warn(rows[i].g.name + " distance " + rows[i].r.dist.toFixed(0) + "m did not beat " +
+      rows[i - 1].g.name + " (" + rows[i - 1].r.dist.toFixed(0) + "m)");
+}
+for (let i = 2; i < rows.length; i++) {
+  const a = rows[i - 1].g, b = rows[i].g;
+  if (b.bars.ctrl < a.bars.ctrl)
+    warn(b.name + " visible CONTROL bar (" + b.bars.ctrl + ") below " + a.name + " (" + a.bars.ctrl + ")");
+  if (b.control < a.control)
+    warn(b.name + " internal control (" + b.control + ") below " + a.name + " (" + a.control + ")");
+  if (b.top <= a.top)
+    warn(b.name + " top speed (" + b.top + ") not above " + a.name + " (" + a.top + ")");
+}
+if (rows[5].r.air > 45)
+  warn("Black Swan airtime " + rows[5].r.air.toFixed(1) + "s exceeds ~45s budget");
+if (!warns) console.log("(none — ladder looks healthy)");

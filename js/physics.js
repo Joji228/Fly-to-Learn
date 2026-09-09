@@ -32,10 +32,9 @@ var MAX_PITCH = 1.15;        // ~66 deg
 var MIN_PITCH = -1.15;
 var STEER_GAIN = 3.0;        // global trajectory responsiveness (glider ladder untouched)
 var DIVE_K = 8.0;            // downhill-only entry snap (too weak to sustain flight)
-var OVER_TOP_K = 1.0;        // extra drag past redline top: firm but brief overshoot OK
+var OVER_TOP_K = 1.25;       // extra drag past redline top: firm, brief overshoot OK
 var BARE_SINK = 12.0;        // extra fall for the glider-less: no free gliding
 var REDLINE_K = 0.25;        // shared redline drag strength (soft top speed)
-var OVER_TOP_K = 1.5;        // extra drag past redline top: the wall holds
 var DEG = 180 / Math.PI;
 
 function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
