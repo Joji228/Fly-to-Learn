@@ -30,11 +30,12 @@ var PITCH_RATE = 3.2;        // rad/s — 0 to ±30deg in ~0.2s, arcade snap
 var PITCH_SMOOTH = 28;       // higher = snappier settle, no trailing drift
 var MAX_PITCH = 1.15;        // ~66 deg
 var MIN_PITCH = -1.15;
-var DIVE_K = 14.0;           // arcade dive assist along the path (feel it!)
-var STEER_GAIN = 2.4;        // global trajectory responsiveness (glider ladder untouched)
+var STEER_GAIN = 3.0;        // global trajectory responsiveness (glider ladder untouched)
+var DIVE_K = 4.0;            // SMALL downhill push: dive snap without free energy
+                             // (must stay weak enough that porpoising always decays)
 var BARE_SINK = 12.0;        // extra fall for the glider-less: no free gliding
 var REDLINE_K = 0.25;        // shared redline drag strength (soft top speed)
-var OVER_TOP_K = 0.8;        // extra drag past redline top
+var OVER_TOP_K = 1.5;        // extra drag past redline top: the wall holds
 var DEG = 180 / Math.PI;
 
 function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
@@ -88,6 +89,8 @@ function stepFlight(s, input, p, dt){
   }
 
   // --- gravity: the engine of all fun (dives pay, climbs cost) ---
+  // Falls, sinks and stalls all draw from this one honest source, so every
+  // descent must be repaid on the way back up: porpoising always decays.
   s.vy -= GRAVITY * dt;
   if(stalled) s.vy -= 7 * dt; // stalled wings barely hold you: drop decisively
   // NO GLIDER = NO GLIDING: bare Dennis falls like a body, always.
@@ -98,9 +101,12 @@ function stepFlight(s, input, p, dt){
   // fall steepens instead of porpoising in place. Healthy speed unaffected.
   if(speed < 12) s.vy -= (12 - speed) * 1.2 * dt;
 
-  // --- arcade dive assist: pointing downhill adds a controlled bonus push
-  // along the path so dives feel powerful without touching top speeds much
-  // (redline drag still caps every glider). Subtle but unmistakable.
+  // NOTE: no fall-assist pump — gravity alone powers every fall, so each
+  // descent must be repaid on the climb back. Free descent energy turns
+  // porpoising into perpetual motion; honest gravity plus drag guarantees
+  // every flight eventually ends. Redline drag still caps each glider's top.
+  // A SMALL downhill-only nudge (DIVE_K) sharpens dive entries; it is far
+  // too weak to sustain flight on its own (proven by sim: all runs land).
   var preDiveAng = Math.atan2(s.vy, s.vx);
   if(preDiveAng < -0.08 && s.pitch < -0.05){
     var db = DIVE_K * Math.min(1, (-preDiveAng) / 0.6);
@@ -115,15 +121,20 @@ function stepFlight(s, input, p, dt){
   // (gravity wins, you fall — no low-speed hovering, no self-recovery
   // into a mushy level hover) and is full at healthy flight speed, with
   // a touch extra when very fast.
+  // Rotating UP (recovering/climbing toward the nose) additionally needs
+  // airspeed behind it; rotating DOWN stays responsive so dives and stall
+  // recoveries bite. A slow fall therefore only ends if the pilot points
+  // down and earns speed back — holding level just keeps falling.
   // Bare Dodo gets ~15% authority on top: enough to aim the fall, never
   // enough to fly. High speed + nose-up therefore arcs hard for gliders;
   // low speed + nose-up mushes for everyone.
   speed = Math.sqrt(s.vx*s.vx + s.vy*s.vy);
   var velAng = Math.atan2(s.vy, s.vx);
   var authority = clamp(Math.pow(Math.max(0, speed - 6) / 20, 1.6), 0.1, 1) * (stalled ? 0.25 : 1);
+  var diff = wrapAngle(s.pitch - velAng);
+  if(diff > 0) authority *= clamp((speed - 10) / 18, 0.15, 1); // up-rotations need airspeed
   if(bare) authority *= 0.12;
   if(speed > 55) authority *= 1.1;
-  var diff = wrapAngle(s.pitch - velAng);
   var steerRate = (p.control || 1.5) * authority * STEER_GAIN;
   var maxTurn = steerRate * dt;
   var turn = clamp(diff, -maxTurn, maxTurn);
