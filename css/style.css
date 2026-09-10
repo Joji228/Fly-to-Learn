@@ -445,12 +445,41 @@ kbd{background:#050b18;border:1px solid #4a5a7a;border-bottom-width:3px;border-r
 .gprev{animation:prevbob 3.2s ease-in-out infinite;}
 #preview-canvas{animation:prevbob 4.1s ease-in-out infinite;}
 @keyframes prevbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
-/* shop section quick-nav: long hangar, no hunting */
-.shop-nav{position:sticky;top:0;z-index:5;display:flex;gap:8px;align-items:center;
-  padding:8px 10px;margin-bottom:12px;background:rgba(8,18,36,.92);
-  border:1px solid rgba(255,255,255,.14);border-radius:var(--r-sm);}
-.shop-nav-label{font-size:11px;font-weight:900;letter-spacing:1px;color:var(--muted);}
-.btn.mini{font-size:12px;padding:6px 12px;}
 /* reduced motion: honor the OS setting / shake toggle everywhere */
 .reduced-motion *,.reduced-motion *::before,.reduced-motion *::after{
   animation:none !important;transition:none !important;}
+/* ============ compact glanceable shop (desktop): everything visible at
+   once, no scrolling. Phones (<=700px) keep the roomy stacked layout. */
+@media (min-width:701px){
+  .shop-card{width:min(1180px,96vw);height:auto;max-height:96vh;min-height:0;
+    padding:12px 16px;overflow-y:auto;}
+  .shop-head{padding:2px 4px 8px;margin-bottom:8px;}
+  .shop-head h2{font-size:22px;}
+  .cash{font-size:24px;}
+  .goal-line{font-size:12px;}
+  .shop-body{display:block;min-height:0;max-height:none;overflow:visible;}
+  .shop-side{position:static;max-height:none;overflow:visible;margin-bottom:8px;}
+  #hangar-preview{flex-direction:row;align-items:center;gap:12px;padding:8px 12px;}
+  #preview-canvas{width:190px;flex:none;}
+  #preview-text{display:none;}
+  .loadout-summary{flex:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));}
+  .loadout-row{padding:5px 8px;}
+  #glider-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:10px;}
+  #rocket-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:10px;}
+  #shop-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
+  .glider-head{font-size:14px;margin:0 0 6px;}
+  .sec-title small{font-size:10px;}
+  .up-card{padding:8px;}
+  .gprev{height:72px;margin-bottom:6px;}
+  .up-name{font-size:13px;}
+  .up-lvl{font-size:10px;padding:1px 7px;}
+  .gcard .up-desc{display:none;} /* taglines hide; bars + deltas carry the info */
+  .gstat{font-size:9px;gap:4px;}
+  .gstat span{width:46px;}
+  .pip{height:6px;min-width:6px;}
+  .pips{margin:3px 0 4px;}
+  .up-next{font-size:11px;margin:2px 0;}
+  .buy-btn{font-size:13px;padding:7px;margin-top:6px;}
+  .shop-foot{display:none;}
+  .up-card.equipped::before{font-size:9px;top:-10px;}
+}

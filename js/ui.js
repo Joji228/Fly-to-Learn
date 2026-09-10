@@ -42,20 +42,6 @@ function bindButtons(){
     toast("💸 Wallet emptied. Bold strategy.");
   };
   $("btn-resume").onclick = function(){ click(); window.DA.pauseGame(false); };
-  // shop section nav: the hangar is long; jumping beats hunting
-  function navTo(id){
-    return function(){
-      click();
-      var el = $(id);
-      if(el && el.scrollIntoView){
-        try{ el.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "start" }); }
-        catch(e){ try{ el.scrollIntoView(); }catch(e2){} }
-      }
-    };
-  }
-  $("nav-gliders").onclick = navTo("glider-grid");
-  $("nav-rockets").onclick = navTo("rocket-grid");
-  $("nav-workshop").onclick = navTo("shop-grid");
   $("btn-mode").onclick = function(){ click(); switchMode(); };
   $("btn-export").onclick = function(){ click(); exportSave(); };
   $("btn-import").onclick = function(){ click(); $("import-file").click(); };
