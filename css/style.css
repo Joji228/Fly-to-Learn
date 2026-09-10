@@ -223,7 +223,7 @@ kbd{background:#050b18;border:1px solid #4a5a7a;border-bottom-width:3px;border-r
   background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:var(--r-sm);padding:7px 10px;font-size:12px;}
 .loadout-row span{font-weight:900;letter-spacing:2px;color:var(--muted);font-size:10px;}
 .loadout-row b{font-size:13px;text-align:right;}
-.shop-main{min-width:0;overflow-y:auto;min-height:0;max-height:100%;padding-right:6px;overscroll-behavior:contain;}
+.shop-main{min-width:0;overflow-y:auto;min-height:0;max-height:100%;padding-right:6px;}
 .shop-main::-webkit-scrollbar{width:10px;}
 .shop-main::-webkit-scrollbar-thumb{background:#2a4a80;border-radius:6px;}
 .sec-title{display:flex;align-items:center;gap:10px;}
