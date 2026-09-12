@@ -38,20 +38,6 @@ Particles.prototype.update = function(dt){
     p.x += p.vx*dt; p.y += p.vy*dt;
   }
 };
-Particles.prototype.draw = function(g, cam){
-  var l = this.list;
-  for(var i=0;i<l.length;i++){
-    var p = l[i];
-    var sx = p.x - cam.x, sy = cam.y - p.y;
-    if(sx<-30||sx>g.canvas.width+30||sy<-30||sy>g.canvas.height+30) continue;
-    var t = 1 - p.age/p.life;
-    g.globalAlpha = Math.max(0, Math.min(1, t*1.2));
-    g.fillStyle = p.color;
-    var s = p.shrink ? p.size*t + 0.5 : p.size;
-    g.fillRect(sx-s/2, sy-s/2, s, s);
-  }
-  g.globalAlpha = 1;
-};
 Particles.prototype.clear = function(){ this.list.length = 0; };
 
 window.DA = window.DA || {};

@@ -176,6 +176,17 @@ function load(mode){
   return s;
 }
 
+/* Probe: can this browser actually persist? (Some file:// / private-mode
+   setups silently drop localStorage — the game runs either way, but the
+   player should know progress won't survive a reload.) */
+function stored(){
+  try{
+    localStorage.setItem("__dodo_probe", "1");
+    var ok = localStorage.getItem("__dodo_probe") === "1";
+    try{ localStorage.removeItem("__dodo_probe"); }catch(e){}
+    return ok;
+  }catch(e){ return false; }
+}
 function save(s, mode){
   try{
     if(s && typeof s === "object"){ s.version = SAVE_VERSION; s.mode = (mode || currentMode); }
@@ -200,5 +211,5 @@ function importJSON(text, mode){
 window.DA = window.DA || {};
 window.DA.Save = { load:load, save:save, reset:reset, defaults:defaults,
   getMode:getMode, setMode:setMode, exportJSON:exportJSON, importJSON:importJSON,
-  SAVE_VERSION:SAVE_VERSION };
+  stored:stored, SAVE_VERSION:SAVE_VERSION };
 })();

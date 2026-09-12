@@ -35,9 +35,16 @@ function drawRocketPreview(canvas, id) {
     if (!isFinite(w) || w <= 0) { w = 160; }
     if (!isFinite(h) || h <= 0) { h = 90; }
     var nid = clampId(id, 2);
+    // same sky-and-snow stage as the glider previews so cards look consistent
     var grd = ctx.createLinearGradient(0, 0, 0, h);
-    grd.addColorStop(0, "#3a4a63"); grd.addColorStop(0.7, "#1d2b45"); grd.addColorStop(1, "#101a30");
+    grd.addColorStop(0, "#7ec0ee");
+    grd.addColorStop(0.7, "#cfe8f7");
+    grd.addColorStop(1, "#e8f3fa");
     ctx.fillStyle = grd; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, h - 14, w, 14);
+    ctx.fillStyle = "#dfe7ec";
+    ctx.fillRect(0, h - 14, w, 2);
     ctx.fillStyle = "rgba(255,183,3,0.12)";
     ctx.beginPath(); ctx.arc(w*0.5, h*0.55, 34, 0, 7); ctx.fill();
     var now = 500;

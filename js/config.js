@@ -18,16 +18,12 @@ function launchSpeed(rampLvl, sledLvl){
 function launchAngleDeg(rampLvl){ return 9 + (rampLvl || 0) * 1.5; } // == ramp exit tangent, see World.rampY
 function rampLipY(rampLvl){ return 26 + (rampLvl || 0) * 1.6; }       // lip height in m, matches ramp track
 // Sled: FASTER ride (impatience is a virtue) + small launch bonus.
-function sledMult(l){ return 1 + l * 0.28; }
 function rampRideTime(sledLvl){ return Math.max(0.8, 1.2 - (sledLvl || 0) * 0.05); }
 // Rockets are equipment now (see ROCKETS in gliders.js): thrust + burn come
 // from the equipped rocket, not from an 8-level meter.
 // ROCKET FUEL is a permanent 5-level tank upgrade: multiplies burn time.
 var FUEL_MULTS = [1, 1.2, 1.4, 1.65, 1.9, 2.2];
 function fuelMult(l){ return FUEL_MULTS[Math.max(0, Math.min(5, l || 0))]; }
-// Aero: less parasite drag + less induced drag (keeps speed in maneuvers).
-function dragCoef(l){ return Math.max(0.016, 0.055 - l * 0.005); }
-function kindCoef(l){ return 0.22 - l * 0.011; }
 
 var UPGRADES = {
   ramp: {
@@ -41,7 +37,7 @@ var UPGRADES = {
     name: "Waddle Sled", icon: "🛷",
     blurb: "Greased runners. Shorter ride, snappier launch.",
     max: 8, base: 230, growth: 1.9,
-    desc: function(l){ return "Ride " + rampRideTime(l).toFixed(1) + "s • +" + (l*1.25).toFixed(1) + " m/s launch"; },
+    desc: function(l){ return "Ride " + rampRideTime(l).toFixed(1) + "s" + (l>0 ? " • +" + (l*1.25).toFixed(1) + " m/s launch" : " • stock launch"); },
     next: function(l){ return l>=8 ? "MAXED — frictionless nonsense" : "→ ride " + rampRideTime(l+1).toFixed(1) + "s • +" + ((l+1)*1.25).toFixed(1) + " m/s launch"; }
   },
   aero: {
@@ -136,10 +132,7 @@ window.DA.priceOf = priceOf;
 window.DA.launchSpeed = launchSpeed;
 window.DA.launchAngleDeg = launchAngleDeg;
 window.DA.rampLipY = rampLipY;
-window.DA.sledMult = sledMult;
 window.DA.rampRideTime = rampRideTime;
-window.DA.dragCoef = dragCoef;
-window.DA.kindCoef = kindCoef;
 window.DA.fuelMult = fuelMult;
 window.DA.FUEL_MULTS = FUEL_MULTS;
 window.DA.OBJECTIVES = OBJECTIVES;

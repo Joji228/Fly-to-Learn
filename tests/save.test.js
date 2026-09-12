@@ -102,5 +102,14 @@ function clear() { for (const k in store) delete store[k]; }
   catch (e) { ok(true, "7: invalid import throws"); }
 }
 
+// 8. persistence probe reports honestly
+{
+  ok(DA.Save.stored() === true, "8a: probe passes when storage works");
+  const realSet = global.localStorage.setItem;
+  global.localStorage.setItem = () => { throw new Error("denied"); };
+  ok(DA.Save.stored() === false, "8b: probe fails when storage blocked");
+  global.localStorage.setItem = realSet;
+}
+
 console.log(`\nSAVE TESTS: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

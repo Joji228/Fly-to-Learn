@@ -934,6 +934,10 @@ function statBox(l,v){ return '<div class="stat-box"><label>'+l+'</label><b>'+v+
 
 function toast(msg){
   var w = $("toast-wrap");
+  // results screen owns the bottom of the viewport (buttons live there):
+  // pin toasts to the top while it is open so they never cover actions.
+  try{ w.classList.toggle("top", !$("screen-results").classList.contains("hidden")); }
+  catch(e){}
   var d = document.createElement("div");
   d.className = "toast"; d.textContent = msg;
   w.appendChild(d);

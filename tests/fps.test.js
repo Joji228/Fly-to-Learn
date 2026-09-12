@@ -22,8 +22,12 @@ function anyProxy() {
     apply() { return anyProxy(); }
   });
 }
-const elStub = () => ({ classList: { add() {}, toggle() {} }, style: {} });
-global.window = { addEventListener() {}, devicePixelRatio: 1, innerWidth: 1280, innerHeight: 800 };
+const elStub = () => ({ classList: { add() {}, toggle() {} }, style: {}, addEventListener() {} });
+const winHandlers = {};
+global.window = {
+  addEventListener(t, f) { winHandlers[t] = f; },
+  devicePixelRatio: 1, innerWidth: 1280, innerHeight: 800
+};
 global.document = { getElementById: elStub, addEventListener() {}, hidden: false };
 global.requestAnimationFrame = () => 0;
 
@@ -74,7 +78,7 @@ function schedule() {
 function runFlight(frameDtMs) {
   Game.save = freshSave();
   Game.particles = stubParticles();
-  Game.canvas = { width: 0, height: 0, style: {} };
+  Game.canvas = { width: 0, height: 0, style: {}, getContext: () => anyProxy() };
   Game.g = anyProxy();
   Game.W = 1280; Game.H = 800;
   Game.acc = 0; Game.lastT = 0; Game.zoom = 1;
@@ -104,6 +108,36 @@ for (const fps of [20, 25, 30, 120]) {
   ok(r.phase === "results" && dDist < 0.05 && dAir < 0.05,
     `${fps} FPS matches 60 FPS within 5%`,
     `dist=${r.dist.toFixed(1)}m (${(100 * dDist).toFixed(1)}%) air=${r.air.toFixed(2)}s (${(100 * dAir).toFixed(1)}%)`);
+}
+
+console.log(`FPS part 1 done: ${pass} passed, ${fail} failed`);
+
+// ---- keyboard pause path: real keydown handler via gameInit binding ----
+{
+  Game.save = freshSave();
+  Game.particles = stubParticles();
+  Game.canvas = { width: 0, height: 0, style: {}, getContext: () => anyProxy() };
+  DA.gameInit(Game.canvas, Game.save, Game.particles);
+  Game.W = 1280; Game.H = 800;
+  Game.acc = 0; Game.lastT = 0; Game.zoom = 1;
+  DA.startRun();
+  const kd = winHandlers.keydown, ku = winHandlers.keyup;
+  ok(typeof kd === "function" && typeof ku === "function", "K1: input handlers bound");
+  // step into the flight, then P pauses and P resumes (repeat presses ignored)
+  let t = 0;
+  for (let i = 0; i < 200; i++) { t += 1000 / 60; DA.gameLoop(t); }
+  const key = (code) => ({ code, repeat: false, preventDefault() {} });
+  kd(key("KeyP"));
+  ok(Game.paused === true, "K2: P pauses mid-flight");
+  const airAtPause = Game.S.airTime;
+  for (let i = 0; i < 60; i++) { t += 1000 / 60; DA.gameLoop(t); }
+  ok(Math.abs(Game.S.airTime - airAtPause) < 1e-9, "K3: sim frozen while paused");
+  kd(key("KeyP"));
+  ok(Game.paused === false, "K4: P resumes");
+  kd(key("Space"));
+  ok(Game.input.boost === true, "K5: Space arms booster");
+  ku(key("Space"));
+  ok(Game.input.boost === false, "K6: release clears booster (no stuck input)");
 }
 
 console.log(`\nFPS TESTS: ${pass} passed, ${fail} failed`);

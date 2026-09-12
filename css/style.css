@@ -335,6 +335,7 @@ kbd{background:#050b18;border:1px solid #4a5a7a;border-bottom-width:3px;border-r
 /* toasts + floats */
 #toast-wrap{position:absolute;bottom:110px;width:100%;display:flex;flex-direction:column;align-items:center;gap:6px;
   z-index:20;pointer-events:none;padding:0 12px;}
+#toast-wrap.top{bottom:auto;top:12px;}
 .toast{background:linear-gradient(180deg,rgba(24,44,82,.96),rgba(12,24,48,.96));border:1px solid var(--accent);color:#fff;
   border-radius:999px;padding:9px 18px;font-weight:700;box-shadow:var(--glow-amber);animation:rise .3s ease;
   max-width:100%;text-align:center;}
@@ -378,6 +379,26 @@ kbd{background:#050b18;border:1px solid #4a5a7a;border-bottom-width:3px;border-r
   .results-card{padding:18px 14px;}
   .total-row b{font-size:27px;}
   .cheat-grid{grid-template-columns:1fr 1fr;}
+  /* compact phone shop: 2-up cards, small previews, no tagline clutter */
+  #glider-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px;}
+  #rocket-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px;}
+  #shop-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+  .glider-head{font-size:14px;}
+  .sec-title small{font-size:10px;}
+  .up-card{padding:8px;}
+  .gprev{height:84px;margin-bottom:6px;}
+  .up-name{font-size:13px;}
+  .up-lvl{font-size:10px;padding:1px 7px;}
+  .gcard .up-desc{display:none;}
+  .gstat{font-size:9px;gap:4px;}
+  .gstat span{width:44px;}
+  .pip{height:6px;min-width:6px;}
+  .pips{margin:3px 0 4px;}
+  .up-next{font-size:11px;margin:2px 0;}
+  .up-desc{font-size:11.5px;}
+  .buy-btn{font-size:14px;padding:9px;margin-top:6px;}
+  .shop-foot{display:none;}
+  .up-card.equipped::before{font-size:9px;top:-10px;}
 }
 @media (min-width:701px){
   #touch-controls{display:none !important;}
