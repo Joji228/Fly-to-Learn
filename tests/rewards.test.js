@@ -126,5 +126,29 @@ function baseSave() {
   ok(DA.calcRewards().glideBonus === 0, "4c: no tank, no glide bonus (no freebies)");
 }
 
+// 5. finishRun: streaks need a real flight, records ignore trivial hops
+{
+  function runFinish(dist, severity, water, best) {
+    Game.save = baseSave();
+    Game.save.best.dist = best;
+    Game.P = { fuelMax: 2 };
+    Game.milestonesHit = {};
+    Game.runStats = {
+      dist, maxAlt: 20, maxSpeedKmh: 100, airTime: 10,
+      usedAllFuel: false, boostUsed: true, maxSpeed: 20
+    };
+    Game.crashedInfo = { severity, water };
+    DA.finishRun();
+    return { streak: Game.save.landingStreak, record: Game.lastResult.isRecord };
+  }
+  let r = runFinish(5, "smooth", false, 0);
+  ok(r.streak === 0 && r.record === false, "5a: 5m hop builds no streak, earns no record");
+  r = runFinish(500, "smooth", false, 0);
+  ok(r.streak === 1 && r.record === true, "5b: real smooth flight streaks + records");
+  r = runFinish(60, "rough", false, 100);
+  ok(r.streak === 0 && r.record === false, "5c: rough resets streak, short of best is no record");
+  Game.phase = "fly";
+}
+
 console.log(`\nREWARDS TESTS: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

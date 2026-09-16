@@ -210,9 +210,12 @@ function drawScene(g, W, H, cam, zoom, S, opts){
   var MS = window.DA.MILESTONES;
   g.textAlign = "center";
   for(var i=0;i<MS.length;i++){
-    var mx = MS[i].d, msx = SX(mx);
+    // milestones are lip-relative distances; the sign must stand at the
+    // matching WORLD x (lip sits at x=140), exactly where the toast fires.
+    // (Before: signs were planted 140 m early, ahead of their scenery.)
+    var mx = MS[i].d, wx = mx + 140, msx = SX(wx);
     if(msx < -160 || msx > W+160) continue;
-    var msy = SY(groundY(mx));
+    var msy = SY(groundY(wx));
     g.save();
     g.strokeStyle = "#4a3728"; g.lineWidth = 5;
     g.beginPath(); g.moveTo(msx, msy); g.lineTo(msx, msy-64); g.stroke();
@@ -366,7 +369,7 @@ function drawTerrain(g, W, H, cam, zoom, SX, SY, overWater, S){
       g.strokeStyle = "rgba(255,255,255,"+(0.55-row*0.14)+")";
       g.lineWidth = 3-row*0.6;
       g.beginPath();
-      var baseY = H*0.80 + 14 + row*22 - (0 - cam.y)*PPM*zoom*0; // screen-locked rows
+      var baseY = H*0.80 + 14 + row*22; // screen-locked rows
       for(var px2=Math.max(0,waterSX)-20; px2<=W+20; px2+=16){
         var phw = (cam.x + px2/(PPM*zoom))*0.08 + wt*(1+row*0.4) + row*2;
         var py2 = baseY + Math.sin(phw)*4;

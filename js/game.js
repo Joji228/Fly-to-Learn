@@ -40,8 +40,8 @@ function flightDist(){ return Game.S ? Math.max(0, Game.S.x - LAUNCH_X) : 0; }
 /* Ramp ride profile: cubic position fraction f(k), k = ride progress 0..1.
    f(0)=0, f(1)=1, f'(0)=0 (starts at rest), f'(1)=S (arrives at launch
    velocity: S = launchVx * rideDur / TRACK_LEN). Monotone for S in [0,1].
-   The SAME fraction drives HUD speed (f * launchSpeed), so position
-   derivative, HUD speed and the launch impulse all agree at the lip. */
+   HUD speed is the TRUE track derivative (see rampVelocity, not f), so
+   position derivative, HUD speed and the launch impulse all agree at the lip. */
 var RAMP_TRACK_LEN = 200; // ride: x -60 -> 140
 function rampProfile(k, S){
   var a = S - 2, b = 3 - S;
@@ -216,6 +216,13 @@ function pause(on){
   document.getElementById("screen-pause").classList.toggle("hidden", !Game.paused);
   // touch buttons must not stay live under the pause overlay (stuck booster)
   try{ document.getElementById("touch-controls").classList.toggle("hidden", Game.paused); }catch(e){}
+  // resuming restores steering — but never the BOOST button without a rocket
+  if(!Game.paused){
+    try{
+      var tb = document.getElementById("tc-boost");
+      if(tb) tb.style.display = (Game.save && Game.save.rocket && Game.save.rocket.equipped >= 0) ? "" : "none";
+    }catch(e2){}
+  }
   if(Game.paused){ clearInputs(); window.DA.Audio.stopBoost(); window.DA.Audio.setWind(0,false); }
 }
 
@@ -543,7 +550,9 @@ function finishRun(){
   // landing streak lives on the save (backward compatible: missing => 0)
   if(typeof Game.save.landingStreak !== "number" || !isFinite(Game.save.landingStreak)) Game.save.landingStreak = 0;
   if(typeof Game.save.bestStreak !== "number" || !isFinite(Game.save.bestStreak)) Game.save.bestStreak = 0;
-  var smooth = Game.crashedInfo && Game.crashedInfo.severity === "smooth" && !Game.crashedInfo.water;
+  // streaks need a REAL flight (dist gate stops 5 m hop farming)
+  var smooth = Game.crashedInfo && Game.crashedInfo.severity === "smooth" &&
+               !Game.crashedInfo.water && st.dist > 100;
   if(smooth){
     Game.save.landingStreak += 1;
     if(Game.save.landingStreak > Game.save.bestStreak) Game.save.bestStreak = Game.save.landingStreak;
@@ -557,7 +566,8 @@ function finishRun(){
   Game.save.money += rw.total;
   Game.save.totalEarned += rw.total;
   Game.save.flights += 1;
-  var isRecord = st.dist > Game.save.best.dist;
+  // records ignore trivial hops (best still tracks them via max below)
+  var isRecord = st.dist > 50 && st.dist > Game.save.best.dist;
   Game.save.best.dist = Math.max(Game.save.best.dist, st.dist);
   Game.save.best.alt = Math.max(Game.save.best.alt, st.maxAlt);
   Game.save.best.speedKmh = Math.max(Game.save.best.speedKmh, st.maxSpeedKmh);
@@ -565,7 +575,7 @@ function finishRun(){
   rw.newObj.forEach(function(o){ Game.save.objectivesDone.push(o.id); });
   DA.Save.save(Game.save);
   DA.Audio.stopWind(); DA.Audio.stopBoost();
-  if(isRecord && st.dist>50) DA.Audio.SFX.record();
+  if(isRecord) DA.Audio.SFX.record();
   Game.lastResult = { stats:JSON.parse(JSON.stringify(st)), rewards:rw, isRecord:isRecord, crash:Game.crashedInfo };
   if(window.DA.UI) window.DA.UI.showResults(Game.lastResult);
 }
@@ -606,9 +616,9 @@ function render(){
   // zoomPunch adds a brief FOV kick on launch / boost ignition.
   var z = Game.zoom * (1 + 0.07*(Game.zoomPunch||0));
   var sp = (S && S.speed) || 0;
-  // subtle extra shake at extreme speed (feel, not camera motion)
+  // subtle extra shake at extreme speed (honors the shake toggle: off = off)
   var shk = Game.shake;
-  if(Game.phase === "fly" && sp > 55) shk = Math.max(shk, Math.min(0.25, (sp-55)/160));
+  if(Game.save.settings.shake && Game.phase === "fly" && sp > 55) shk = Math.max(shk, Math.min(0.25, (sp-55)/160));
   var shx = 0, shy = 0;
   if(shk > 0){
     shx = (Math.random()-0.5)*14*shk;
@@ -648,7 +658,6 @@ function render(){
     g.font = "bold 22px sans-serif"; g.textAlign="center";
     g.fillText("⚠ STALL — NOSE DOWN! ⚠", W/2, 90);
   }
-  // boost meter hint near player when fuel empty
   g.restore();
   // speed vignette
   var fx = document.getElementById("speed-fx");
@@ -699,6 +708,7 @@ function rampVelocity(k, S, rampDur, slope){
 }
 window.DA.rampVelocity = rampVelocity; // true cubic velocity (HUD contract)
 window.DA.calcRewards = calcRewards; // test hook: set Game.save/runStats/crashedInfo/P first
+window.DA.finishRun = finishRun; // test hook: full results path (streak/record/bank)
 window.DA.RAMP_TRACK_LEN = RAMP_TRACK_LEN;
 window.DA.uiOverlayOpen = uiOverlayOpen;
 window.DA.updateCamera = updateCamera;

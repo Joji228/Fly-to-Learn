@@ -92,5 +92,27 @@ ok(Game.input.boost === false, "6: hide releases held inputs");
 ok(Game.paused === false && Game.phase === "fly", "7: hide never force-pauses");
 global.document.hidden = false;
 
+// ---- pause/resume respects the contextual BOOST button ----
+const tbEl = { style: { display: "" }, classList: { add() {}, toggle() {} } };
+const tcEl = { classList: { add() {}, toggle() {} }, style: {} };
+const pauseEl = { classList: { add() {}, toggle() {} }, style: {} };
+const _origGet = global.document.getElementById;
+global.document.getElementById = (id) => {
+  if (id === "tc-boost") return tbEl;
+  if (id === "touch-controls") return tcEl;
+  if (id === "screen-pause") return pauseEl;
+  return _origGet(id);
+};
+Game.save = freshSave();
+Game.save.rocket.equipped = -1;
+Game.phase = "fly"; Game.paused = false;
+DA.pauseGame(true);
+ok(Game.paused === true, "8: pause engages mid-flight");
+DA.pauseGame(false);
+ok(tbEl.style.display === "none", "9: resume keeps BOOST hidden with no rocket");
+Game.save.rocket.equipped = 0;
+DA.pauseGame(true); DA.pauseGame(false);
+ok(tbEl.style.display === "", "10: resume restores BOOST with a rocket");
+
 console.log(`\nFOCUS TESTS: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

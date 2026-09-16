@@ -73,7 +73,8 @@ function bindButtons(){
   if($("btn-sb-max")) $("btn-sb-max").onclick = function(){ click(); window.DA.Save.sandboxMaxWorkshop(save); window.DA.Save.save(save); refreshMenu(); renderShop(); toast("🧪 Workshop maxed. Stupid-fast enabled."); };
   if($("btn-sb-cash")) $("btn-sb-cash").onclick = function(){ click(); save.money += 50000; window.DA.Save.save(save); refreshMenu(); renderShop(); toast("🧪 +$50,000 sandbox funds."); };
   $("btn-reset-save").onclick = function(){
-    if(confirm("Reset ALL progress? Dennis will forget everything. (This cannot be undone.)")){
+    var modeName = (window.DA.Save.getMode() === "sandbox") ? "Sandbox" : "Campaign";
+    if(confirm("Reset " + modeName + " progress? The other mode keeps its save. (This cannot be undone.)")){
       window.DA.Save.reset();
       save = window.DA.Save.load();
       window.DA.Game.save = save;

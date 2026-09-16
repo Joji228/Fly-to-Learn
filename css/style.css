@@ -34,13 +34,11 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--ink);
   box-shadow:0 5px 16px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.12);overflow:hidden;}
 .hud-stat::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;
   background:linear-gradient(90deg,#5aa9e6,#90e0ef);}
-.hud-stat.speed::before{background:linear-gradient(90deg,var(--accent),var(--accent2));}
 .hud-stat.fuel::before{background:linear-gradient(90deg,var(--teal-hi),var(--teal));}
 .hud-stat.best::before{background:linear-gradient(90deg,#9b5de5,#c77dff);}
 .hud-label{display:block;font-size:var(--hud-label);font-weight:700;letter-spacing:2.5px;color:var(--muted);}
 .hud-value{display:block;font-weight:900;font-size:var(--hud-value);line-height:1.15;color:#fff;
   text-shadow:0 2px 6px rgba(0,0,0,.5);font-variant-numeric:tabular-nums;}
-.hud-stat.speed{min-width:118px;}
 .hud-stat.fuel{min-width:150px;}
 .hud-stat.hot{animation:hotpulse 1s ease infinite;border-color:var(--accent);}
 @keyframes hotpulse{0%,100%{box-shadow:0 4px 14px rgba(0,0,0,.35)}50%{box-shadow:var(--glow-amber)}}
@@ -97,11 +95,6 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--ink);
   padding:4px 16px;display:inline-block;animation:pop .5s ease infinite alternate;font-size:14px;
   box-shadow:var(--glow-amber);}
 @keyframes pop{from{transform:scale(1)}to{transform:scale(1.07)}}
-.loadout{display:flex;gap:6px;}
-.load-chip{font-size:11px;font-weight:700;color:var(--ink);background:rgba(8,18,36,.72);
-  border:1px solid var(--line);border-radius:999px;padding:3px 10px;white-space:nowrap;
-  max-width:180px;overflow:hidden;text-overflow:ellipsis;}
-.load-chip.rocket{border-color:rgba(255,183,3,.5);}
 .hud-btns{display:flex;gap:8px;pointer-events:auto;align-items:flex-start;}
 .mini-btn{background:linear-gradient(180deg,rgba(30,50,90,.92),rgba(14,28,54,.92));border:1.5px solid var(--line);
   color:#fff;border-radius:12px;font-size:15px;padding:7px 10px;cursor:pointer;
@@ -343,7 +336,7 @@ kbd{background:#050b18;border:1px solid #4a5a7a;border-bottom-width:3px;border-r
 .toast{background:linear-gradient(180deg,rgba(24,44,82,.96),rgba(12,24,48,.96));border:1px solid var(--accent);color:#fff;
   border-radius:999px;padding:9px 18px;font-weight:700;box-shadow:var(--glow-amber);animation:rise .3s ease;
   max-width:100%;text-align:center;}
-#float-wrap{position:absolute;inset:0;pointer-events:none;z-index:7;overflow:hidden;}
+#float-wrap{position:absolute;inset:0;pointer-events:none;z-index:30;overflow:hidden;}
 .float-up{position:absolute;font-weight:900;font-size:22px;color:var(--accent);text-shadow:0 2px 6px #000;
   animation:floatup 1.4s ease forwards;white-space:nowrap;}
 @keyframes floatup{from{transform:translateY(0) scale(.8);opacity:0}15%{opacity:1;transform:translateY(-10px) scale(1.1)}to{transform:translateY(-70px) scale(1);opacity:0}}
@@ -358,7 +351,6 @@ kbd{background:#050b18;border:1px solid #4a5a7a;border-bottom-width:3px;border-r
   .hud-center{order:3;width:100%;}
   .hud-stat{min-width:0;padding:4px 8px 5px;}
   .hud-value{font-size:15px;}
-  .hud-stat.speed .hud-value{font-size:17px;}
   .hud-label{font-size:8px;letter-spacing:1.5px;}
   #fuel-bar{height:8px;}
   #phase-label{font-size:9px;}
@@ -411,7 +403,6 @@ kbd{background:#050b18;border:1px solid #4a5a7a;border-bottom-width:3px;border-r
 @media (min-width:1600px){
   :root{--hud-label:13px; --hud-value:28px; --hud-speed:34px; --hud-pad-v:9px; --hud-pad-h:18px;
     --hud-gap:12px; --edge-pad:24px; --stat-min:122px;}
-  .hud-stat.speed{min-width:140px;}
   .hud-stat.fuel{min-width:180px;}
   #btn-pause{width:54px;height:54px;font-size:23px;}
   #btn-mute-hud{width:48px;height:48px;font-size:20px;}
@@ -458,9 +449,7 @@ kbd{background:#050b18;border:1px solid #4a5a7a;border-bottom-width:3px;border-r
   .cheat-btn{font-size:18px;}
 }
 @media (max-width:400px){
-  .load-chip{max-width:128px;font-size:10px;}
   .hud-value{font-size:13px;}
-  .hud-stat.speed .hud-value{font-size:15px;}
 }
 /* phone landscape (short height): keep gameplay visible, controls reachable */
 @media (max-height:500px){
