@@ -13,9 +13,9 @@ var GLIDERS = [
 ];
 
 var ROCKETS = [
- {id:0,name:"Puddle-Jumper",tag:"A fish-oil rocket. Smells like victory.",price:350,thrust:30,burn:1.6,bars:{thrust:3,burn:4},desc:"One rusty tube of dreams. Hold SPACE and apologize to physics."},
- {id:1,name:"Twin Sardine Rig",tag:"Two rockets. Twice the poor decisions.",price:2800,thrust:60,burn:2.0,bars:{thrust:6,burn:7},desc:"Synchronized sardine combustion. Dennis flies. Seagulls relocate."},
- {id:2,name:"Dodo-Star Engine",tag:"Experimental. The warning label just says 'wow'.",price:12000,thrust:105,burn:2.2,bars:{thrust:10,burn:10},desc:"Three nozzles, one glow, zero regrets. The sky files a complaint."}
+ {id:0,name:"Puddle-Jumper",tag:"A fish-oil rocket. Smells like victory.",price:350,thrust:30,burn:2.0,bars:{thrust:3,burn:4},desc:"One rusty tube of dreams. Hold SPACE and apologize to physics."},
+ {id:1,name:"Twin Sardine Rig",tag:"Two rockets. Twice the poor decisions.",price:2800,thrust:60,burn:2.5,bars:{thrust:6,burn:7},desc:"Synchronized sardine combustion. Dennis flies. Seagulls relocate."},
+ {id:2,name:"Dodo-Star Engine",tag:"Experimental. The warning label just says 'wow'.",price:12000,thrust:105,burn:2.8,bars:{thrust:10,burn:10},desc:"Three nozzles, one glow, zero regrets. The sky files a complaint."}
 ];
 
 function clampId(id, max) {

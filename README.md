@@ -1,6 +1,6 @@
 # Fly-to-Learn
 
-*Version 0.1 — first playable release: full launch → fly → crash → upgrade loop with gliders, rockets, shop, and local saves.*
+*Version 0.2 — fuel economy: all rockets burn ~25% longer; sandbox, landing mastery and test runner included.*
 
 *V0.1 audit: deterministic sim, honest flight model, polished shop.*
 
