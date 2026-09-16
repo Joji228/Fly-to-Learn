@@ -75,7 +75,11 @@ var OBJECTIVES = [
   { id:"t10",    text:"Stay airborne 10 s",     bonus:35,   check:function(s){ return s.airTime>=10; } },
   { id:"t20",    text:"Stay airborne 20 s",     bonus:140,  check:function(s){ return s.airTime>=20; } },
   { id:"t35",    text:"Stay airborne 35 s",     bonus:400,  check:function(s){ return s.airTime>=35; } },
-  { id:"fuel",   text:"Use all your fuel",      bonus:45,   check:function(s){ return s.usedAllFuel; } }
+  { id:"fuel",   text:"Use all your fuel",      bonus:45,   check:function(s){ return s.usedAllFuel; } },
+  { id:"smooth", text:"Grease a smooth landing", bonus:60,  check:function(s){ return s.landing==="smooth" && !s.water; } },
+  { id:"smooth800", text:"Smooth landing past 800 m", bonus:180, check:function(s){ return s.landing==="smooth" && !s.water && s.dist>=800; } },
+  { id:"glide500", text:"Reach 500 m without boosting", bonus:120, check:function(s){ return s.dist>=500 && !s.boostUsed; } },
+  { id:"streak3", text:"3 smooth landings in a row", bonus:250, check:function(s, save){ return !!(save && save.bestStreak>=3); } }
 ];
 
 /* Milestone thresholds are LIP-RELATIVE (distance is measured from launch,

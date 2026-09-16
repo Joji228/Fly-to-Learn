@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Dodo Airways — Flight of the Ridiculous</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦤</text></svg>">
 <link rel="stylesheet" href="css/style.css">
@@ -28,8 +28,8 @@
       </div>
       <div class="hud-stat best"><span class="hud-label">BEST</span><span class="hud-value" id="hud-best">0 m</span></div>
       <div class="hud-btns">
-        <button id="btn-pause" class="mini-btn" title="Pause">⏸</button>
-        <button id="btn-mute-hud" class="mini-btn" title="Mute">🔊</button>
+        <button id="btn-pause" class="mini-btn" title="Pause" aria-label="Pause flight">⏸</button>
+        <button id="btn-mute-hud" class="mini-btn" title="Mute" aria-label="Mute sound">🔊</button>
       </div>
     </div>
   </div>
@@ -39,9 +39,9 @@
 
   <!-- touch controls -->
   <div id="touch-controls" class="hidden">
-    <button id="tc-up" class="tc-btn">▲<span>NOSE UP</span></button>
-    <button id="tc-boost" class="tc-btn boost">🔥<span>BOOST</span></button>
-    <button id="tc-down" class="tc-btn">▼<span>NOSE DOWN</span></button>
+    <button id="tc-up" class="tc-btn" aria-label="Nose up">▲<span>NOSE UP</span></button>
+    <button id="tc-boost" class="tc-btn boost" aria-label="Boost">🔥<span>BOOST</span></button>
+    <button id="tc-down" class="tc-btn" aria-label="Nose down">▼<span>NOSE DOWN</span></button>
   </div>
 
   <!-- speedometer -->
@@ -84,7 +84,7 @@
       <div class="howto">
         <div class="step"><span><kbd>A</kbd> <kbd>◀</kbd></span><span><b>Nose up</b> — trade speed for altitude</span></div>
         <div class="step"><span><kbd>D</kbd> <kbd>▶</kbd></span><span><b>Nose down</b> — dive to gain speed</span></div>
-        <div class="step"><span><kbd>SPACE</kbd></span><span><b>Booster</b> — thrust where you point</span></div>
+        <div class="step" id="howto-boost"><span><kbd>SPACE</kbd></span><span><b>Booster</b> — thrust where you point</span></div>
       </div>
     </div>
   </section>
@@ -103,6 +103,12 @@
           <button id="btn-shop-fly" class="big-btn small">🛷 FLY AGAIN</button>
           <button id="btn-shop-back" class="btn">← Menu</button>
         </div>
+      </div>
+      <div id="sandbox-bar" class="hidden">
+        <span id="sandbox-note">🧪 SANDBOX — free experimentation, campaign untouched.</span>
+        <button id="btn-sb-all" class="btn">Unlock all gear</button>
+        <button id="btn-sb-max" class="btn">Max workshop</button>
+        <button id="btn-sb-cash" class="btn">+$50k</button>
       </div>
       <div class="shop-body">
         <aside class="shop-side">

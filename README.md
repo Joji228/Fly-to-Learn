@@ -8,6 +8,12 @@ Dodo Airways — a tiny launch-and-upgrade browser game. Launch a stubborn dodo 
 
 **Play:** open `index.html` in a browser (or `python -m http.server`, then `http://localhost:8000`).
 
-**Controls:** `A`/`◀` nose up · `D`/`▶` nose down · `SPACE` booster (touch buttons on mobile).
+**Controls:** `A`/`◀` nose up · `D`/`▶` nose down · `SPACE` booster once a rocket is owned (touch buttons on mobile).
+
+**Modes:** Campaign (progression) and Sandbox (all gear + funds, separate save) via the Mode button. Sandbox progress never touches campaign.
+
+**Skill play:** smooth landings scale with distance, consecutive smooths build a streak bonus, rocket flights without boosting earn a pure-glide bonus. New objectives cover landings, gliding and streaks.
+
+**Tests:** `node scripts/run-all.js` runs every regression test plus the exploit gate (no dependencies). Individual suites live in `tests/`, tuning sims in `scripts/`.
 
 HTML + CSS + vanilla JS + Canvas. No dependencies, progress saves to localStorage.

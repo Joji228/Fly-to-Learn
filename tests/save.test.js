@@ -63,19 +63,20 @@ function clear() { for (const k in store) delete store[k]; }
   ok(Math.abs(s.best.dist - 860) < 1e-9, "3: v1 best distance re-based to launch origin", s.best.dist + "m");
 }
 
-// 4. campaign and sandbox progress live in separate keys
+// 4. campaign and sandbox progress live in separate keys (sandbox fresh is
+// all-access by design, campaign stays grindy)
 {
   clear();
   DA.Save.setMode("campaign");
   const c = DA.Save.load(); c.money = 111; DA.Save.save(c);
   DA.Save.setMode("sandbox");
   const b0 = DA.Save.load();
-  const separate = b0.money === 0;
+  const separate = b0.money !== 111 && b0.glider.owned.every(Boolean);
   b0.money = 222; DA.Save.save(b0);
   DA.Save.setMode("campaign");
   const c2 = DA.Save.load();
   ok(separate && c2.money === 111, "4: campaign/sandbox saves are independent",
-    `campaign=$${c2.money} sandbox-fresh=$${separate ? 0 : "?"}`);
+    `campaign=$${c2.money} sandbox-all-access=${separate}`);
   DA.Save.setMode("campaign");
 }
 

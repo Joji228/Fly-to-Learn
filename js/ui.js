@@ -64,8 +64,14 @@ function bindButtons(){
   };
   $("set-sfx").onchange = function(e){ save.settings.sfx=e.target.checked; window.DA.Save.save(save); window.DA.Audio.setEnabled(save.settings.sfx, save.settings.music); updateMuteBtn(); };
   $("set-music").onchange = function(e){ save.settings.music=e.target.checked; window.DA.Save.save(save); window.DA.Audio.setEnabled(save.settings.sfx, save.settings.music); };
-  $("set-shake").onchange = function(e){ save.settings.shake=e.target.checked; window.DA.Save.save(save); };
+  $("set-shake").onchange = function(e){
+    save.settings.shake=e.target.checked; window.DA.Save.save(save); applyMotionClass();
+    if(!save.settings.shake && window.DA.Game){ window.DA.Game.shake=0; window.DA.Game.zoomPunch=0; }
+  };
   $("set-particles").onchange = function(e){ save.settings.particles=e.target.checked; if(window.DA.Game.particles) window.DA.Game.particles.enabled=save.settings.particles; window.DA.Save.save(save); };
+  if($("btn-sb-all")) $("btn-sb-all").onclick = function(){ click(); window.DA.Save.sandboxUnlock(save); window.DA.Save.save(save); refreshMenu(); renderShop(); toast("🧪 All gear unlocked. Go break physics (gently)."); };
+  if($("btn-sb-max")) $("btn-sb-max").onclick = function(){ click(); window.DA.Save.sandboxMaxWorkshop(save); window.DA.Save.save(save); refreshMenu(); renderShop(); toast("🧪 Workshop maxed. Stupid-fast enabled."); };
+  if($("btn-sb-cash")) $("btn-sb-cash").onclick = function(){ click(); save.money += 50000; window.DA.Save.save(save); refreshMenu(); renderShop(); toast("🧪 +$50,000 sandbox funds."); };
   $("btn-reset-save").onclick = function(){
     if(confirm("Reset ALL progress? Dennis will forget everything. (This cannot be undone.)")){
       window.DA.Save.reset();
@@ -91,7 +97,11 @@ function giveMoney(n){
   floatText("+$" + n.toLocaleString() + "!", "#c77dff");
   toast("🎮 +$" + n.toLocaleString() + " added. Spend it wisely-ish.");
 }
-function updateMuteBtn(){ $("btn-mute-hud").textContent = save.settings.sfx ? "🔊" : "🔇"; }
+function updateMuteBtn(){
+  $("btn-mute-hud").textContent = save.settings.sfx ? "🔊" : "🔇";
+  try{ $("btn-mute-hud").setAttribute("aria-label", save.settings.sfx ? "Mute sound" : "Unmute sound"); }catch(e){}
+}
+function hasBooster(){ return !!(save && save.rocket && save.rocket.equipped >= 0); }
 /* Campaign <-> sandbox: separate saves, separate progress. Switching saves
    the current mode first so nothing is lost, then reloads the other. */
 function refreshModeBtn(){
@@ -196,6 +206,17 @@ function refreshMenu(){
   $("menu-best-dist").textContent = "Best: " + window.DA.Physics.fmtDist(save.best.dist);
   $("menu-flights").textContent = "Flights: " + save.flights;
   $("menu-cash").textContent = "$" + save.money.toLocaleString();
+  // contextual controls: never advertise BOOST as available when no rocket
+  try{
+    var hb = $("howto-boost");
+    if(hb){
+      if(hasBooster()){
+        hb.innerHTML = '<span><kbd>SPACE</kbd></span><span><b>Booster</b> — thrust where you point</span>';
+      } else {
+        hb.innerHTML = '<span>🔒</span><span><b>Booster locked</b> — buy Puddle-Jumper to unlock SPACE thrust</span>';
+      }
+    }
+  }catch(e){}
   // SHOP glows on the menu whenever a new purchase is affordable
   var sb = $("btn-shop");
   if(sb){
@@ -211,11 +232,28 @@ function showFlight(){
   // stuck booster). Flying starts with no focused control.
   try{ if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); }catch(e){}
   $("hud").classList.remove("hidden");
-  setSpeedoVisible(true);
+  // speedometer appears at LAUNCH (ramp ride is a cinematic: true track
+  // velocity spikes mid-ride, so the gauge stays hidden until flying).
+  setSpeedoVisible(false);
   $("touch-controls").classList.remove("hidden");
-  if(window.innerWidth>700) $("pitch-hint").classList.remove("hidden");
+  // contextual touch + hint: no rocket => no BOOST button, no SPACE hint
+  try{
+    var tb = $("tc-boost");
+    if(tb) tb.style.display = hasBooster() ? "" : "none";
+    var ph = $("pitch-hint");
+    if(ph){
+      var coarse = false;
+      try{ coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches; }catch(e){}
+      if(!coarse && window.innerWidth>700){
+        ph.textContent = hasBooster() ? "◀ A / D ▶ • SPACE = boost" : "◀ A / D ▶ steer • buy a rocket to unlock BOOST";
+        ph.classList.remove("hidden");
+      } else {
+        ph.classList.add("hidden");
+      }
+    }
+  }catch(e){}
   var id = runId;
-  setTimeout(function(){ if(id === runId) $("pitch-hint").classList.add("hidden"); }, 6000);
+  setTimeout(function(){ try{ if(id === runId) $("pitch-hint").classList.add("hidden"); }catch(e2){} }, 6000);
   $("record-banner").classList.add("hidden");
 }
 
@@ -233,11 +271,13 @@ function updateHUD(){
   var fill = $("fuel-fill");
   fill.style.width = (f*100).toFixed(1)+"%";
   fill.className = (!hasBooster || f<0.25) ? "low" : "";
-  fill.id = "fuel-fill";
   var fl = $("fuel-label");
   if(fl) fl.textContent = hasBooster ? "FUEL" : "NO BOOSTER";
   var fb = $("fuel-bar");
-  if(fb) fb.classList.toggle("burning", !!G.S.boosting && hasBooster);
+  if(fb){
+    fb.classList.toggle("burning", !!G.S.boosting && hasBooster);
+    fb.classList.toggle("empty", hasBooster && G.S.fuelMax>0 && G.S.fuel<=0);
+  }
   $("hud-best").textContent = window.DA.Physics.fmtDist(save.best.dist);
   // pause panel run readout (kept fresh live; shown only when paused)
   var pd = $("pause-stat-dist"), ps2 = $("pause-stat-speed"), pa = $("pause-stat-alt");
@@ -347,13 +387,14 @@ function updateSpeedo(G){
   }
   var prog = $("sp-prog");
   if(prog && prog.setAttribute) prog.setAttribute("stroke-dasharray", (frac*100).toFixed(1) + " 100");
-  // redline zone follows the equipped glider (rebuilt only when it changes)
+  // redline zone follows the equipped glider (rebuilt only when it changes).
+  // comfort/top are m/s; the gauge face is km/h, so convert (was unit bug).
   if(G.P){
     var key = G.P.comfort.toFixed(1) + "|" + G.P.top.toFixed(1);
     if(key !== spRedKey){
       spRedKey = key;
       var red = $("sp-red");
-      if(red && red.setAttribute) red.setAttribute("d", spArcD(G.P.comfort/SP_MAX, Math.min(1, G.P.top/SP_MAX), 64));
+      if(red && red.setAttribute) red.setAttribute("d", spArcD(G.P.comfort*3.6/SP_MAX, Math.min(1, G.P.top*3.6/SP_MAX), 64));
     }
   }
   // visual states: fast -> redline -> extreme, plus boost glow
@@ -369,7 +410,23 @@ function updateSpeedo(G){
   }
 }
 // launch moment: punchy whoosh (the ramp sound already played at release)
-function onLaunch(){ window.DA.Audio.ensure(); window.DA.Audio.SFX.whoosh(); }
+function onLaunch(){
+  window.DA.Audio.ensure(); window.DA.Audio.SFX.whoosh();
+  setSpeedoVisible(true); // gauge goes live now that speed is flight speed
+}
+function onFuelEmpty(){
+  try{ window.DA.Audio.SFX.fuelEmpty(); }catch(e){}
+  floatText("🛢️ FUEL EMPTY!", "#ff5d5d");
+  toast("🛢️ Fuel exhausted — glide it home!");
+  try{
+    var fb = $("fuel-bar");
+    if(fb){ fb.classList.remove("emptyflash"); void fb.offsetWidth; fb.classList.add("emptyflash"); }
+  }catch(e2){}
+}
+function onStallRecover(){
+  try{ window.DA.Audio.SFX.recover(); }catch(e){}
+  floatText("✔ Recovered!", "#80ed99");
+}
 // boost ignition: flash + fuel glow + speed punch reset
 function onBoostStart(){
   window.DA.Audio.SFX.ignite();
@@ -421,6 +478,11 @@ function rocketName(id){
 }
 function renderShop(){
   $("shop-cash").textContent = "$" + save.money.toLocaleString();
+  // sandbox bar: free experimentation, never touches campaign
+  try{
+    var sb = $("sandbox-bar");
+    if(sb) sb.classList.toggle("hidden", window.DA.Save.getMode() !== "sandbox");
+  }catch(e){}
   // savings-goal line: same wallet number as the affordable nudge
   var sg = $("shop-goal"), goal = savingsGoal();
   if(sg) sg.textContent = goal
@@ -835,6 +897,8 @@ function showResults(res){
   ];
   if(rw.msBonus>0) rows.push(["📍 Milestone flyovers", rw.msBonus]);
   if(rw.landBonus>0) rows.push(["🧈 Smooth-landing style", rw.landBonus]);
+  if(rw.streakBonus>0) rows.push(["🔥 Landing streak x" + (save.landingStreak||0), rw.streakBonus]);
+  if(rw.glideBonus>0) rows.push(["⛵ Pure glide (no boost)", rw.glideBonus]);
   var od = $("results-objectives"); od.innerHTML = "";
   rw.newObj.forEach(function(o){ rows.push(["🏆 "+o.text, o.bonus]); });
   var total = 0;
@@ -920,7 +984,8 @@ function renderStats(){
     statBox("WALLET", "$"+save.money.toLocaleString()) +
     statBox("PILOT LEVEL", "Lv "+totalLv()+"/"+maxLv()) +
     statBox("GLIDERS OWNED", ownedGliders()+"/"+gliderStockCount()) +
-    statBox("ROCKETS", ownedRockets()+"/3");
+    statBox("ROCKETS", ownedRockets()+"/3") +
+    statBox("LANDING STREAK", "x"+(save.landingStreak||0)+" (best x"+(save.bestStreak||0)+")");
   var ol = $("objectives-list"); ol.innerHTML = "";
   window.DA.OBJECTIVES.forEach(function(o){
     var done = save.objectivesDone.indexOf(o.id)>=0;
@@ -974,7 +1039,7 @@ function escapePressed(){
 window.DA = window.DA || {};
 window.DA.UI = { init:init, showMenu:showMenu, showShop:showShop, showFlight:showFlight,
   updateHUD:updateHUD, showResults:showResults, onRecord:onRecord, onCrash:onCrash,
-  onLaunch:onLaunch, onBoostStart:onBoostStart,
+  onLaunch:onLaunch, onBoostStart:onBoostStart, onFuelEmpty:onFuelEmpty, onStallRecover:onStallRecover,
   reducedMotion:reducedMotion,
   toast:toast, floatText:floatText, enterPressed:enterPressed, escapePressed:escapePressed, refreshMenu:refreshMenu, renderShop:renderShop,
   onRunStart:onRunStart,

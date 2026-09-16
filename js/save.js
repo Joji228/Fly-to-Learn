@@ -69,8 +69,49 @@ function defaults(){
     flights: 0,
     objectivesDone: [],
     settings: { sfx:true, music:true, shake:true, particles:true },
-    totalEarned: 0
+    totalEarned: 0,
+    landingStreak: 0,
+    bestStreak: 0
   };
+}
+/* Sandbox fresh save: instant experimentation. All airframes owned, a fat
+   wallet for the workshop, nothing to grind. Campaign progress lives in a
+   different key and is never touched. */
+function sandboxFresh(){
+  var s = defaults();
+  s.mode = "sandbox";
+  s.money = 100000;
+  s.upgrades = { ramp:0, sled:0, aero:0, fuel:0 };
+  s.glider = { owned:[true,true,true,true,true,true], equipped:1 };
+  s.rocket = { owned:[true,true,true], equipped:0 };
+  s.best = { dist:0, alt:0, speedKmh:0, airTime:0 };
+  s.flights = 0;
+  s.objectivesDone = [];
+  s.totalEarned = 0;
+  s.landingStreak = 0;
+  s.bestStreak = 0;
+  return s;
+}
+/* Bring any sandbox save to full experimentation state (UI button). */
+function sandboxUnlock(s){
+  if(!s || typeof s !== "object") return s;
+  for(var i=0;i<NGL;i++) s.glider.owned[i] = true;
+  for(var j=0;j<NRK;j++) s.rocket.owned[j] = true;
+  if(s.glider.equipped < 1) s.glider.equipped = 1;
+  if(s.rocket.equipped < 0) s.rocket.equipped = 0;
+  if(typeof s.money !== "number" || s.money < 50000) s.money = 50000;
+  return s;
+}
+function sandboxMaxWorkshop(s){
+  if(!s || typeof s !== "object") return s;
+  try{
+    var U = (typeof window !== "undefined" && window.DA && window.DA.UPGRADES) || null;
+    ["ramp","sled","aero","fuel"].forEach(function(k){
+      var mx = U && U[k] ? U[k].max : (k === "fuel" ? 5 : 8);
+      s.upgrades[k] = mx;
+    });
+  }catch(e){}
+  return s;
 }
 
 function num(v, lo, hi, fb){
@@ -111,8 +152,9 @@ function sanitizeRocket(r){
 }
 
 function load(mode){
-  var s = defaults();
-  s.mode = (mode || currentMode);
+  var want = (mode || currentMode);
+  var s = (want === "sandbox") ? sandboxFresh() : defaults();
+  s.mode = want;
   try{
     var raw = localStorage.getItem(keyFor(mode));
     if(!raw) return s;
@@ -166,6 +208,8 @@ function load(mode){
         if(d.version !== SAVE_VERSION) s.best.dist = Math.max(0, s.best.dist - LIP_OFFSET);
       }
       if(typeof d.flights === "number" && isFinite(d.flights)) s.flights = Math.max(0, Math.floor(d.flights));
+      if(typeof d.landingStreak === "number" && isFinite(d.landingStreak)) s.landingStreak = Math.max(0, Math.floor(d.landingStreak));
+      if(typeof d.bestStreak === "number" && isFinite(d.bestStreak)) s.bestStreak = Math.max(0, Math.floor(d.bestStreak));
       if(Array.isArray(d.objectivesDone)) s.objectivesDone = d.objectivesDone.filter(function(x){ return typeof x === "string"; });
       if(d.settings && typeof d.settings === "object"){
         for(var j in s.settings){ if(typeof d.settings[j] === "boolean") s.settings[j] = d.settings[j]; }
@@ -210,6 +254,7 @@ function importJSON(text, mode){
 
 window.DA = window.DA || {};
 window.DA.Save = { load:load, save:save, reset:reset, defaults:defaults,
+  sandboxFresh:sandboxFresh, sandboxUnlock:sandboxUnlock, sandboxMaxWorkshop:sandboxMaxWorkshop,
   getMode:getMode, setMode:setMode, exportJSON:exportJSON, importJSON:importJSON,
   stored:stored, SAVE_VERSION:SAVE_VERSION };
 })();

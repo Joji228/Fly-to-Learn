@@ -74,8 +74,10 @@ function flyGear(gid, rid, up) {
     if (S.y <= 0 && t > 0.5) break;
   }
   if (p.fuelMax > 0 && S.fuel <= 0) usedAllFuel = true;
-  // lip-relative distance, like the game HUD
-  return { dist: Math.max(0, S.x - 140), maxAlt, maxSpeedKmh: maxSpd * 3.6, airTime: t, usedAllFuel };
+  // lip-relative distance, like the game HUD. Bot boosts whenever it has a
+  // tank, so boostUsed tracks the rocket (prevents free pure-glide bonuses).
+  return { dist: Math.max(0, S.x - 140), maxAlt, maxSpeedKmh: maxSpd * 3.6, airTime: t, usedAllFuel,
+    boostUsed: !!R, landing: null, water: false };
 }
 
 function freshSave() {

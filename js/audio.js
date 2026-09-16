@@ -106,6 +106,12 @@ var SFX = {
     tone(320, 0.16, "sine", 0.14, 210);
     tone(240, 0.2, "sine", 0.12, 160, 0.12);
   },
+  fuelEmpty: function(){ // tank ran dry mid-flight: descending blip
+    tone(420, 0.18, "triangle", 0.14, 150);
+  },
+  recover: function(){ // stall recovery: quick rising chirp
+    tone(520, 0.12, "triangle", 0.12, 920);
+  },
   smooth: function(){ // greased landing: soft thud + sparkle
     tone(140, 0.18, "sine", 0.22, 70);
     tone(1568, 0.25, "triangle", 0.10, null, 0.06);

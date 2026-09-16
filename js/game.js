@@ -100,6 +100,16 @@ function resize(){
   Game.g.setTransform(dpr,0,0,dpr,0,0);
 }
 
+function uiOverlayOpen(){
+  try{
+    var ids = ["screen-settings","screen-stats","screen-cheats"];
+    for(var i=0;i<ids.length;i++){
+      var el = document.getElementById(ids[i]);
+      if(el && !el.classList.contains("hidden")) return true;
+    }
+  }catch(e){}
+  return false;
+}
 function bindInput(){
   window.addEventListener("keydown", function(e){
     if(e.repeat){ if(isFlyKey(e.code)) e.preventDefault(); return; }
@@ -107,10 +117,14 @@ function bindInput(){
     else if(e.code==="ArrowRight"||e.code==="KeyD") Game.input.down = true;
     else if(e.code==="Space"){ Game.input.boost = true; e.preventDefault(); }
     else if(e.code==="KeyP"){
-      if(Game.phase==="fly"||Game.phase==="ramp") pause(!Game.paused);
+      if((Game.phase==="fly"||Game.phase==="ramp") && !uiOverlayOpen()) pause(!Game.paused);
     } else if(e.code==="Escape"){
-      // in-flight: pause/resume; on menus: back out one screen level
-      if(Game.phase==="fly"||Game.phase==="ramp") pause(!Game.paused);
+      // in-flight: pause/resume; on menus: back out one screen level.
+      // Never toggle pause underneath an open settings/stats/cheats panel.
+      if(Game.phase==="fly"||Game.phase==="ramp"){
+        if(uiOverlayOpen()){ if(window.DA.UI && window.DA.UI.escapePressed) window.DA.UI.escapePressed(); }
+        else pause(!Game.paused);
+      }
       else if(window.DA.UI && window.DA.UI.escapePressed) window.DA.UI.escapePressed();
     } else if(e.code==="Enter"){
       if(window.DA.UI) window.DA.UI.enterPressed();
@@ -163,12 +177,14 @@ function startRun(){
   Game.acc = 0; // never carry a stale backlog into a fresh run
   Game.zoomPunch = 0;
   clearInputs();
-  Game.runStats = { dist:0, maxAlt:0, maxSpeedKmh:0, airTime:0, usedAllFuel:false, maxSpeed:0 };
+  Game.runStats = { dist:0, maxAlt:0, maxSpeedKmh:0, airTime:0, usedAllFuel:false, maxSpeed:0,
+    boostUsed:false, landing:null, water:false };
+  Game.fuelEmptyNotified = false;
+  Game.wasStalled = false;
   Game.milestonesHit = {};
   Game.bestBeaten = false;
   Game.stallWarned = false;
   Game.rollFriction = 2.2;
-  Game.zoomPunch = 0;
   Game.wasBoost = false;
   Game.crashTimer = 0; Game.crashSpin = 0; Game.crashedInfo = null; Game.splash = null;
   Game.particles.clear();
@@ -208,17 +224,24 @@ function update(dt){
     // Ride the actual ramp track with the cubic profile (see rampProfile):
     // starts at rest, arrives at EXACTLY launch velocity. Position
     // derivative, HUD speed and the launch impulse all agree at the lip.
+    // HUD speed is the TRUE track derivative (not position fraction f),
+    // so the gauge, the rushing scenery and the launch impulse agree.
     var exitA = DA.World.rampExitAngle();
     var send = Game.P.launchSpeed * Math.cos(exitA) * Game.rampDur / RAMP_TRACK_LEN;
     var f = rampProfile(k, send);
     Game.S.x = -60 + RAMP_TRACK_LEN*f;
     Game.S.y = DA.World.rampY(Game.S.x)+2;
-    Game.S.pitch = Math.atan(DA.World.rampSlopeY(Game.S.x));
+    var slope = DA.World.rampSlopeY(Game.S.x);
+    Game.S.pitch = Math.atan(slope);
     Game.S.pitchVel = 0;
-    var v = f * Game.P.launchSpeed;
+    var pa = send - 2, pb = 3 - send;
+    var fprime = 3*pa*k*k + 2*pb*k;
+    var vxT = RAMP_TRACK_LEN * fprime / Game.rampDur;
+    var nvx = vxT, nvy = vxT * slope;
+    var v = Math.sqrt(nvx*nvx + nvy*nvy);
     Game.S.speed = v;
-    Game.S.vx = Math.cos(Game.S.pitch)*v;
-    Game.S.vy = Math.sin(Game.S.pitch)*v;
+    Game.S.vx = nvx;
+    Game.S.vy = nvy;
     // snow spray scales with speed (offsets in meters now)
     if(Game.save.settings.particles && Math.random() < 0.3 + k*0.6)
       Game.particles.spawn({x:Game.S.x-3, y:Game.S.y-1, vx:-8-Math.random()*(10+v*0.5), vy:5+Math.random()*12,
@@ -246,6 +269,11 @@ function update(dt){
     Game.S.stalled = res.stalled;
     if(res.stalled && !Game.stallWarned){ Game.stallWarned = true; DA.Audio.SFX.stall(); }
     if(!res.stalled && Game.S.speed > 14) Game.stallWarned = false;
+    // stall recovery: nose back down + flying speed again = encouraging beat
+    if(Game.wasStalled && !res.stalled && Game.S.speed > 14){
+      if(window.DA.UI && window.DA.UI.onStallRecover) window.DA.UI.onStallRecover();
+    }
+    Game.wasStalled = res.stalled;
 
     // stats (lip-relative: 0 at launch, same origin as HUD/milestones)
     var st = Game.runStats;
@@ -255,7 +283,14 @@ function update(dt){
     st.maxSpeedKmh = Math.max(st.maxSpeedKmh, kmh);
     st.airTime = Game.S.airTime;
     st.maxSpeed = Math.max(st.maxSpeed||0, Game.S.speed);
-    if(Game.S.fuelMax > 0 && Game.S.fuel<=0) st.usedAllFuel = true; // needs a real tank that ran dry
+    if(res.boosting) st.boostUsed = true;
+    if(Game.S.fuelMax > 0 && Game.S.fuel<=0){
+      st.usedAllFuel = true; // needs a real tank that ran dry
+      if(!Game.fuelEmptyNotified){
+        Game.fuelEmptyNotified = true;
+        if(window.DA.UI && window.DA.UI.onFuelEmpty) window.DA.UI.onFuelEmpty();
+      }
+    }
 
     // record?
     if(!Game.bestBeaten && st.dist > Game.save.best.dist && Game.save.best.dist>0){
@@ -474,22 +509,45 @@ function calcRewards(){
   // milestone flyover bonuses (small, immediate feel-good)
   var msBonus = 0;
   Object.keys(Game.milestonesHit).forEach(function(d){ msBonus += Math.round(Number(d)/50); });
-  // gentle snow landings earn a small style bonus
-  var landBonus = (Game.crashedInfo && Game.crashedInfo.severity === "smooth" &&
-                   !Game.crashedInfo.water && st.dist > 100) ? 25 : 0;
+  // Landing mastery: smooth snow landings scale with distance (long greased
+  // landings pay more), streaks escalate, pure-glide flights earn a bonus.
+  // Water never earns style: splashdowns stop dead by design.
+  var landBonus = 0, streakBonus = 0, glideBonus = 0;
+  var smooth = Game.crashedInfo && Game.crashedInfo.severity === "smooth" &&
+               !Game.crashedInfo.water && st.dist > 100;
+  if(smooth) landBonus = 25 + Math.min(125, Math.floor(st.dist/20));
+  var streak = (Game.save && Game.save.landingStreak) || 0;
+  if(smooth && streak >= 2) streakBonus = Math.min(100, streak*10);
+  var hasTank = !!(Game.P && Game.P.fuelMax > 0);
+  if(hasTank && !st.boostUsed && st.dist >= 300) glideBonus = 50; // ⛵ pure glide skill
   var newObj = [];
   DA.OBJECTIVES.forEach(function(o){
-    if(Game.save.objectivesDone.indexOf(o.id)<0 && o.check(st)) newObj.push(o);
+    if(Game.save.objectivesDone.indexOf(o.id)<0){
+      try{ if(o.check(st, Game.save)) newObj.push(o); }catch(e){ try{ if(o.check(st)) newObj.push(o); }catch(e2){} }
+    }
   });
   var objBonus = newObj.reduce(function(a,o){return a+o.bonus;},0);
-  return { base:base, msBonus:msBonus, landBonus:landBonus, newObj:newObj, objBonus:objBonus,
-    total: base.total + msBonus + landBonus + objBonus };
+  return { base:base, msBonus:msBonus, landBonus:landBonus, streakBonus:streakBonus,
+    glideBonus:glideBonus, newObj:newObj, objBonus:objBonus,
+    total: base.total + msBonus + landBonus + streakBonus + glideBonus + objBonus };
 }
 
 function finishRun(){
   Game.phase = "results";
   var DA = window.DA;
   var st = Game.runStats;
+  // landing streak lives on the save (backward compatible: missing => 0)
+  if(typeof Game.save.landingStreak !== "number" || !isFinite(Game.save.landingStreak)) Game.save.landingStreak = 0;
+  if(typeof Game.save.bestStreak !== "number" || !isFinite(Game.save.bestStreak)) Game.save.bestStreak = 0;
+  var smooth = Game.crashedInfo && Game.crashedInfo.severity === "smooth" && !Game.crashedInfo.water;
+  if(smooth){
+    Game.save.landingStreak += 1;
+    if(Game.save.landingStreak > Game.save.bestStreak) Game.save.bestStreak = Game.save.landingStreak;
+  } else {
+    Game.save.landingStreak = 0;
+  }
+  st.landing = Game.crashedInfo ? Game.crashedInfo.severity : null;
+  st.water = !!(Game.crashedInfo && Game.crashedInfo.water);
   var rw = calcRewards();
   // apply
   Game.save.money += rw.total;
@@ -628,6 +686,17 @@ window.DA.gameLoop = loop;
 window.DA.flightDist = flightDist; // lip-relative distance (HUD/milestones/landing share it)
 window.DA.LAUNCH_X = LAUNCH_X;
 window.DA.rampProfile = rampProfile; // exported for regression tests
+function rampVelocity(k, S, rampDur, slope){
+  var a = S - 2, b = 3 - S;
+  var fprime = 3*a*k*k + 2*b*k;
+  var vx = RAMP_TRACK_LEN * fprime / rampDur;
+  var vy = vx * (slope || 0);
+  return { vx:vx, vy:vy, speed:Math.sqrt(vx*vx + vy*vy), fprime:fprime };
+}
+window.DA.rampVelocity = rampVelocity; // true cubic velocity (HUD contract)
+window.DA.calcRewards = calcRewards; // test hook: set Game.save/runStats/crashedInfo/P first
+window.DA.RAMP_TRACK_LEN = RAMP_TRACK_LEN;
+window.DA.uiOverlayOpen = uiOverlayOpen;
 window.DA.updateCamera = updateCamera;
 window.DA.playerScreenPos = playerScreenPos;
 })();

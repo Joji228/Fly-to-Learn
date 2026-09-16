@@ -25,7 +25,7 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--ink);
 
 /* ============ HUD ============ */
 #hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;
-  gap:var(--hud-gap);padding:12px var(--edge-pad);pointer-events:none;z-index:5;}
+  gap:var(--hud-gap);padding:calc(12px + env(safe-area-inset-top)) var(--edge-pad) 12px;pointer-events:none;z-index:5;}
 .hud-left,.hud-right{display:flex;gap:var(--hud-gap);align-items:stretch;}
 .hud-center{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:200px;}
 .hud-stat{position:relative;background:linear-gradient(180deg,rgba(20,36,66,.9),rgba(10,20,38,.9));
@@ -42,8 +42,6 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--ink);
   text-shadow:0 2px 6px rgba(0,0,0,.5);font-variant-numeric:tabular-nums;}
 .hud-stat.speed{min-width:118px;}
 .hud-stat.fuel{min-width:150px;}
-.hud-stat.hot{animation:hotpulse 1s ease infinite;border-color:var(--accent);}
-@keyframes hotpulse{0%,100%{box-shadow:0 4px 14px rgba(0,0,0,.35)}50%{box-shadow:var(--glow-amber)}}
 .hud-stat.hot{animation:hotpulse 1s ease infinite;border-color:var(--accent);}
 @keyframes hotpulse{0%,100%{box-shadow:0 4px 14px rgba(0,0,0,.35)}50%{box-shadow:var(--glow-amber)}}
 
@@ -81,6 +79,12 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--ink);
 #fuel-fill.low{background:linear-gradient(90deg,#e71d36,#ff5d5d);}
 #fuel-bar.burning{border-color:var(--accent);animation:burnpulse .5s ease infinite;}
 @keyframes burnpulse{0%,100%{box-shadow:0 0 4px 1px rgba(255,159,28,.4)}50%{box-shadow:0 0 12px 3px rgba(255,159,28,.95)}}
+#fuel-bar.empty{border-color:var(--bad);}
+#fuel-bar.emptyflash{animation:emptyflash .5s ease 2;}
+@keyframes emptyflash{0%,100%{box-shadow:none}50%{box-shadow:0 0 14px 3px rgba(255,93,93,.9)}}
+#sandbox-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:rgba(128,237,153,.1);
+  border:1px dashed var(--good);border-radius:var(--r-sm);padding:8px 12px;margin-bottom:10px;font-size:13px;font-weight:700;}
+#sandbox-bar .btn{padding:8px 12px;font-size:13px;}
 .status-pill{display:flex;align-items:center;gap:10px;background:rgba(8,18,36,.84);
   border:1.5px solid var(--line);border-radius:999px;padding:6px 18px;
   box-shadow:0 4px 14px rgba(0,0,0,.4);backdrop-filter:blur(4px);}
@@ -111,7 +115,7 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--ink);
 
 /* touch */
 #touch-controls{position:absolute;bottom:14px;left:0;right:0;display:flex;justify-content:space-between;
-  padding:0 14px;z-index:6;pointer-events:none;}
+  padding:0 14px calc(14px + env(safe-area-inset-bottom));z-index:6;pointer-events:none;}
 .tc-btn{pointer-events:auto;width:96px;height:76px;border-radius:16px;border:2px solid rgba(255,255,255,.35);
   background:linear-gradient(180deg,rgba(20,38,70,.72),rgba(10,22,44,.72));color:#fff;font-size:22px;font-weight:900;
   cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.4);display:flex;flex-direction:column;align-items:center;
@@ -400,7 +404,7 @@ kbd{background:#050b18;border:1px solid #4a5a7a;border-bottom-width:3px;border-r
   .shop-foot{display:none;}
   .up-card.equipped::before{font-size:9px;top:-10px;}
 }
-@media (min-width:701px){
+@media (hover:hover) and (pointer:fine){
   #touch-controls{display:none !important;}
 }
 /* large desktop (incl. 1920x1080): the full-size confident UI */
@@ -457,6 +461,23 @@ kbd{background:#050b18;border:1px solid #4a5a7a;border-bottom-width:3px;border-r
   .load-chip{max-width:128px;font-size:10px;}
   .hud-value{font-size:13px;}
   .hud-stat.speed .hud-value{font-size:15px;}
+}
+/* phone landscape (short height): keep gameplay visible, controls reachable */
+@media (max-height:500px){
+  #hud{padding:6px 10px;gap:6px;}
+  .hud-stat{min-width:0;padding:3px 8px 4px;}
+  .hud-value{font-size:14px;}
+  .hud-label{font-size:8px;}
+  #loadout-label{display:none;}
+  #speedometer{width:104px;height:104px;right:8px;bottom:92px;}
+  #sp-number{font-size:19px;}
+  #sp-unit{font-size:8px;margin-top:20px;}
+  .tc-btn{width:76px;height:60px;font-size:17px;}
+  .tc-btn.boost{width:88px;}
+  .menu-card{padding:16px;max-height:96vh;overflow-y:auto;}
+  .logo{font-size:34px;}
+  .results-card{padding:14px;max-height:96vh;overflow-y:auto;}
+  .shop-card{height:96vh;padding:10px;}
 }
 /* savings-goal line: same wallet number as the affordable nudge */
 .goal-line{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.4px;
