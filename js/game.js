@@ -76,13 +76,17 @@ function init(canvas, save, particles){
   resize();
   window.addEventListener("resize", resize);
   bindInput();
+  // Dual-monitor friendly: leaving the window NEVER force-pauses. It only
+  // releases held inputs (no stuck booster) and quiets flight audio; the
+  // sim keeps flying behind the pause menu you open yourself (P / ESC / ⏸).
+  // Hidden tabs get no rAF frames anyway, so the flight simply resumes.
   document.addEventListener("visibilitychange", function(){
     clearInputs();
-    if(document.hidden && (Game.phase==="ramp"||Game.phase==="fly")) pause(true);
+    try{ window.DA.Audio.stopBoost(); window.DA.Audio.setWind(0, false); }catch(e){}
   });
   window.addEventListener("blur", function(){
     clearInputs(); // never leave a key/booster stuck on
-    if(Game.phase==="ramp"||Game.phase==="fly") pause(true);
+    try{ window.DA.Audio.stopBoost(); window.DA.Audio.setWind(0, false); }catch(e){}
   });
 }
 

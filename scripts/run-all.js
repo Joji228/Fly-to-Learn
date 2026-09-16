@@ -10,6 +10,7 @@ const GATES = [
   "tests/balance.test.js",
   "tests/economy.test.js",
   "tests/feel.test.js",
+  "tests/focus.test.js",
   "tests/fps.test.js",
   "tests/physics.test.js",
   "tests/ramp.test.js",
