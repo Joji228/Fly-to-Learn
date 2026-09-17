@@ -224,7 +224,7 @@ function stepFlight(s, input, p, dt){
 
 function econReward(stat){
   // stat: {dist, maxAlt, maxSpeedKmh, airTime} — distance leads, rest assist
-  var d = Math.floor(stat.dist * 0.45);
+  var d = Math.floor(stat.dist * 0.5);
   var a = Math.floor(stat.maxAlt * 0.6);
   var sp = Math.floor(stat.maxSpeedKmh * 1.0);
   var t = Math.floor(stat.airTime * 6);

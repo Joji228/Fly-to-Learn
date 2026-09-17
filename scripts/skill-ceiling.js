@@ -19,11 +19,11 @@ const DA = global.window.DA, P = DA.Physics;
 const D = Math.PI / 180, dt = 1 / 60;
 
 const G = DA.GLIDERS[5], R = DA.ROCKETS[2];
-const up = { ramp: 8, sled: 8, aero: 8, fuel: 5 };
+const up = { ramp: 8, sled: 8, aero: 8, fuel: 5, nitro: 4 };
 const p = {
   control: G.control, drag: G.drag * (1 - 0.055 * 8), turnK: G.turnK,
   comfort: G.comfort + 8 * 1.5, top: G.top + 8 * 2, stall: G.stall,
-  thrust: R.thrust, fuelMax: R.burn * DA.fuelMult(5), sinkBias: G.sink, bare: false
+    thrust: R.thrust * DA.thrustMult(up.nitro), fuelMax: R.burn * DA.fuelMult(5), sinkBias: G.sink, bare: false
 };
 const ang = DA.launchAngleDeg(8) * D, spd = DA.launchSpeed(8, 8);
 const S = {

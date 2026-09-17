@@ -100,7 +100,7 @@ function clear() { for (const k in store) delete store[k]; }
   DA.Save.setMode("sandbox");
   const s = DA.Save.load();
   DA.Save.sandboxMaxWorkshop(s);
-  ok(s.upgrades.ramp === 8 && s.upgrades.sled === 8 && s.upgrades.aero === 8 && s.upgrades.fuel === 5,
+  ok(s.upgrades.ramp === 8 && s.upgrades.sled === 8 && s.upgrades.aero === 8 && s.upgrades.fuel === 5 && s.upgrades.nitro === 4,
     "6: sandbox maxes workshop", JSON.stringify(s.upgrades));
   DA.Save.setMode("campaign");
 }

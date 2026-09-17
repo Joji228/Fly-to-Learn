@@ -464,7 +464,8 @@ var SVG_PART = {
   ramp: '<svg class="item-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 20 L14 20 L20 8 L16 8 L10 18 L2 18 Z" fill="currentColor"/><path d="M14 20 L20 8" stroke="#0b1626" stroke-width="1.4"/><circle cx="18" cy="5.5" r="1.6" fill="currentColor"/></svg>',
   sled: '<svg class="item-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13 L19 13 L17 9 L5 9 Z" fill="currentColor"/><rect x="2" y="15" width="5" height="3" rx="1.5" fill="currentColor"/><rect x="17" y="15" width="5" height="3" rx="1.5" fill="currentColor"/><path d="M6 9 L12 4 L12 9 Z" fill="currentColor"/></svg>',
   aero: '<svg class="item-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 15 C7 15 12 12 19 5 L21 7 C15 13 9 17 4 17 Z" fill="currentColor"/><path d="M15 17 L19 21 L20 18 Z" fill="currentColor"/></svg>',
-  fuel: '<svg class="item-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="4" width="10" height="16" rx="3" fill="currentColor"/><rect x="7" y="9" width="10" height="3" fill="#0b1626" opacity=".45"/><circle cx="12" cy="15" r="2.2" fill="#0b1626"/></svg>'
+  fuel: '<svg class="item-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="4" width="10" height="16" rx="3" fill="currentColor"/><rect x="7" y="9" width="10" height="3" fill="#0b1626" opacity=".45"/><circle cx="12" cy="15" r="2.2" fill="#0b1626"/></svg>',
+  nitro: '<svg class="item-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 C12 2 5 11 5 15 a7 7 0 0 0 14 0 C19 11 12 2 12 2Z" fill="currentColor"/><path d="M9 15.5 a3 3 0 0 0 3 3" stroke="#0b1626" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>'
 };
 function partIcon(key, fallback){
   return SVG_PART[key] || fallback || "";
@@ -628,7 +629,7 @@ function renderTracks(){
   head.className = "glider-head";
   head.innerHTML = secHead(SVG_GEAR, "WORKSHOP", sectionSummary("track"));
   grid.appendChild(head);
-  ["ramp","sled","aero","fuel"].forEach(function(k){
+  ["ramp","sled","aero","fuel","nitro"].forEach(function(k){
     var u = window.DA.UPGRADES[k];
     if(!u) return;
     var lvl = save.upgrades[k] || 0;
@@ -729,8 +730,8 @@ function equipRocket(id){
 }
 /* Progression-aware recommendations (priority beats raw price):
    first glider > first rocket > next glider > next rocket >
-   fuel (only with a rocket) > ramp/aero > sled. Fuel without a rocket
-   is never recommended. */
+   fuel/nitro (only with a rocket) > ramp/aero > sled. Fuel and nitro
+   without a rocket are never recommended. */
 function hasRealGlider(){
   for(var i=1;i<save.glider.owned.length;i++) if(save.glider.owned[i]) return true;
   return false;
@@ -757,13 +758,13 @@ function rankedPurchases(affordableOnly){
     var firstR = realGlider && !rocket && rk.id === 0;
     consider("rocket", rk.id, "🚀 " + rk.name, rk.price, firstR ? 1 : 3);
   });
-  ["ramp","sled","aero","fuel"].forEach(function(k){
+  ["ramp","sled","aero","fuel","nitro"].forEach(function(k){
     var u = window.DA.UPGRADES[k];
     if(!u) return;
     var lvl = save.upgrades[k] || 0;
     if(lvl >= u.max) return;
-    if(k === "fuel" && !rocket) return; // tank with no rocket helps nobody
-    var prio = (k === "fuel") ? 4 : (k === "sled" ? 6 : 5);
+    if((k === "fuel" || k === "nitro") && !rocket) return; // tanks/punch with no rocket help nobody
+    var prio = (k === "fuel" || k === "nitro") ? 4 : (k === "sled" ? 6 : 5);
     consider("track", k, u.icon + " " + u.name + " Lv " + (lvl+1), window.DA.priceOf(k, lvl), prio);
   });
   cands.sort(function(a,b){ return (a.prio - b.prio) || (a.price - b.price); });
@@ -854,7 +855,7 @@ function drawPreview(){
     sledLvl: save.upgrades.sled, aeroLvl: save.upgrades.aero
   }, 1.9, {});
   g.fillStyle = "#123"; g.font = "bold 13px sans-serif"; g.textAlign="left";
-  g.fillText("Ramp "+save.upgrades.ramp+" • Sled "+save.upgrades.sled+" • Aero "+save.upgrades.aero+" • Fuel Lv "+(save.upgrades.fuel||0)+"/5", 10, 20);
+  g.fillText("Ramp "+save.upgrades.ramp+" • Sled "+save.upgrades.sled+" • Aero "+save.upgrades.aero+" • Fuel "+(save.upgrades.fuel||0)+" • Nitro "+(save.upgrades.nitro||0), 10, 20);
   var lg = $("loadout-glider"), lr = $("loadout-rocket"), lf = $("loadout-fuel");
   if(lg) lg.textContent = gliderName(save.glider.equipped);
   if(lr) lr.textContent = rocketName(save.rocket.equipped);

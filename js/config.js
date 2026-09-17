@@ -24,6 +24,9 @@ function rampRideTime(sledLvl){ return Math.max(0.8, 1.2 - (sledLvl || 0) * 0.05
 // ROCKET FUEL is a permanent 5-level tank upgrade: multiplies burn time.
 var FUEL_MULTS = [1, 1.2, 1.4, 1.65, 1.9, 2.2];
 function fuelMult(l){ return FUEL_MULTS[Math.max(0, Math.min(5, l || 0))]; }
+// NITRO MIX is a permanent 4-level punch upgrade: multiplies rocket thrust.
+var NITRO_MULTS = [1, 1.08, 1.16, 1.24, 1.32];
+function thrustMult(l){ return NITRO_MULTS[Math.max(0, Math.min(4, l || 0))]; }
 
 var UPGRADES = {
   ramp: {
@@ -53,6 +56,13 @@ var UPGRADES = {
     max: 5, prices: [350, 900, 2000, 4500, 9000],
     desc: function(l){ return "Tank x" + fuelMult(l).toFixed(2) + " fuel (" + Math.round((fuelMult(l)-1)*100) + "% extra burn)"; },
     next: function(l){ return l>=5 ? "MAXED — mobile ocean" : "→ tank x" + fuelMult(l+1).toFixed(2) + " fuel (" + Math.round((fuelMult(l+1)-1)*100) + "% extra burn)"; }
+  },
+  nitro: {
+    name: "Nitro Mix", icon: "🧨",
+    blurb: "Questionable kelp chemistry. Every rocket punches harder.",
+    max: 4, prices: [400, 1100, 2500, 5500],
+    desc: function(l){ return "Punch x" + thrustMult(l).toFixed(2) + " thrust (" + Math.round((thrustMult(l)-1)*100) + "% harder hits)"; },
+    next: function(l){ return l>=4 ? "MAXED — maritime hazard" : "→ punch x" + thrustMult(l+1).toFixed(2) + " thrust (" + Math.round((thrustMult(l+1)-1)*100) + "% harder hits)"; }
   }
 };
 
@@ -139,6 +149,8 @@ window.DA.rampLipY = rampLipY;
 window.DA.rampRideTime = rampRideTime;
 window.DA.fuelMult = fuelMult;
 window.DA.FUEL_MULTS = FUEL_MULTS;
+window.DA.thrustMult = thrustMult;
+window.DA.NITRO_MULTS = NITRO_MULTS;
 window.DA.OBJECTIVES = OBJECTIVES;
 window.DA.MILESTONES = MILESTONES;
 window.DA.QUOTES = QUOTES;

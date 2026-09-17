@@ -40,7 +40,7 @@ function ok(c, m, extra) {
 // 1. reward formula golden values (locks the multipliers)
 {
   const r = DA.Physics.econReward({ dist: 1000, maxAlt: 100, maxSpeedKmh: 150, airTime: 20 });
-  ok(r.dist === 450 && r.alt === 60 && r.speed === 150 && r.time === 120 && r.total === 780,
+  ok(r.dist === 500 && r.alt === 60 && r.speed === 150 && r.time === 120 && r.total === 830,
     "1: reward formula golden values", JSON.stringify(r));
 }
 
@@ -82,7 +82,7 @@ function ok(c, m, extra) {
     t.rocket.indexOf("Puddle-Jumper") >= 0 && t.track.indexOf("Lv 1/") >= 0,
     "5b: section summaries name owned/equipped", t.glider + " | " + t.rocket + " | " + t.track);
   const maxed = {
-    money: 0, upgrades: { ramp: 8, sled: 8, aero: 8, fuel: 5 },
+    money: 0, upgrades: { ramp: 8, sled: 8, aero: 8, fuel: 5, nitro: 4 },
     glider: { owned: [true, true, true, true, true, true], equipped: 5 },
     rocket: { owned: [true, true, true], equipped: 2 }
   };

@@ -42,7 +42,7 @@ function flyGear(gid, rid, up) {
   const p = {
     control: G.control, drag: G.drag * (1 - 0.055 * (up.aero || 0)), turnK: G.turnK,
     comfort: G.comfort + (up.aero || 0) * 1.5, top: G.top + (up.aero || 0) * 2,
-    stall: G.stall, thrust: R ? R.thrust : 0,
+    stall: G.stall, thrust: R ? R.thrust * DA.thrustMult(up.nitro || 0) : 0,
     fuelMax: R ? R.burn * DA.fuelMult(up.fuel || 0) : 0,
     sinkBias: G.sink, bare: gid === 0
   };
@@ -82,7 +82,7 @@ function flyGear(gid, rid, up) {
 
 function freshSave() {
   return {
-    money: 0, upgrades: { ramp: 0, sled: 0, aero: 0, fuel: 0 },
+    money: 0, upgrades: { ramp: 0, sled: 0, aero: 0, fuel: 0, nitro: 0 },
     glider: { owned: [true, false, false, false, false, false], equipped: 0 },
     rocket: { owned: [false, false, false], equipped: -1 },
     best: { dist: 0, alt: 0, speedKmh: 0, airTime: 0 },

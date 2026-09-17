@@ -80,8 +80,19 @@ function hasFuel(s) {
   const r = DA.UI.testRank(mkSave({ money: 999999,
     gOwned: [true, true, true, true, true, true], gEq: 5,
     rOwned: [true, true, true], rEq: 2,
-    upgrades: { ramp: 8, sled: 8, aero: 8, fuel: 5 } }));
+    upgrades: { ramp: 8, sled: 8, aero: 8, fuel: 5, nitro: 4 } }));
   ok(r.length === 0, "F: maxed save recommends nothing", r.length + " cands");
+}
+// CASE G: nitro is gated like fuel — never without a rocket, offered with one
+function hasNitro(s) {
+  return DA.UI.testRank(mkSave(s)).some((c) => c.type === "track" && c.id === "nitro");
+}
+{
+  ok(!hasNitro({ money: 99999 }), "G1: fresh rich save never offered nitro");
+  ok(!hasNitro({ money: 99999, gOwned: [true, true, true, false, false, false], gEq: 2 }),
+    "G2: kite, no rocket: still no nitro");
+  ok(hasNitro({ money: 99999, gOwned: [true, true, false, false, false, false], gEq: 1,
+    rOwned: [true, false, false], rEq: 0 }), "G3: rocket owner is offered nitro");
 }
 
 console.log(`\nSHOP TESTS: ${pass} passed, ${fail} failed`);

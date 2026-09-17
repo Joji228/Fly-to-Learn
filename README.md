@@ -1,6 +1,6 @@
 # Fly-to-Learn
 
-*Version 0.3 — downrange islands (Palm Isle, Floe Berg, Gull Rock, City Isle) give skilled pilots real landing targets past the surf; landing mastery finally playable end to end.*
+*Version 0.4 — Nitro Mix workshop track (+8% rocket thrust/Lv), distance rewards up, faster overall pacing.*
 
 *V0.1 audit: deterministic sim, honest flight model, polished shop.*
 
@@ -12,7 +12,7 @@ Dodo Airways — a tiny launch-and-upgrade browser game. Launch a stubborn dodo 
 
 **Modes:** Campaign (progression) and Sandbox (all gear + funds, separate save) via the Mode button. Sandbox progress never touches campaign.
 
-**Skill play:** smooth landings scale with distance, consecutive smooths build a streak bonus, rocket flights without boosting earn a pure-glide bonus. New objectives cover landings, gliding and streaks.
+**Skill play:** smooth landings scale with distance, consecutive smooths build a streak bonus, rocket flights without boosting earn a pure-glide bonus. Downrange islands (Palm Isle, Floe Berg, Gull Rock, City Isle) are the landing targets. Nitro Mix makes every rocket punch harder.
 
 **Tests:** `node scripts/run-all.js` runs every regression test plus the exploit gate (no dependencies). Individual suites live in `tests/`, tuning sims in `scripts/`.
 

@@ -62,7 +62,7 @@ function defaults(){
     version: SAVE_VERSION,
     mode: currentMode,
     money: 0,
-    upgrades: { ramp:0, sled:0, aero:0, fuel:0 },
+    upgrades: { ramp:0, sled:0, aero:0, fuel:0, nitro:0 },
     glider: freshGlider(),
     rocket: freshRocket(),
     best: { dist:0, alt:0, speedKmh:0, airTime:0 },
@@ -81,7 +81,7 @@ function sandboxFresh(){
   var s = defaults();
   s.mode = "sandbox";
   s.money = 100000;
-  s.upgrades = { ramp:0, sled:0, aero:0, fuel:0 };
+  s.upgrades = { ramp:0, sled:0, aero:0, fuel:0, nitro:0 };
   s.glider = { owned:[true,true,true,true,true,true], equipped:1 };
   s.rocket = { owned:[true,true,true], equipped:0 };
   s.best = { dist:0, alt:0, speedKmh:0, airTime:0 };
@@ -106,8 +106,8 @@ function sandboxMaxWorkshop(s){
   if(!s || typeof s !== "object") return s;
   try{
     var U = (typeof window !== "undefined" && window.DA && window.DA.UPGRADES) || null;
-    ["ramp","sled","aero","fuel"].forEach(function(k){
-      var mx = U && U[k] ? U[k].max : (k === "fuel" ? 5 : 8);
+    ["ramp","sled","aero","fuel","nitro"].forEach(function(k){
+      var mx = U && U[k] ? U[k].max : (k === "fuel" ? 5 : k === "nitro" ? 4 : 8);
       s.upgrades[k] = mx;
     });
   }catch(e){}
