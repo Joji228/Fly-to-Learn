@@ -83,6 +83,12 @@ function init(canvas, save, particles){
   document.addEventListener("visibilitychange", function(){
     clearInputs();
     try{ window.DA.Audio.stopBoost(); window.DA.Audio.setWind(0, false); }catch(e){}
+    // background tabs throttle timers: park the menu music while hidden so
+    // it can't drone; it restarts on return iff music is enabled.
+    try{
+      if(document.hidden){ window.DA.Audio.stopMusic(); }
+      else if(Game.save.settings.music){ window.DA.Audio.startMusic(); }
+    }catch(e2){}
   });
   window.addEventListener("blur", function(){
     clearInputs(); // never leave a key/booster stuck on

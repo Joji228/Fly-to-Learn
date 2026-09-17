@@ -36,10 +36,11 @@ load("physics.js");
 load("world.js");
 load("game.js");
 const DA = global.window.DA, Game = DA.Game;
-let stopBoostCalls = 0;
+let stopBoostCalls = 0, stopMusicCalls = 0;
 DA.Audio = {
   ensure() {}, startWind() {}, stopWind() {}, setWind() {},
   stopBoost() { stopBoostCalls++; }, startBoost() {},
+  stopMusic() { stopMusicCalls++; }, startMusic() {},
   SFX: { launch() {}, stall() {}, milestone() {}, splash() {}, smooth() {}, impact() {}, record() {} }
 };
 DA.UI = {
@@ -90,6 +91,7 @@ global.document.hidden = true;
 docHandlers.visibilitychange();
 ok(Game.input.boost === false, "6: hide releases held inputs");
 ok(Game.paused === false && Game.phase === "fly", "7: hide never force-pauses");
+ok(stopMusicCalls >= 1, "8: hide parks background music");
 global.document.hidden = false;
 
 // ---- pause/resume respects the contextual BOOST button ----
@@ -107,12 +109,12 @@ Game.save = freshSave();
 Game.save.rocket.equipped = -1;
 Game.phase = "fly"; Game.paused = false;
 DA.pauseGame(true);
-ok(Game.paused === true, "8: pause engages mid-flight");
+ok(Game.paused === true, "9: pause engages mid-flight");
 DA.pauseGame(false);
-ok(tbEl.style.display === "none", "9: resume keeps BOOST hidden with no rocket");
+ok(tbEl.style.display === "none", "10: resume keeps BOOST hidden with no rocket");
 Game.save.rocket.equipped = 0;
 DA.pauseGame(true); DA.pauseGame(false);
-ok(tbEl.style.display === "", "10: resume restores BOOST with a rocket");
+ok(tbEl.style.display === "", "11: resume restores BOOST with a rocket");
 
 console.log(`\nFOCUS TESTS: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
