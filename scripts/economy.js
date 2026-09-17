@@ -111,11 +111,12 @@ function priceOfCand(c) {
 }
 
 const save = freshSave();
-const msHit = {};
 const log = [];
 let flights = 0;
 const MAX_FLIGHTS = 400;
 while (flights < MAX_FLIGHTS) {
+  // flyover bonuses pay EVERY flight in-game (milestonesHit resets per run)
+  const msHit = {};
   const st = flyGear(save.glider.equipped, save.rocket.equipped, save.upgrades);
   const rw = rewardsFor(save, st, msHit);
   save.money += rw.total;

@@ -1,6 +1,6 @@
 # Fly-to-Learn
 
-*Version 0.2 — fuel economy: all rockets burn ~25% longer; sandbox, landing mastery and test runner included.*
+*Version 0.3 — downrange islands (Palm Isle, Floe Berg, Gull Rock, City Isle) give skilled pilots real landing targets past the surf; landing mastery finally playable end to end.*
 
 *V0.1 audit: deterministic sim, honest flight model, polished shop.*
 

@@ -17,6 +17,7 @@ const GATES = [
   "tests/save.test.js",
   "tests/shop.test.js",
   "tests/ui.test.js",
+  "tests/world.test.js",
   "tests/sandbox.test.js",
   "tests/rewards.test.js",
   "scripts/repro-exploit.js"

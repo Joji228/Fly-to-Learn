@@ -144,11 +144,37 @@ function drawClouds(g, W, H, cam, zoom){
 }
 
 /* ---------------- terrain profile ---------------- */
+/* Downrange islands: landable targets past the home snowfield (surf starts
+   at x=500). Each isle is a gentle cosine bump — max slope ~4-7 deg — so a
+   flared touchdown can grease it, while the surf (bump under 0.5 m) still
+   splashes. Without these, every flight past 360 m ends in open ocean: the
+   whole landing-skill game (smooth bonuses, streaks, the smooth-800 m
+   objective) would be dead content after the second glider. Lip-relative distances:
+   Palm Isle ~1010-1210 m (fishing boats), Floe Berg ~1810-2060 m
+   (icebergs), Gull Rock ~2810-3060 m (whale waters), City Isle ~3510-3960 m
+   (the d3500 epic finally has a landing pad). */
+var ISLANDS = [
+  { x0:1150, x1:1350, h:6,  ice:false },
+  { x0:1950, x1:2200, h:8,  ice:true  },
+  { x0:2950, x1:3200, h:7,  ice:false },
+  { x0:3650, x1:4100, h:10, ice:false }
+];
+function islandH(x){
+  for(var i=0;i<ISLANDS.length;i++){
+    var isl = ISLANDS[i];
+    if(x >= isl.x0 && x <= isl.x1){
+      var t = (x - isl.x0) / (isl.x1 - isl.x0);
+      var s = Math.sin(Math.PI * t);
+      return isl.h * s * s;
+    }
+  }
+  return 0;
+}
 function groundY(x){
   if(x < 140) return rampY(x);
-  return Math.sin(x*0.01)*1.2 + Math.sin(x*0.043)*0.5;
+  return Math.sin(x*0.01)*1.2 + Math.sin(x*0.043)*0.5 + islandH(x);
 }
-function isWater(x){ return x > 500; }
+function isWater(x){ return x > 500 && islandH(x) < 0.5; }
 
 var _rampLvl = 0;
 function setRampLevel(r){ _rampLvl = Math.max(0, Math.min(8, r || 0)); }
@@ -377,9 +403,9 @@ function drawTerrain(g, W, H, cam, zoom, SX, SY, overWater, S){
       }
       g.stroke();
     }
-    // crest highlights + foam patches
+    // crest highlights + foam patches (open water only — never on dry sand)
     for(var fx2=Math.floor(x0/37)*37; fx2<x1; fx2+=37){
-      if(fx2 < 510) continue;
+      if(fx2 < 510 || !isWater(fx2)) continue;
       var fsx = SX(fx2+hash(fx2+1)*18);
       if(fsx<-60||fsx>W+60) continue;
       var fsy = SY(groundY(fx2)) + 4 + Math.sin(wt*1.3+fx2)*3;
@@ -389,7 +415,7 @@ function drawTerrain(g, W, H, cam, zoom, SX, SY, overWater, S){
     // sun glints
     g.fillStyle = "rgba(255,246,200,0.5)";
     for(var lx=Math.floor(x0/53)*53; lx<x1; lx+=53){
-      if(lx < 510) continue;
+      if(lx < 510 || !isWater(lx)) continue;
       var lsx = SX(lx+hash(lx+4)*24);
       if(lsx<-40||lsx>W+40) continue;
       var lsy = SY(groundY(lx)) + 12 + hash(lx+6)*30;
@@ -399,6 +425,29 @@ function drawTerrain(g, W, H, cam, zoom, SX, SY, overWater, S){
     g.globalAlpha = 1;
     g.restore();
   }
+
+  // ---- islands: sand / ice caps hugging the terrain above the surf ----
+  g.save();
+  for(var ii=0; ii<ISLANDS.length; ii++){
+    var cap = ISLANDS[ii];
+    var pts = [];
+    var vx0 = Math.max(cam.x-40, cap.x0-30), vx1 = Math.min(cam.x+W/(PPM*zoom)+40, cap.x1+30);
+    for(var wx3=vx0; wx3<=vx1; wx3+=6){
+      if(islandH(wx3) < 0.25) continue;
+      pts.push([SX(wx3), SY(groundY(wx3))]);
+    }
+    if(pts.length < 2) continue;
+    g.beginPath();
+    g.moveTo(pts[0][0], pts[0][1]+30*zoom);
+    for(var pi3=0; pi3<pts.length; pi3++) g.lineTo(pts[pi3][0], pts[pi3][1]);
+    g.lineTo(pts[pts.length-1][0], pts[pts.length-1][1]+30*zoom);
+    g.closePath();
+    var ig = g.createLinearGradient(0, pts[0][1]-24*zoom, 0, pts[0][1]+30*zoom);
+    if(cap.ice){ ig.addColorStop(0, "#ffffff"); ig.addColorStop(1, "#bcd9f5"); }
+    else { ig.addColorStop(0, "#f4e3b2"); ig.addColorStop(1, "#d4a373"); }
+    g.fillStyle = ig; g.fill();
+  }
+  g.restore();
 }
 
 function drawSign(g, x, y, text, zoom){
@@ -453,13 +502,26 @@ function drawDetails(g, SX, SY, cam, W, H, zoom, S){
     else if(h < 0.75) drawBush(g, sx, sy, (0.7+h*0.6)*NS);
     else drawFence(g, sx, sy, NS);
   }
-  // buoys + floating ice at sea
+  // buoys + floating ice at sea (open water only)
   for(x=Math.floor(x0/30)*30; x<x1; x+=30){
     if(x < 520) continue;
     jx = x + hash(x+9)*16; sx = SX(jx); if(sx<-60||sx>W+60) continue;
+    if(!isWater(jx)) continue;
     sy = SY(groundY(jx)) + Math.sin(Date.now()*0.002+x)*2*zoom;
     if(hash(x+13) < 0.55) drawBuoy(g, sx, sy, NS);
     else drawFloater(g, sx, sy, NS, x);
+  }
+  // island flora: palms on sand, ice shards on the floe
+  for(var iz=0; iz<ISLANDS.length; iz++){
+    var isl = ISLANDS[iz];
+    for(var px=isl.x0+30; px<isl.x1-10; px+=70){
+      jx = px + hash(px)*20;
+      if(jx < x0 || jx > x1) continue;
+      sx = SX(jx); if(sx<-60||sx>W+60) continue;
+      sy = SY(groundY(jx));
+      if(isl.ice) drawShard(g, sx, sy, (0.8+hash(px+1)*0.5)*NS);
+      else drawPalm(g, sx, sy, (0.8+hash(px+1)*0.5)*NS);
+    }
   }
   // birds aloft
   g.save();
@@ -499,6 +561,27 @@ function pickFor(x){
   if(x<18000) return (x%1400<700)?"statue":"volcano";
   if(x<25000) return (x%1600<800)?"ufo":"statue";
   return "moon";
+}
+function drawPalm(g, x, y, s){
+  g.strokeStyle = "#7f5539"; g.lineWidth = Math.max(1.5, 4*s); g.lineCap = "round";
+  g.beginPath(); g.moveTo(x, y);
+  g.quadraticCurveTo(x+4*s, y-16*s, x+8*s, y-26*s); g.stroke();
+  g.strokeStyle = "#2d6a4f"; g.lineWidth = Math.max(1.2, 3*s);
+  for(var f2=0; f2<5; f2++){
+    var a2 = -Math.PI*0.12 - f2*(Math.PI*0.68/4);
+    g.beginPath(); g.moveTo(x+8*s, y-26*s);
+    g.quadraticCurveTo(x+8*s+Math.cos(a2)*13*s, y-28*s+Math.sin(a2)*7*s,
+      x+8*s+Math.cos(a2)*19*s, y-23*s+Math.sin(a2)*11*s);
+    g.stroke();
+  }
+  g.fillStyle = "#6b4226";
+  g.beginPath(); g.arc(x+8*s, y-24*s, Math.max(1.2, 3*s), 0, 7); g.fill();
+}
+function drawShard(g, x, y, s){
+  g.fillStyle = "#eef6fd";
+  g.beginPath(); g.moveTo(x-11*s, y); g.lineTo(x-2*s, y-16*s); g.lineTo(x+4*s, y); g.closePath(); g.fill();
+  g.fillStyle = "#bcd9f5";
+  g.beginPath(); g.moveTo(x+1*s, y); g.lineTo(x+8*s, y-11*s); g.lineTo(x+13*s, y); g.closePath(); g.fill();
 }
 function drawPine(g, x, y, s){
   g.fillStyle = "#5b3a29"; g.fillRect(x-3*s, y-14*s, 6*s, 14*s);
@@ -890,5 +973,6 @@ function drawDodo(g, x, y, S, zoom, opts){
 window.DA = window.DA || {};
 window.DA.World = { drawScene:drawScene, drawDodo:drawDodo, groundY:groundY, isWater:isWater, skyColors:skyColors,
   setRampLevel:setRampLevel, rampY:rampY, rampSlopeY:rampSlopeY, rampLipY:rampLipY, rampExitAngle:rampExitAngle,
+  ISLANDS:ISLANDS, islandH:islandH,
   PPM:PPM };
 })();
