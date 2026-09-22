@@ -1,6 +1,6 @@
 # Fly-to-Learn
 
-*Version 0.5 — isle-landing checklist, t60 stretch goal, Golden Dennis completion skin, per-glider bests, island approach calls, pause goal line.*
+*Version 0.6 — HUD/menu polish: cached HUD writes, honest master mute, fuel dim without booster, crash-grade pill, menu version tag.*
 
 *V0.1 audit: deterministic sim, honest flight model, polished shop.*
 
