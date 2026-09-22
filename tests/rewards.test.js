@@ -36,7 +36,9 @@ DA.Audio = {
 DA.UI = {
   enterPressed() {}, onRunStart() {}, showFlight() {}, onLaunch() {}, onRecord() {},
   toast() {}, floatText() {}, onBoostStart() {}, onFuelEmpty() {}, onStallRecover() {},
-  onCrash() {}, showResults() {}, showMenu() {}, updateHUD() {}
+  onCrash() {}, showResults() {}, showMenu() {}, updateHUD() {},
+  // mirrors the real isGolden rule (sandbox.test covers the real one)
+  isGolden(s) { return DA.OBJECTIVES.every((o) => s.objectivesDone.indexOf(o.id) >= 0); }
 };
 DA.Save = { save() {} };
 
@@ -148,6 +150,23 @@ function baseSave() {
   r = runFinish(60, "rough", false, 100);
   ok(r.streak === 0 && r.record === false, "5c: rough resets streak, short of best is no record");
   Game.phase = "fly";
+}
+
+// 6. golden unlock + per-glider bests bank through the real finishRun
+{
+  Game.save = baseSave();
+  Game.save.best.dist = 0;
+  Game.save.objectivesDone = DA.OBJECTIVES.map((o) => o.id).filter((id) => id !== "d250");
+  Game.P = { fuelMax: 0 };
+  Game.milestonesHit = {};
+  Game.runStats = { dist: 300, maxAlt: 20, maxSpeedKmh: 100, airTime: 10,
+    usedAllFuel: false, boostUsed: false, maxSpeed: 20 };
+  Game.crashedInfo = { severity: "rough", water: false };
+  Game.S = { glider: 1 };
+  DA.finishRun();
+  ok(Game.golden === true, "6a: last checklist item turns Dennis golden");
+  ok(Game.save.objectivesDone.indexOf("d250") >= 0, "6b: the final objective banks");
+  ok(Game.save.bestByGlider[1] === 300, "6c: per-glider best records the flight");
 }
 
 console.log(`\nREWARDS TESTS: ${pass} passed, ${fail} failed`);

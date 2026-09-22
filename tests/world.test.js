@@ -48,9 +48,9 @@ function ok(c, m, extra) {
     const dryMid = !W.isWater(mid) && h > 2;
     const wetOut = W.isWater(isl.x0 - 5) && W.isWater(isl.x1 + 5);
     info.push(`${isl.x0}-${isl.x1}:h=${h.toFixed(1)}`);
-    if (!dryMid || !wetOut) good = false;
+    if (!dryMid || !wetOut || !isl.name) good = false;
   }
-  ok(good && W.ISLANDS.length === 4, "2: four isles with dry hearts, wet doorsteps", info.join(" | "));
+  ok(good && W.ISLANDS.length === 4, "2: four named isles with dry hearts, wet doorsteps", info.join(" | "));
 }
 
 // 3. island slopes stay gentle (a flared touchdown can grease them).

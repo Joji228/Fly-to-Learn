@@ -30,6 +30,22 @@ const INFO = [
   "scripts/skill-ceiling.js"
 ];
 let fail = 0;
+// syntax gate: audio.js/main.js load in zero tests, so a typo there would
+// only explode in browsers. --check is dependency-free and instant.
+const CHECK = [
+  "js/config.js", "js/gliders.js", "js/save.js", "js/audio.js", "js/physics.js",
+  "js/world.js", "js/particles.js", "js/game.js", "js/ui.js", "js/main.js"
+];
+for (const f of CHECK) {
+  const r = spawnSync(process.execPath, ["--check", path.join(ROOT, f)], { encoding: "utf8" });
+  const code = (r.status === null || r.status === undefined) ? 1 : r.status;
+  if (code !== 0) {
+    fail++;
+    console.log("SYNTAX FAIL: " + f);
+    if (r.stderr) process.stderr.write(r.stderr);
+  }
+}
+console.log(fail === 0 ? "syntax: all 10 sources parse" : "syntax: FAILURES");
 function run(rel, gate) {
   console.log("\n=== " + rel + " ===");
   const r = spawnSync(process.execPath, [path.join(ROOT, rel)], { encoding: "utf8" });

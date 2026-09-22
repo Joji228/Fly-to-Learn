@@ -103,6 +103,11 @@ function updateMuteBtn(){
   try{ $("btn-mute-hud").setAttribute("aria-label", save.settings.sfx ? "Mute sound" : "Unmute sound"); }catch(e){}
 }
 function hasBooster(){ return !!(save && save.rocket && save.rocket.equipped >= 0); }
+/* Completionist skin: every bonus objective done, in any order. */
+function isGolden(s){
+  if(!s || !Array.isArray(s.objectivesDone)) return false;
+  return window.DA.OBJECTIVES.every(function(o){ return s.objectivesDone.indexOf(o.id) >= 0; });
+}
 /* Campaign <-> sandbox: separate saves, separate progress. Switching saves
    the current mode first so nothing is lost, then reloads the other. */
 function refreshModeBtn(){
@@ -301,6 +306,13 @@ function updateHUD(){
     G._lastLoadout = lo;
     var ll = $("loadout-label");
     if(ll) ll.textContent = "🪂 " + gliderName(save.glider.equipped) + " • 🚀 " + rocketName(save.rocket.equipped);
+  }
+  // pause panel goal line: loadout + next buy, refreshed live while paused
+  var pg = $("pause-goal");
+  if(pg){
+    var pgoal = savingsGoal();
+    pg.textContent = "🪂 " + gliderName(save.glider.equipped) + " • 🚀 " + rocketName(save.rocket.equipped) +
+      (pgoal ? " • 🎯 " + pgoal.label + " $" + pgoal.price.toLocaleString() : " • 🎯 everything maxed ★");
   }
 }
 
@@ -852,7 +864,7 @@ function drawPreview(){
   window.DA.World.drawDodo(g, W*0.42, H-72, {
     pitch: -0.15, vx: 20, vy: 4, boosting:false, stalled:false,
     glider: save.glider.equipped, rocket: save.rocket.equipped,
-    sledLvl: save.upgrades.sled, aeroLvl: save.upgrades.aero
+    sledLvl: save.upgrades.sled, aeroLvl: save.upgrades.aero, golden: isGolden(save)
   }, 1.9, {});
   g.fillStyle = "#123"; g.font = "bold 13px sans-serif"; g.textAlign="left";
   g.fillText("Ramp "+save.upgrades.ramp+" • Sled "+save.upgrades.sled+" • Aero "+save.upgrades.aero+" • Fuel "+(save.upgrades.fuel||0)+" • Nitro "+(save.upgrades.nitro||0), 10, 20);
@@ -958,6 +970,13 @@ function showResults(res){
       od2.appendChild(soon);
     }
   }
+  // streak teaching: the bonus only pays from x2, so say so at x1
+  if(!rw.streakBonus && (save.landingStreak||0) === 1 && id === runId){
+    var sn = document.createElement("div");
+    sn.className = "obj-soon";
+    sn.textContent = "🔥 Streak ×1 — grease one more landing for a streak bonus!";
+    od2.appendChild(sn);
+  }
   $("screen-results").classList.remove("hidden");
   refreshMenu();
 }
@@ -976,6 +995,12 @@ function animateMoney(el, to, id){
 /* ---------- STATS ---------- */
 function renderStats(){
   var b = save.best;
+  var perGlider = "";
+  for(var bi=0; bi<6; bi++){
+    var bgn = (window.DA.GLIDERS && window.DA.GLIDERS[bi] && window.DA.GLIDERS[bi].name) || ("Glider "+bi);
+    var bgd = (save.bestByGlider && save.bestByGlider[bi]) || 0;
+    perGlider += statBox("★ " + bgn.toUpperCase(), window.DA.Physics.fmtDist(bgd));
+  }
   $("stats-list").innerHTML =
     statBox("BEST DISTANCE", window.DA.Physics.fmtDist(b.dist)) +
     statBox("BEST ALTITUDE", b.alt.toFixed(0)+" m") +
@@ -987,7 +1012,8 @@ function renderStats(){
     statBox("PILOT LEVEL", "Lv "+totalLv()+"/"+maxLv()) +
     statBox("GLIDERS OWNED", ownedGliders()+"/"+gliderStockCount()) +
     statBox("ROCKETS", ownedRockets()+"/3") +
-    statBox("LANDING STREAK", "x"+(save.landingStreak||0)+" (best x"+(save.bestStreak||0)+")");
+    statBox("LANDING STREAK", "x"+(save.landingStreak||0)+" (best x"+(save.bestStreak||0)+")") +
+    (isGolden(save) ? statBox("🌟 DENNIS", "GOLDEN") : "") + perGlider;
   var ol = $("objectives-list"); ol.innerHTML = "";
   window.DA.OBJECTIVES.forEach(function(o){
     var done = save.objectivesDone.indexOf(o.id)>=0;
@@ -1042,7 +1068,7 @@ window.DA = window.DA || {};
 window.DA.UI = { init:init, showMenu:showMenu, showShop:showShop, showFlight:showFlight,
   updateHUD:updateHUD, showResults:showResults, onRecord:onRecord, onCrash:onCrash,
   onLaunch:onLaunch, onBoostStart:onBoostStart, onFuelEmpty:onFuelEmpty, onStallRecover:onStallRecover,
-  reducedMotion:reducedMotion,
+  reducedMotion:reducedMotion, isGolden:isGolden,
   toast:toast, floatText:floatText, enterPressed:enterPressed, escapePressed:escapePressed, refreshMenu:refreshMenu, renderShop:renderShop,
   onRunStart:onRunStart,
   /* test hook: rank purchases for a synthetic save without touching live state */

@@ -71,7 +71,8 @@ function defaults(){
     settings: { sfx:true, music:true, shake:true, particles:true },
     totalEarned: 0,
     landingStreak: 0,
-    bestStreak: 0
+    bestStreak: 0,
+    bestByGlider: [0, 0, 0, 0, 0, 0]
   };
 }
 /* Sandbox fresh save: instant experimentation. All airframes owned, a fat
@@ -90,6 +91,7 @@ function sandboxFresh(){
   s.totalEarned = 0;
   s.landingStreak = 0;
   s.bestStreak = 0;
+  s.bestByGlider = [0, 0, 0, 0, 0, 0];
   return s;
 }
 /* Bring any sandbox save to full experimentation state (UI button). */
@@ -210,6 +212,9 @@ function load(mode){
       if(typeof d.flights === "number" && isFinite(d.flights)) s.flights = Math.max(0, Math.floor(d.flights));
       if(typeof d.landingStreak === "number" && isFinite(d.landingStreak)) s.landingStreak = Math.max(0, Math.floor(d.landingStreak));
       if(typeof d.bestStreak === "number" && isFinite(d.bestStreak)) s.bestStreak = Math.max(0, Math.floor(d.bestStreak));
+      if(Array.isArray(d.bestByGlider) && d.bestByGlider.length === NGL){
+        s.bestByGlider = d.bestByGlider.map(function(v){ return (typeof v === "number" && isFinite(v)) ? Math.max(0, v) : 0; });
+      }
       if(Array.isArray(d.objectivesDone)) s.objectivesDone = d.objectivesDone.filter(function(x){ return typeof x === "string"; });
       if(d.settings && typeof d.settings === "object"){
         for(var j in s.settings){ if(typeof d.settings[j] === "boolean") s.settings[j] = d.settings[j]; }

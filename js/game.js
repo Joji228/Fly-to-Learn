@@ -192,6 +192,8 @@ function startRun(){
   Game.fuelEmptyNotified = false;
   Game.wasStalled = false;
   Game.milestonesHit = {};
+  Game.isleHailed = {};
+  Game.golden = !!(window.DA.UI && window.DA.UI.isGolden && window.DA.UI.isGolden(Game.save));
   Game.bestBeaten = false;
   Game.stallWarned = false;
   Game.rollFriction = 2.2;
@@ -325,6 +327,18 @@ function update(dt){
         if(window.DA.UI) window.DA.UI.floatText("+"+Math.round(m.d/50)+"$ bonus coming!", "#80ed99");
       }
     });
+    // island approach calls: name the landing target while there's still
+    // time to aim for it (once per isle per flight, never mid-toast-spam)
+    var isles = (DA.World && DA.World.ISLANDS) || [];
+    for(var zi=0; zi<isles.length; zi++){
+      if(Game.isleHailed["i"+zi]) continue;
+      var ix0 = isles[zi].x0 - LAUNCH_X;
+      if(st.dist >= ix0 - 150 && st.dist < ix0 + 40){
+        Game.isleHailed["i"+zi] = true;
+        if(window.DA.UI) window.DA.UI.toast("🏝️ " + isles[zi].name + " ahead — flare it!");
+        DA.Audio.SFX.milestone();
+      }
+    }
 
     // exhaust + trail: emitted from the tail (4m behind the nose), backwards
     // along it. (S.pitch is authoritative: the same angle thrust uses.)
@@ -579,6 +593,14 @@ function finishRun(){
   Game.save.best.speedKmh = Math.max(Game.save.best.speedKmh, st.maxSpeedKmh);
   Game.save.best.airTime = Math.max(Game.save.best.airTime, st.airTime);
   rw.newObj.forEach(function(o){ Game.save.objectivesDone.push(o.id); });
+  if(!Array.isArray(Game.save.bestByGlider)) Game.save.bestByGlider = [0,0,0,0,0,0];
+  var fgid = (Game.S && typeof Game.S.glider === "number") ? Game.S.glider : 0;
+  Game.save.bestByGlider[fgid] = Math.max(Game.save.bestByGlider[fgid] || 0, st.dist);
+  var nowGolden = !!(window.DA.UI && window.DA.UI.isGolden && window.DA.UI.isGolden(Game.save));
+  if(nowGolden && !Game.golden){
+    Game.golden = true;
+    if(window.DA.UI) window.DA.UI.toast("🌟 GOLDEN DENNIS! Every objective complete!");
+  }
   DA.Save.save(Game.save);
   DA.Audio.stopWind(); DA.Audio.stopBoost();
   if(isRecord) DA.Audio.SFX.record();
@@ -640,7 +662,7 @@ function render(){
     x:S.x, y:S.y, vx:S.vx, vy:S.vy, pitch:S.pitch,
     boosting:!!S.boosting, stalled:!!S.stalled,
     glider:S.glider||0, rocket:(S.rocket===undefined?-1:S.rocket),
-    sledLvl:S.sledLvl, aeroLvl:S.aeroLvl
+    sledLvl:S.sledLvl, aeroLvl:S.aeroLvl, golden:!!Game.golden
   }, { particles:Game.particles, crashSpin:Game.crashSpin, crashed:crashed, playerScale:playerScale, splash:Game.splash });
   // directional speed lines: streak along the actual motion direction
   if(S && sp > 30 && Game.phase==="fly"){

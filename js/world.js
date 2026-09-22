@@ -154,10 +154,10 @@ function drawClouds(g, W, H, cam, zoom){
    (icebergs), Gull Rock ~2810-3060 m (whale waters), City Isle ~3510-3960 m
    (the d3500 epic finally has a landing pad). */
 var ISLANDS = [
-  { x0:1150, x1:1350, h:6,  ice:false },
-  { x0:1950, x1:2200, h:8,  ice:true  },
-  { x0:2950, x1:3200, h:7,  ice:false },
-  { x0:3650, x1:4100, h:10, ice:false }
+  { x0:1150, x1:1350, h:6,  ice:false, name:"Palm Isle" },
+  { x0:1950, x1:2200, h:8,  ice:true,  name:"Floe Berg" },
+  { x0:2950, x1:3200, h:7,  ice:false, name:"Gull Rock" },
+  { x0:3650, x1:4100, h:10, ice:false, name:"City Isle" }
 ];
 function islandH(x){
   for(var i=0;i<ISLANDS.length;i++){
@@ -807,6 +807,7 @@ function drawDodo(g, x, y, S, zoom, opts){
   var speed = Math.sqrt((S.vx||0)*(S.vx||0)+(S.vy||0)*(S.vy||0));
   var boosting = !!S.boosting, stalled = !!S.stalled;
   var panic = speed > 42 || stalled;
+  var gold = !!S.golden; // completionist skin: every objective done
   g.save();
   g.translate(x, y);
   g.rotate(-(S.pitch || 0));
@@ -873,8 +874,8 @@ function drawDodo(g, x, y, S, zoom, opts){
   g.fillStyle = bodyG;
   g.beginPath(); g.ellipse(0, 0, 20*s, 14*s, 0, 0, 7); g.fill();
   g.strokeStyle = "#2b2d42"; g.lineWidth = 3; g.stroke();
-  // belly + highlight
-  g.fillStyle = "#f4f1de";
+  // belly + highlight (golden sheen for completionists)
+  g.fillStyle = gold ? "#ffe9a3" : "#f4f1de";
   g.beginPath(); g.ellipse(4*s, 5.5*s, 11*s, 6.5*s, 0, 0, 7); g.fill();
   g.fillStyle = "rgba(255,255,255,0.75)";
   g.beginPath(); g.ellipse(-5*s, -7*s, 7*s, 3.5*s, -0.5, 0, 7); g.fill();
@@ -882,8 +883,8 @@ function drawDodo(g, x, y, S, zoom, opts){
   // scarf: 3 flowing segments, longer/faster with speed
   var segs = 3, scLen = Math.min(30, 10 + speed*0.45)*s;
   var scx = -15*s, scy = -8*s;
-  g.fillStyle = "#e63946";
-  g.strokeStyle = "#9d0208"; g.lineWidth = 1.4;
+  g.fillStyle = gold ? "#ffd60a" : "#e63946";
+  g.strokeStyle = gold ? "#7c2d00" : "#9d0208"; g.lineWidth = 1.4;
   for(var sg2=0; sg2<segs; sg2++){
     var wob = Math.sin(T*0.02 - sg2*0.9)*(2+speed*0.06)*s;
     var nx2 = scx - scLen/segs, ny2 = scy + wob*0.5 - sg2*1.2*s;
@@ -891,9 +892,9 @@ function drawDodo(g, x, y, S, zoom, opts){
     g.beginPath(); g.moveTo(scx, scy); g.lineTo(nx2, ny2); g.stroke();
     scx = nx2; scy = ny2;
   }
-  g.fillStyle = "#e63946"; // knot
+  g.fillStyle = gold ? "#ffd60a" : "#e63946"; // knot
   g.beginPath(); g.arc(-14*s, -8*s, 4*s, 0, 7); g.fill();
-  g.strokeStyle = "#9d0208"; g.lineWidth = 1.4; g.stroke();
+  g.strokeStyle = gold ? "#7c2d00" : "#9d0208"; g.lineWidth = 1.4; g.stroke();
 
   // ---- face ----
   var eyeR = panic ? 5.8*s : 5*s;

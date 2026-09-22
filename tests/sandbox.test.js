@@ -16,8 +16,12 @@ global.localStorage = {
   setItem: (k, v) => { store[k] = String(v); },
   removeItem: (k) => { delete store[k]; }
 };
+global.document = {
+  getElementById: () => ({}), createElement: () => ({}), addEventListener() {}
+};
 load("config.js");
 load("save.js");
+load("ui.js"); // for DA.UI.isGolden (load-time side-effect free)
 const DA = global.window.DA;
 
 let pass = 0, fail = 0;
@@ -103,6 +107,32 @@ function clear() { for (const k in store) delete store[k]; }
   ok(s.upgrades.ramp === 8 && s.upgrades.sled === 8 && s.upgrades.aero === 8 && s.upgrades.fuel === 5 && s.upgrades.nitro === 4,
     "6: sandbox maxes workshop", JSON.stringify(s.upgrades));
   DA.Save.setMode("campaign");
+}
+
+// 7. per-glider bests default to zeros and round-trip; golden logic
+{
+  clear();
+  DA.Save.setMode("campaign");
+  const s = DA.Save.load();
+  ok(Array.isArray(s.bestByGlider) && s.bestByGlider.length === 6 && s.bestByGlider.every((v) => v === 0),
+    "7a: old saves get zeroed per-glider bests");
+  s.bestByGlider[2] = 1234; DA.Save.save(s);
+  ok(DA.Save.load().bestByGlider[2] === 1234, "7b: per-glider bests round-trip");
+  ok(DA.UI.isGolden({ objectivesDone: [] }) === false, "7c: empty checklist is not golden");
+  ok(DA.UI.isGolden({ objectivesDone: DA.OBJECTIVES.map((o) => o.id) }) === true, "7d: full checklist is golden");
+}
+
+// 8. isle checklist windows + t60 stretch goal
+{
+  const O = {};
+  DA.OBJECTIVES.forEach((o) => { O[o.id] = o; });
+  ok(O.t60 && O.t60.check({ airTime: 61 }), "8a: t60 fires past a minute");
+  ok(O.t60 && !O.t60.check({ airTime: 59 }), "8b: t60 stays locked before");
+  ok(O.palm && O.palm.check({ landing: "smooth", water: false, dist: 1113 }), "8c: Palm Isle window hits");
+  ok(O.palm && !O.palm.check({ landing: "smooth", water: false, dist: 1300 }), "8d: past the isle is just ocean");
+  ok(O.city && O.city.check({ landing: "smooth", water: false, dist: 3700 }), "8e: City Isle window hits");
+  ok(O.floe && !O.floe.check({ landing: "rough", water: false, dist: 1900 }), "8f: rough isles don't count");
+  ok(O.gull && O.gull.check({ landing: "smooth", water: false, dist: 2900 }), "8g: Gull Rock window hits");
 }
 
 console.log(`\nSANDBOX TESTS: ${pass} passed, ${fail} failed`);

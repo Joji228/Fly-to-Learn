@@ -1,6 +1,6 @@
 # Fly-to-Learn
 
-*Version 0.4 — Nitro Mix workshop track (+8% rocket thrust/Lv), distance rewards up, faster overall pacing.*
+*Version 0.5 — isle-landing checklist, t60 stretch goal, Golden Dennis completion skin, per-glider bests, island approach calls, pause goal line.*
 
 *V0.1 audit: deterministic sim, honest flight model, polished shop.*
 
