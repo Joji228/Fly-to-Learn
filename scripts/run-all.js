@@ -12,6 +12,8 @@ const GATES = [
   "tests/feel.test.js",
   "tests/focus.test.js",
   "tests/fps.test.js",
+  "tests/loop.test.js",
+  "tests/touch.test.js",
   "tests/physics.test.js",
   "tests/ramp.test.js",
   "tests/save.test.js",
