@@ -7,7 +7,9 @@ const { spawnSync } = require("child_process");
 const path = require("path");
 const ROOT = path.join(__dirname, "..");
 const GATES = [
+  "tests/audio.test.js",
   "tests/balance.test.js",
+  "tests/boot.test.js",
   "tests/economy.test.js",
   "tests/feel.test.js",
   "tests/focus.test.js",
