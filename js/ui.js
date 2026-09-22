@@ -119,7 +119,7 @@ function isGolden(s){
    the current mode first so nothing is lost, then reloads the other. */
 function refreshModeBtn(){
   var b = $("btn-mode");
-  if(b) b.textContent = "🗂️ Mode: " + (window.DA.Save.getMode() === "sandbox" ? "Sandbox" : "Campaign");
+  if(b) b.textContent = (window.DA.Save.getMode() === "sandbox" ? "Sandbox" : "Campaign") + " ⇄";
 }
 function switchMode(){
   window.DA.Save.save(save); // bank current mode first
@@ -241,9 +241,9 @@ function refreshMenu(){
     var hb = $("howto-boost");
     if(hb){
       if(hasBooster()){
-        hb.innerHTML = '<span><kbd>SPACE</kbd></span><span><b>Booster</b> — thrust where you point</span>';
+        hb.innerHTML = '<span class="keys"><kbd>SPACE</kbd></span><span><b>Booster</b> thrust</span>';
       } else {
-        hb.innerHTML = '<span>🔒</span><span><b>Booster locked</b> — buy Puddle-Jumper to unlock SPACE thrust</span>';
+        hb.innerHTML = '<span class="keys"><kbd>SPACE</kbd></span><span><b>Booster</b> buy a rocket</span>';
       }
     }
   }catch(e){}
@@ -303,6 +303,16 @@ function updateHUD(){
   var LX = (window.DA.LAUNCH_X === undefined) ? 140 : window.DA.LAUNCH_X;
   var dist = (window.DA.flightDist ? window.DA.flightDist() : Math.max(0, G.S.x - LX));
   setText("hud-dist", window.DA.Physics.fmtDist(dist));
+  // progress toward the record: blue while chasing, amber once it falls
+  var bestD = save.best.dist || 0;
+  var pf = bestD > 0 ? Math.min(1, dist / bestD) : 0;
+  var pkey = (pf*100).toFixed(1) + (dist > bestD && bestD > 0 ? "b" : "");
+  if(_hudCache["prog"] !== pkey){
+    _hudCache["prog"] = pkey;
+    var pfill = $("hud-prog-fill");
+    if(pfill){ pfill.style.width = (bestD > 0 ? pf*100 : 0).toFixed(1) + "%"; pfill.className = (dist > bestD && bestD > 0) ? "beat" : ""; }
+  }
+  setText("hud-fish", String((G.runStats && G.runStats.fish) || 0));
   setText("hud-alt", Math.max(0,G.S.y).toFixed(0)+" m");
   updateSpeedo(G);
   var hasBooster = !!(G.P && G.P.thrust > 0);
@@ -366,6 +376,10 @@ function updateHUD(){
   }
 }
 
+function onFish(n){
+  var c = $("hud-fish-chip");
+  if(c && c.classList){ c.classList.remove("pop"); void c.offsetWidth; c.classList.add("pop"); }
+}
 function onRecord(){
   $("record-banner").classList.remove("hidden");
   var hb = $("hud-best");
@@ -597,7 +611,7 @@ function equipCard(opts){
   card.className = "up-card gcard" + (opts.equipped ? " maxed equipped" : "") + (opts.dim ? " cant" : "") + (opts.hot ? " hotpick" : "");
   if(opts.flashId) card.id = opts.flashId;
   var cv = document.createElement("canvas");
-  cv.width = 480; cv.height = 270; cv.className = "gprev";
+  cv.width = 480; cv.height = 210; cv.className = "gprev";
   card.appendChild(cv);
   var info = document.createElement("div");
   info.innerHTML =
@@ -702,7 +716,7 @@ function renderTracks(){
     card.className = "up-card" + (maxed?" maxed":"") + (price>save.money&&!maxed?" cant":"") + (hot?" hotpick":"");
     card.id = "card-"+k;
     var cv = document.createElement("canvas");
-    cv.width = 480; cv.height = 270; cv.className = "gprev";
+    cv.width = 480; cv.height = 210; cv.className = "gprev";
     card.appendChild(cv);
     try{ if(window.DA.drawPartPreview) window.DA.drawPartPreview(cv, k, lvl); }catch(e){}
     var pips = "";
@@ -895,29 +909,12 @@ function drawPreview(){
   var g = c.getContext("2d");
   var W = c.width || 420, H = c.height || 200;
   g.clearRect(0,0,W,H);
-  var grd = g.createLinearGradient(0,0,0,H);
-  grd.addColorStop(0,"#87b5d6"); grd.addColorStop(1,"#e3f2fd");
-  g.fillStyle = grd; g.fillRect(0,0,W,H);
-  // soft sun glow
-  var sun = g.createRadialGradient(W*0.82,H*0.22,4,W*0.82,H*0.22,60);
-  sun.addColorStop(0,"rgba(255,246,200,0.9)"); sun.addColorStop(1,"rgba(255,246,200,0)");
-  g.fillStyle = sun; g.fillRect(0,0,W,H);
-  g.fillStyle = "#fff"; g.fillRect(0,H-32,W,32);
-  g.fillStyle = "#dfe7ec"; g.fillRect(0,H-32,W,3);
-  // snow hill
-  g.fillStyle = "#f4f8ff";
-  g.beginPath(); g.moveTo(0,H-32);
-  g.quadraticCurveTo(W*0.25,H-100,W*0.55,H-52);
-  g.lineTo(W,H-40); g.lineTo(W,H-32); g.closePath(); g.fill();
-  g.fillStyle = "rgba(120,150,200,0.25)";
-  g.beginPath(); g.ellipse(W*0.3,H-34,60,8,0,0,7); g.fill();
-  window.DA.World.drawDodo(g, W*0.42, H-72, {
-    pitch: -0.15, vx: 20, vy: 4, boosting:false, stalled:false,
+  if(window.DA.drawStage) window.DA.drawStage(g, W, H, null);
+  window.DA.World.drawDodo(g, W*0.52, H*0.7, {
+    pitch: 0.06, vx: 26, vy: 0, boosting: save.rocket.equipped >= 0, stalled:false,
     glider: save.glider.equipped, rocket: save.rocket.equipped,
     sledLvl: save.upgrades.sled, aeroLvl: save.upgrades.aero, golden: isGolden(save)
-  }, 1.9, {});
-  g.fillStyle = "#123"; g.font = "bold 13px sans-serif"; g.textAlign="left";
-  g.fillText("Ramp "+save.upgrades.ramp+" • Sled "+save.upgrades.sled+" • Aero "+save.upgrades.aero+" • Fuel "+(save.upgrades.fuel||0)+" • Nitro "+(save.upgrades.nitro||0), 10, 20);
+  }, H/118, {});
   var lg = $("loadout-glider"), lr = $("loadout-rocket"), lf = $("loadout-fuel");
   if(lg) lg.textContent = gliderName(save.glider.equipped);
   if(lr) lr.textContent = rocketName(save.rocket.equipped);
@@ -938,10 +935,10 @@ function showResults(res){
   var st = res.stats, rw = res.rewards;
   var crashed = res.crash || {};
   var sev = crashed.severity || "crash";
-  $("results-title").textContent = crashed.water ? (sev === "mega" ? "💦 Mega Splash!" : "💦 Splashdown!")
-    : sev === "smooth" ? "🛬 Butter-smooth landing!"
-    : sev === "rough" ? "⛷️ Bumpy but alive!"
-    : sev === "mega" ? "💥 Mega Wipeout!" : "❄️ Snow Snack!";
+  $("results-title").textContent = crashed.water ? (sev === "mega" ? "Mega Splash!" : "Splashdown!")
+    : sev === "smooth" ? "Butter-smooth landing!"
+    : sev === "rough" ? "Bumpy but alive!"
+    : sev === "mega" ? "Mega Wipeout!" : "Snow Snack!";
   var quotes = res.isRecord ? window.DA.GOOD_QUOTES
     : sev === "smooth" ? window.DA.GENTLE_QUOTES : window.DA.QUOTES;
   $("results-quote").textContent = '"' + quotes[(Math.random()*quotes.length)|0] + '"';
@@ -963,6 +960,7 @@ function showResults(res){
   if(rw.landBonus>0) rows.push(["🧈 Smooth-landing style", rw.landBonus]);
   if(rw.streakBonus>0) rows.push(["🔥 Landing streak x" + (save.landingStreak||0), rw.streakBonus]);
   if(rw.glideBonus>0) rows.push(["⛵ Pure glide (no boost)", rw.glideBonus]);
+  if(rw.fishBonus>0) rows.push(["🐟 Golden fish ×" + (st.fish||0) + (st.rings ? " • 💨 " + st.rings + " gust ring" + (st.rings>1?"s":"") : ""), rw.fishBonus]);
   var od = $("results-objectives"); od.innerHTML = "";
   rw.newObj.forEach(function(o){ rows.push(["🏆 "+o.text, o.bonus]); });
   var total = 0;
@@ -981,14 +979,6 @@ function showResults(res){
       total += r[1];
       animateMoney(totalEl, total, id);
       window.DA.Audio.SFX.coin();
-      if(i===rows.length-1 && rw.newObj.length){
-        rw.newObj.forEach(function(o){
-          var d2 = document.createElement("div");
-          d2.className = "obj-done";
-          d2.textContent = "🏆 Objective complete: " + o.text + " (+$"+o.bonus+")";
-          od.appendChild(d2);
-        });
-      }
     }, 120*(i+1));
   });
   setTimeout(function(){ if(id === runId) animateMoney(totalEl, rw.total, id); }, 120*(rows.length+1));
@@ -1028,9 +1018,10 @@ function showResults(res){
     od2.appendChild(sn);
   }
   $("screen-results").classList.remove("hidden");
-  // crash toasts fired a moment ago still sit at the bottom: move them up
-  // now so they never cover PLAY AGAIN / Shop / Menu.
-  try{ $("toast-wrap").classList.add("top"); }catch(e){}
+  // in-flight toasts (crash quips, isle calls) are stale once the results
+  // card is up — the title already says it — so clear them; anything new
+  // pins to the top where it can't cover PLAY AGAIN / Shop / Menu.
+  try{ var tw = $("toast-wrap"); tw.classList.add("top"); while(tw.firstChild) tw.removeChild(tw.firstChild); }catch(e){}
   refreshMenu();
 }
 function animateMoney(el, to, id){
@@ -1120,7 +1111,7 @@ function escapePressed(){
 window.DA = window.DA || {};
 window.DA.UI = { init:init, showMenu:showMenu, showShop:showShop, showFlight:showFlight,
   updateHUD:updateHUD, showResults:showResults, onRecord:onRecord, onCrash:onCrash,
-  onLaunch:onLaunch, onBoostStart:onBoostStart, onFuelEmpty:onFuelEmpty, onStallRecover:onStallRecover,
+  onLaunch:onLaunch, onFish:onFish, onBoostStart:onBoostStart, onFuelEmpty:onFuelEmpty, onStallRecover:onStallRecover,
   reducedMotion:reducedMotion, isGolden:isGolden,
   toast:toast, floatText:floatText, enterPressed:enterPressed, escapePressed:escapePressed, refreshMenu:refreshMenu, renderShop:renderShop,
   onRunStart:onRunStart,

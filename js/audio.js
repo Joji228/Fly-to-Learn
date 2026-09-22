@@ -102,6 +102,15 @@ var SFX = {
     for(var i=0;i<n.length;i++) tone(n[i], 0.16, "triangle", 0.22, null, i*0.1);
   },
   milestone: function(){ tone(880, 0.1, "triangle", 0.14, 1318); },
+  fish: function(n){ // fish pickup: bright blip that climbs with the chain
+    var k = Math.min(8, Math.max(0, (n|0) - 1));
+    tone(988 * Math.pow(1.06, k), 0.06, "triangle", 0.10, 1480 * Math.pow(1.06, k));
+  },
+  ring: function(){ // gust ring: airy whoosh + rising two-note sting
+    noiseHit(0.35, 0.22, "bandpass", 900, 0.9, 3200, 0, 23);
+    tone(660, 0.09, "triangle", 0.13, 990);
+    tone(990, 0.12, "triangle", 0.11, 1320, 0.07);
+  },
   stall: function(){ // gentle warning wobble, not a buzzer
     tone(320, 0.16, "sine", 0.14, 210);
     tone(240, 0.2, "sine", 0.12, 160, 0.12);

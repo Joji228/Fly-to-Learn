@@ -2,7 +2,9 @@
 
 ### ▶ [Play Dodo Airways in your browser](https://joji228.github.io/Fly-to-Learn/)
 
-*Version 0.7: pause-menu fix (Settings → Cheats → Back no longer drops your flight), W/S and ↑/↓ steering, live BEST readout on record flights, crash toasts no longer cover the results buttons, save tools hidden mid-flight.*
+*Version 0.8: visual overhaul and faster flying. Dennis and all six gliders plus the three rockets are redrawn from scratch, the HUD, menus, shop and results screen are rebuilt, the game runs 20% faster with a closer camera, and golden fish and gust rings give every flight something to steer for.*
+
+*Version 0.7: pause-menu fix, W/S and ↑/↓ steering, live BEST readout, crash toasts no longer cover the results buttons.*
 
 *V0.1 audit: deterministic sim, honest flight model, polished shop.*
 
@@ -14,8 +16,10 @@ Dodo Airways is a tiny launch-and-upgrade browser game. Launch a stubborn dodo d
 
 **Modes:** Campaign (progression) and Sandbox (all gear + funds, separate save) via the Mode button. Sandbox progress never touches campaign.
 
+**In-flight pickups:** golden fish (+$4 each, chain them for a rising chime) and gust rings (fly through the hoop for +7 m/s). The course is fixed, so you can learn it and plan your line.
+
 **Skill play:** smooth landings scale with distance, consecutive smooths build a streak bonus, rocket flights without boosting earn a pure-glide bonus. Downrange islands (Palm Isle, Floe Berg, Gull Rock, City Isle) are the landing targets. Nitro Mix makes every rocket punch harder.
 
 **Tests:** `node scripts/run-all.js` runs every regression test plus the exploit gate (no dependencies). Individual suites live in `tests/`, tuning sims in `scripts/`.
 
-HTML + CSS + vanilla JS + Canvas. No dependencies, progress saves to localStorage.
+HTML + CSS + vanilla JS + Canvas. No build step and no JS dependencies, progress saves to localStorage. Fonts (Lilita One, Nunito) load from Google Fonts, and the game falls back to system fonts offline.

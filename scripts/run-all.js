@@ -24,6 +24,7 @@ const GATES = [
   "tests/world.test.js",
   "tests/sandbox.test.js",
   "tests/rewards.test.js",
+  "tests/pickups.test.js",
   "scripts/repro-exploit.js"
 ];
 const INFO = [
@@ -36,7 +37,7 @@ let fail = 0;
 // only explode in browsers. --check is dependency-free and instant.
 const CHECK = [
   "js/config.js", "js/gliders.js", "js/save.js", "js/audio.js", "js/physics.js",
-  "js/world.js", "js/particles.js", "js/game.js", "js/ui.js", "js/main.js"
+  "js/world.js", "js/particles.js", "js/pickups.js", "js/game.js", "js/ui.js", "js/main.js"
 ];
 for (const f of CHECK) {
   const r = spawnSync(process.execPath, ["--check", path.join(ROOT, f)], { encoding: "utf8" });
@@ -47,7 +48,7 @@ for (const f of CHECK) {
     if (r.stderr) process.stderr.write(r.stderr);
   }
 }
-console.log(fail === 0 ? "syntax: all 10 sources parse" : "syntax: FAILURES");
+console.log(fail === 0 ? "syntax: all " + CHECK.length + " sources parse" : "syntax: FAILURES");
 function run(rel, gate) {
   console.log("\n=== " + rel + " ===");
   const r = spawnSync(process.execPath, [path.join(ROOT, rel)], { encoding: "utf8" });

@@ -198,7 +198,8 @@ function startRun(){
   Game.zoomPunch = 0;
   clearInputs();
   Game.runStats = { dist:0, maxAlt:0, maxSpeedKmh:0, airTime:0, usedAllFuel:false, maxSpeed:0,
-    boostUsed:false, landing:null, water:false };
+    boostUsed:false, landing:null, water:false, fish:0, rings:0 };
+  Game.pk = window.DA.Pickups ? window.DA.Pickups.newRun() : null;
   Game.fuelEmptyNotified = false;
   Game.wasStalled = false;
   Game.milestonesHit = {};
@@ -293,8 +294,10 @@ function update(dt){
     }
   }
   else if(Game.phase === "fly"){
+    var prevX = Game.S.x;
     var res = DA.Physics.stepFlight(Game.S, Game.input, Game.P, dt);
     Game.S.boosting = res.boosting;
+    if(Game.pk && DA.Pickups) collectPickups(prevX, dt);
     Game.S.stalled = res.stalled;
     if(res.stalled && !Game.stallWarned){ Game.stallWarned = true; DA.Audio.SFX.stall(); }
     if(!res.stalled && Game.S.speed > 14) Game.stallWarned = false;
@@ -466,6 +469,30 @@ function playerScreenPos(){
   };
 }
 
+/* fish + gust rings: pickups are pure feel-good; the ring kick is the only
+   energy they add, and each ring pays once per flight. */
+function collectPickups(prevX, dt){
+  var DA = window.DA, ev = DA.Pickups.step(Game.pk, Game.S, prevX, dt);
+  var st = Game.runStats;
+  if(ev.fish){
+    st.fish = Game.pk.fish;
+    DA.Audio.SFX.fish(Game.pk.chain);
+    if(Game.save.settings.particles)
+      Game.particles.burst(ev.fx, ev.fy, 7, {speed:14, life:0.45, size:2.2, colors:["#ffd60a","#fff3a8","#ffffff"]});
+    if(Game.pk.chain === 5 && DA.UI) DA.UI.floatText("🐟 FULL SCHOOL! +$" + (5*DA.Pickups.FISH_VALUE), "#ffd60a");
+    if(DA.UI && DA.UI.onFish) DA.UI.onFish(Game.pk.fish);
+  }
+  if(ev.ring){
+    st.rings = Game.pk.rings;
+    DA.Audio.SFX.ring();
+    if(!reducedMotion()) Game.zoomPunch = Math.max(Game.zoomPunch, 0.8);
+    if(Game.save.settings.shake) Game.shake = Math.max(Game.shake, 0.15);
+    if(Game.save.settings.particles)
+      Game.particles.burst(Game.S.x, Game.S.y, 16, {speed:26, life:0.55, size:2.6, colors:["#3df2d6","#ffffff","#b8fff4"]});
+    if(DA.UI) DA.UI.floatText("💨 GUST! +" + DA.Pickups.RING_KICK + " m/s", "#3df2d6");
+  }
+}
+
 function crash(gy){
   var DA = window.DA;
   Game.S.y = gy;
@@ -561,6 +588,7 @@ function calcRewards(){
   if(smooth && streak >= 2) streakBonus = Math.min(100, streak*10);
   var hasTank = !!(Game.P && Game.P.fuelMax > 0);
   if(hasTank && !st.boostUsed && st.dist >= 300) glideBonus = 50; // ⛵ pure glide skill
+  var fishBonus = (st.fish || 0) * ((DA.Pickups && DA.Pickups.FISH_VALUE) || 0);
   var newObj = [];
   DA.OBJECTIVES.forEach(function(o){
     if(Game.save.objectivesDone.indexOf(o.id)<0){
@@ -569,8 +597,8 @@ function calcRewards(){
   });
   var objBonus = newObj.reduce(function(a,o){return a+o.bonus;},0);
   return { base:base, msBonus:msBonus, landBonus:landBonus, streakBonus:streakBonus,
-    glideBonus:glideBonus, newObj:newObj, objBonus:objBonus,
-    total: base.total + msBonus + landBonus + streakBonus + glideBonus + objBonus };
+    glideBonus:glideBonus, fishBonus:fishBonus, newObj:newObj, objBonus:objBonus,
+    total: base.total + msBonus + landBonus + streakBonus + glideBonus + fishBonus + objBonus };
 }
 
 function finishRun(){
@@ -625,7 +653,11 @@ function finishRun(){
    Backlog beyond 5 slices in one frame is dropped (spiral-of-death guard
    for heavy hitches — the sim slows instead of freezing). */
 var STEP = 1/60;
-var MAX_STEPS = 5;
+var MAX_STEPS = 6;
+// Game speed: the sim runs a touch faster than the wall clock, so dives,
+// arcs and glides read snappy instead of floaty. Distances, fuel and
+// economy are unchanged (they live in sim time); only pacing speeds up.
+var TIME_SCALE = 1.2;
 function loop(t){
   var raw = (t - Game.lastT)/1000 || 0.016;
   Game.lastT = t;
@@ -634,7 +666,7 @@ function loop(t){
   if(Game.phase==="ramp"||Game.phase==="fly"||Game.phase==="crashed"){
     if(Game.paused){ Game.acc = 0; }
     else {
-      Game.acc += raw;
+      Game.acc += raw * TIME_SCALE;
       var n = 0;
       while(Game.acc >= STEP && n < MAX_STEPS){ update(STEP); n++; Game.acc -= STEP; }
       if(n === MAX_STEPS) Game.acc = 0;
@@ -667,13 +699,14 @@ function render(){
   var crashed = Game.phase==="crashed";
   // player scale is decoupled from world zoom: readable at any zoom.
   // Large desktop screens get a small readability bump (never gigantic).
-  var playerScale = Math.pow(z, 0.35) * 1.22 * (W >= 1600 ? 1.12 : W >= 1280 ? 1.05 : 1);
+  var playerScale = Math.pow(z, 0.35) * 1.45 * (W >= 1600 ? 1.12 : W >= 1280 ? 1.05 : W < 700 ? 0.85 : 1);
   window.DA.World.drawScene(g, W, H, Game.cam, z, {
     x:S.x, y:S.y, vx:S.vx, vy:S.vy, pitch:S.pitch,
     boosting:!!S.boosting, stalled:!!S.stalled,
     glider:S.glider||0, rocket:(S.rocket===undefined?-1:S.rocket),
     sledLvl:S.sledLvl, aeroLvl:S.aeroLvl, golden:!!Game.golden
-  }, { particles:Game.particles, crashSpin:Game.crashSpin, crashed:crashed, playerScale:playerScale, splash:Game.splash });
+  }, { particles:Game.particles, crashSpin:Game.crashSpin, crashed:crashed, playerScale:playerScale, splash:Game.splash,
+       pickups:Game.pk });
   // directional speed lines: streak along the actual motion direction
   if(S && sp > 30 && Game.phase==="fly"){
     var ang = Math.atan2(-S.vy, S.vx);
@@ -708,15 +741,37 @@ function renderMenuBackdrop(dt, t){
   menuT += dt;
   if(Game.save) window.DA.World.setRampLevel(Game.save.upgrades.ramp);
   var g = Game.g, W = Game.W, H = Game.H;
-  var menuCam = { x: menuT*8 % 600 - 120, y: 0 };
+  // the world drifts past slowly; the in-scene player is parked off-screen
+  // and Dennis is drawn as a big title-screen hero instead
+  var menuCam = { x: menuT*14 % 900 - 120, y: 0 };
   window.DA.World.drawScene(g, W, H, menuCam, 1, {
-    x:-20, y:window.DA.World.groundY(-20)+2, vx:0, vy:0, pitch:0, pitchVel:0,
+    x:menuCam.x - 400, y:0, vx:0, vy:0, pitch:0, pitchVel:0, boosting:false, stalled:false, glider:0, rocket:-1
+  }, { playerScale: 1 });
+  if(W < 900 || !Game.save) return;
+  var sc = Math.min(W*0.0031, H*0.0052);
+  var bob = Math.sin(menuT*1.6)*H*0.012;
+  var hx = W*0.72, hy = H*0.6 + bob;
+  // soft sky glow behind the hero separates him from the busy scenery
+  var glow = g.createRadialGradient(hx, hy - sc*20, sc*8, hx, hy - sc*20, sc*95);
+  glow.addColorStop(0, "rgba(255,255,255,0.45)"); glow.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = glow; g.fillRect(hx - sc*100, hy - sc*120, sc*200, sc*200);
+  // speed streaks trailing behind the hero
+  g.save();
+  g.strokeStyle = "rgba(255,255,255,0.55)"; g.lineCap = "round";
+  for(var i=0;i<5;i++){
+    var ly = hy - sc*(22 - i*10) + Math.sin(menuT*3 + i)*4;
+    var lx = hx - sc*(40 + ((menuT*260 + i*97) % 180));
+    g.lineWidth = 2 + (i%2);
+    g.beginPath(); g.moveTo(lx, ly); g.lineTo(lx - sc*18, ly); g.stroke();
+  }
+  g.restore();
+  window.DA.World.drawDodo(g, hx, hy, {
+    x:0, y:0, vx:30, vy:Math.cos(menuT*1.6)*3, pitch:0.06 + Math.sin(menuT*1.6)*0.04,
     boosting:false, stalled:false,
-    glider:Game.save?Game.save.glider.equipped:0,
-    rocket:Game.save?Game.save.rocket.equipped:-1,
-    sledLvl:Game.save?Game.save.upgrades.sled:0,
-    aeroLvl:Game.save?Game.save.upgrades.aero:0
-  }, { playerScale: 1.22 });
+    glider:Game.save.glider.equipped, rocket:Game.save.rocket.equipped,
+    sledLvl:Game.save.upgrades.sled, aeroLvl:Game.save.upgrades.aero,
+    golden: !!(window.DA.UI && window.DA.UI.isGolden && window.DA.UI.isGolden(Game.save))
+  }, sc, {});
 }
 
 function abandon(){

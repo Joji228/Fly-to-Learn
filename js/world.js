@@ -7,7 +7,7 @@
 (function(){
 "use strict";
 
-var PPM = 5; // screen pixels per world meter at zoom 1 (tuned: launch ~140px/s)
+var PPM = 6; // screen pixels per world meter at zoom 1 (closer camera: the world rushes past)
 
 function hash(n){ var x = Math.sin(n*127.1)*43758.5453; return x - Math.floor(x); }
 function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
@@ -108,13 +108,22 @@ function mountainLayer(g, W, H, cam, par, baseY, amp, c1, c2, seed, zoom, hazy){
   var grd = g.createLinearGradient(0, horizon-amp*1.5, 0, H);
   grd.addColorStop(0, c1); grd.addColorStop(1, c2);
   g.fillStyle = grd; g.fill();
-  // snow caps on tall peaks
-  g.fillStyle = hazy ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.9)";
-  for(var sx2=0; sx2<=W+24; sx2+=24){
+  // snow caps: a smooth band hugging the ridge, deepest on the tallest peaks
+  // (one filled polygon — the old per-sample rectangles read as dashes)
+  var thr = amp*0.62, top = [], bot = [];
+  for(var sx2=0; sx2<=W+24; sx2+=12){
     var ph2 = cam.x*par*PPM + sx2;
     var h2 = (Math.sin(ph2*0.006+seed)*0.5+0.5)*amp + (Math.sin(ph2*0.017+seed*2)*0.5+0.5)*amp*0.5;
-    if(h2 > amp*0.70) g.fillRect(sx2-9, horizon-h2, 18, 8);
+    var depth = Math.max(0, h2 - thr) * 0.55;
+    top.push([sx2, horizon - h2 - 0.5]);
+    bot.push([sx2, horizon - h2 + depth + (depth > 0 ? Math.sin(sx2*0.21)*depth*0.25 : 0)]);
   }
+  g.fillStyle = hazy ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.92)";
+  g.beginPath();
+  g.moveTo(top[0][0], top[0][1]);
+  for(var ti=1; ti<top.length; ti++) g.lineTo(top[ti][0], top[ti][1]);
+  for(var bi=bot.length-1; bi>=0; bi--) g.lineTo(bot[bi][0], bot[bi][1]);
+  g.closePath(); g.fill();
   g.restore();
 }
 
@@ -289,16 +298,21 @@ function drawScene(g, W, H, cam, zoom, S, opts){
       var pt = 1 - pp.age/pp.life;
       g.globalAlpha = Math.max(0, Math.min(1, pt*1.2));
       g.fillStyle = pp.color;
-      var psz = (pp.shrink ? pp.size*pt + 0.5 : pp.size) * PPM * zoom * 0.55;
-      if(psz < 1) psz = 1;
-      g.fillRect(psx-psz/2, psy-psz/2, psz, psz);
+      var psz = (pp.shrink ? pp.size*pt + 0.5 : pp.size) * PPM * zoom * 0.5;
+      if(psz < 1.2) psz = 1.2;
+      g.beginPath(); g.arc(psx, psy, psz*0.62, 0, 6.2832); g.fill();
     }
     g.globalAlpha = 1;
   }
 
+  // pickups: back half of every ring + fish behind Dennis, ring fronts over him
+  var PK = window.DA.Pickups;
+  if(opts.pickups && PK){ try{ PK.drawBack(g, SX, SY, zoom, opts.pickups, W, H); }catch(e){} }
+
   // Dennis — drawn in screen px at his own decoupled scale
   var ps = opts.playerScale || zoom;
   drawDodo(g, SX(S.x), SY(S.y), S, ps, opts);
+  if(opts.pickups && PK){ try{ PK.drawFront(g, SX, SY, zoom, opts.pickups, W); }catch(e){} }
 }
 
 function fmtM(m){ return m>=1000 ? (m/1000).toFixed(m>=10000?0:1)+"km" : m+"m"; }
@@ -802,173 +816,292 @@ function drawRamp(g, SX, SY, zoom){
   g.restore();
 }
 
-/* ---------------- DENNIS the dodo: expressive cartoon star ---------------- */
+/* ---------------- DENNIS the dodo: expressive cartoon star ----------------
+   Drawn in unit space (g.scale(zoom)), facing +x. One merged silhouette
+   outline (outline pass under the fills), a real dodo read: plump blue-grey
+   body, big bare-faced head, bulbous hooked beak, curly tail plume, stubby
+   wing, sturdy yellow legs. The red scarf is Dennis's signature. */
+var DODO_INK = "#1f2235";
+function dodoBodyPath(g){
+  g.beginPath();
+  g.moveTo(12, -8);
+  g.bezierCurveTo(17, 4, 10, 16, -4, 15);
+  g.bezierCurveTo(-16, 14, -24, 7, -23, -3);
+  g.bezierCurveTo(-21, -12, -9, -16, 1, -14);
+  g.bezierCurveTo(6, -13, 10, -11, 12, -8);
+  g.closePath();
+}
+function dodoHeadPath(g){ g.beginPath(); g.ellipse(15, -15, 10.5, 9.5, -0.15, 0, Math.PI*2); }
+function dodoBeakPath(g, open){
+  g.beginPath();
+  g.moveTo(21, -20);
+  g.bezierCurveTo(30, -23, 38, -19, 40, -12);   // arched upper mandible
+  g.quadraticCurveTo(41, -7, 36.5, -8.2);        // the hook
+  g.bezierCurveTo(33, -10.5, 27, -11.5, 22, -11);
+  if(open){ g.lineTo(21, -10); }
+  g.closePath();
+}
+function dodoJawPath(g, open){
+  g.beginPath();
+  if(open){
+    g.moveTo(22, -10); g.quadraticCurveTo(30, -4, 34, -2.5); g.quadraticCurveTo(27, 0, 20, -5);
+  } else {
+    g.moveTo(22, -11); g.quadraticCurveTo(30, -9.5, 34.5, -8.5); g.quadraticCurveTo(28, -5.5, 21, -6.5);
+  }
+  g.closePath();
+}
+function tailPlume(g, fill, T, speed){
+  var w = Math.sin(T*0.012)*1.2 + Math.min(3, speed*0.05);
+  var puffs = [[-23,-8,4.4],[-27,-3.5,3.8],[-24.5,1.5,3.4],[-20.5,-12,3.4]];
+  for(var i=0;i<puffs.length;i++){
+    var p = puffs[i];
+    g.beginPath(); g.arc(p[0]-w*(i%2), p[1], p[2], 0, Math.PI*2);
+    if(fill) g.fill(); else g.stroke();
+  }
+}
 function drawDodo(g, x, y, S, zoom, opts){
+  opts = opts || {};
   var speed = Math.sqrt((S.vx||0)*(S.vx||0)+(S.vy||0)*(S.vy||0));
-  var boosting = !!S.boosting, stalled = !!S.stalled;
+  var boosting = !!S.boosting, stalled = !!S.stalled, crashed = !!opts.crashed;
   var panic = speed > 42 || stalled;
-  var gold = !!S.golden; // completionist skin: every objective done
+  var gold = !!S.golden;
+  var gid = S.glider||0;
+  var T = Date.now();
   g.save();
   g.translate(x, y);
   g.rotate(-(S.pitch || 0));
-  // squash & stretch with speed (cartoony momentum)
-  var sq = Math.min(0.10, speed*0.0018);
+  var sq = Math.min(0.08, speed*0.0014);            // squash & stretch with speed
   g.scale(1+sq, 1-sq*0.8);
-  var s = zoom;
-  var crashSpin = opts.crashSpin || 0;
-  if(crashSpin) g.rotate(crashSpin);
-  var T = Date.now();
+  if(opts.crashSpin) g.rotate(opts.crashSpin);
+  g.scale(zoom, zoom);
+  g.lineJoin = "round"; g.lineCap = "round";
 
-  // glider apparatus behind/above the body
+  // glider: everything behind Dennis (wings, keel, rear rigging)
   if(window.DA.drawGlider){
-    try{ window.DA.drawGlider(g, S.glider||0, s, {boosting:boosting, stalled:stalled, t:T}); }
-    catch(e){}
+    try{ window.DA.drawGlider(g, gid, 1, {boosting:boosting, stalled:stalled, t:T, speed:speed, layer:"back"}); }catch(e){}
   }
 
-  // booster flame (local -x = backwards along the nose), wilder per rocket
-  if(boosting){
-    var rk = (typeof S.rocket === "number") ? S.rocket : -1;
-    var f = (16 + Math.random()*18) * (rk >= 0 ? 1 + rk*0.22 : 1);
-    g.fillStyle = "rgba(255,190,11,0.9)";
-    g.beginPath(); g.moveTo(-20*s, -5*s); g.lineTo(-20*s-f*s, 2*s); g.lineTo(-20*s, 9*s); g.closePath(); g.fill();
-    g.fillStyle = "#fb5607";
-    g.beginPath(); g.moveTo(-20*s, -1*s); g.lineTo(-20*s-f*0.6*s, 2*s); g.lineTo(-20*s, 5*s); g.closePath(); g.fill();
-    g.fillStyle = "#fff3b0";
-    g.beginPath(); g.moveTo(-20*s, 0.5*s); g.lineTo(-20*s-f*0.3*s, 2*s); g.lineTo(-20*s, 3.5*s); g.closePath(); g.fill();
-  }
+  // booster flame (behind the rocket), wilder per rocket tier
+  var rk = (typeof S.rocket === "number") ? S.rocket : -1;
+  if(boosting && rk >= 0) drawFlame(g, rk, T);
 
-  // dangling feet (trail with speed, kick when boosting)
-  var feetSwing = Math.sin(T*0.012)*2*s + (boosting ? -2*s : 0);
-  var feetBack = Math.min(10, speed*0.22)*s;
-  g.fillStyle = "#e36414";
-  g.strokeStyle = "#9c4a00"; g.lineWidth = 1.6;
-  [[-4, 12, 0],[7, 12, 1]].forEach(function(ft){
-    var fx = ft[0]*s - feetBack, fy = ft[1]*s + (ft[2]? feetSwing : -feetSwing)*0.4;
-    g.beginPath(); g.ellipse(fx, fy, 4.6*s, 3*s, -0.2, 0, 7); g.fill(); g.stroke();
-  });
-
-  // sled (visual tiers)
+  // sled under the feet (tiers by sled level)
   var sled = S.sledLvl||0;
-  g.fillStyle = sled>=5 ? "#e63946" : (sled>=2 ? "#9c6644" : "#7f5539");
-  var sledW = 44*s + sled*2*s;
-  rr(g, -24*s, 12*s, sledW, 6*s, 3*s); g.fill();
-  g.strokeStyle = "rgba(0,0,0,0.35)"; g.lineWidth = 1.6; g.stroke();
-  if(sled>=3){ g.fillStyle = "#ffd60a"; g.fillRect(-22*s, 12.5*s, sledW-4*s, 2*s); }
-  if(sled>=6){ g.fillStyle = "#80ed99"; g.fillRect(-20*s, 17*s, 6*s, 5*s); g.fillRect(10*s, 17*s, 6*s, 5*s); }
+  var sledCol = sled>=5 ? "#e63946" : (sled>=2 ? "#b5733f" : "#8a5a36");
+  g.fillStyle = sledCol; g.strokeStyle = DODO_INK; g.lineWidth = 1.8;
+  g.beginPath();
+  g.moveTo(-20, 21); g.lineTo(14 + sled*0.8, 21);
+  g.quadraticCurveTo(21 + sled*0.8, 21, 21 + sled*0.8, 16);
+  g.lineTo(18 + sled*0.8, 16); g.quadraticCurveTo(17 + sled*0.8, 18.5, 13 + sled*0.8, 18.5);
+  g.lineTo(-20, 18.5); g.closePath(); g.fill(); g.stroke();
+  if(sled>=3){ g.fillStyle = "#ffd60a"; g.fillRect(-18, 19.2, 30 + sled*0.8, 1.2); }
 
-  // equipped rocket hardware (nothing drawn when flying rocket-less)
-  var rkid = (typeof S.rocket === "number") ? S.rocket : -1;
-  if(rkid >= 0 && window.DA.drawRocket){
-    try{ window.DA.drawRocket(g, rkid, s, {firing: boosting, t:T}); }
-    catch(e){}
+  // legs + feet: trail back with speed, dangle when slow
+  var feetBack = Math.min(7, speed*0.14);
+  var swing = Math.sin(T*0.014)*1.4 + (boosting ? -1.5 : 0);
+  function leg(hx, sgn, shade){
+    var fx = hx - feetBack, fy = 18.5 + sgn*swing*0.35;
+    g.strokeStyle = DODO_INK; g.lineWidth = 5.2;
+    g.beginPath(); g.moveTo(hx, 11); g.lineTo(fx, fy); g.stroke();
+    g.strokeStyle = shade; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(hx, 11); g.lineTo(fx, fy); g.stroke();
+    g.fillStyle = shade; g.strokeStyle = DODO_INK; g.lineWidth = 1.4;
+    g.beginPath();
+    g.moveTo(fx-2, fy-1); g.lineTo(fx+6, fy-0.5); g.lineTo(fx+7, fy+1.2);
+    g.lineTo(fx+2, fy+1.4); g.lineTo(fx-3, fy+1.2); g.closePath(); g.fill(); g.stroke();
+  }
+  leg(-5, -1, "#d9a13a");
+
+  // ---- silhouette: outline pass under the fills => one merged contour ----
+  g.strokeStyle = DODO_INK; g.lineWidth = 4.4;
+  dodoBodyPath(g); g.stroke();
+  dodoHeadPath(g); g.stroke();
+  g.lineWidth = 3.6; tailPlume(g, false, T, speed);
+
+  var plumeFill = gold ? "#fff1b8" : "#f3f0e6";
+  g.fillStyle = plumeFill; tailPlume(g, true, T, speed);
+  g.strokeStyle = gold ? "#d8b24a" : "#c9c4b3"; g.lineWidth = 1;
+  g.beginPath(); g.arc(-26, -5, 2.4, 0.4, 3.6); g.stroke();
+
+  var bg = g.createLinearGradient(0, -16, 0, 16);
+  if(gold){ bg.addColorStop(0, "#ffe27a"); bg.addColorStop(0.55, "#f2b830"); bg.addColorStop(1, "#b77a10"); }
+  else { bg.addColorStop(0, "#a9b8d8"); bg.addColorStop(0.5, "#7f90b8"); bg.addColorStop(1, "#56628a"); }
+  g.fillStyle = bg; dodoBodyPath(g); g.fill();
+  var hg = g.createLinearGradient(8, -25, 20, -5);
+  if(gold){ hg.addColorStop(0, "#fff0a6"); hg.addColorStop(1, "#e8a820"); }
+  else { hg.addColorStop(0, "#b9c6e2"); hg.addColorStop(1, "#7d8db5"); }
+  g.fillStyle = hg; dodoHeadPath(g); g.fill();
+  // neck seam filler (hides the head/body join)
+  g.fillStyle = gold ? "#f4c040" : "#8d9dc3";
+  g.beginPath(); g.ellipse(9, -9.5, 5, 4.2, -0.5, 0, Math.PI*2); g.fill();
+
+  // rocket hardware strapped on the back (over the body, under the wing)
+  if(rk >= 0 && window.DA.drawRocket){
+    try{ window.DA.drawRocket(g, rk, 1, {firing: boosting, t:T}); }catch(e){}
   }
 
-  // tail feathers
-  g.fillStyle = "#3d405b";
-  g.strokeStyle = "#2b2d42"; g.lineWidth = 2;
-  g.beginPath(); g.moveTo(-16*s, -4*s); g.lineTo(-29*s, -11*s); g.lineTo(-30*s, -4*s); g.lineTo(-29*s, 3*s); g.lineTo(-16*s, 2*s); g.closePath(); g.fill(); g.stroke();
+  // belly + soft rim light
+  g.fillStyle = gold ? "rgba(255,248,214,0.9)" : "rgba(238,232,214,0.95)";
+  g.beginPath(); g.ellipse(2, 7, 11, 6.5, -0.12, 0, Math.PI*2); g.fill();
+  g.fillStyle = "rgba(255,255,255,0.45)";
+  g.beginPath(); g.ellipse(-8, -9, 8, 2.6, -0.28, 0, Math.PI*2); g.fill();
 
-  // body: cel-shaded round dodo with thick clean outline
-  var bodyG = g.createLinearGradient(0,-15*s,0,14*s);
-  bodyG.addColorStop(0, "#a8b2c6"); bodyG.addColorStop(0.55, "#7d8aa3"); bodyG.addColorStop(1, "#4a4e69");
-  g.fillStyle = bodyG;
-  g.beginPath(); g.ellipse(0, 0, 20*s, 14*s, 0, 0, 7); g.fill();
-  g.strokeStyle = "#2b2d42"; g.lineWidth = 3; g.stroke();
-  // belly + highlight (golden sheen for completionists)
-  g.fillStyle = gold ? "#ffe9a3" : "#f4f1de";
-  g.beginPath(); g.ellipse(4*s, 5.5*s, 11*s, 6.5*s, 0, 0, 7); g.fill();
-  g.fillStyle = "rgba(255,255,255,0.75)";
-  g.beginPath(); g.ellipse(-5*s, -7*s, 7*s, 3.5*s, -0.5, 0, 7); g.fill();
-
-  // scarf: 3 flowing segments, longer/faster with speed
-  var segs = 3, scLen = Math.min(30, 10 + speed*0.45)*s;
-  var scx = -15*s, scy = -8*s;
-  g.fillStyle = gold ? "#ffd60a" : "#e63946";
-  g.strokeStyle = gold ? "#7c2d00" : "#9d0208"; g.lineWidth = 1.4;
-  for(var sg2=0; sg2<segs; sg2++){
-    var wob = Math.sin(T*0.02 - sg2*0.9)*(2+speed*0.06)*s;
-    var nx2 = scx - scLen/segs, ny2 = scy + wob*0.5 - sg2*1.2*s;
-    g.lineWidth = (5.5-sg2*1.1)*s;
-    g.beginPath(); g.moveTo(scx, scy); g.lineTo(nx2, ny2); g.stroke();
-    scx = nx2; scy = ny2;
+  // scarf: knot at the neck + two tails streaming back
+  var scCol = gold ? "#ffd60a" : "#e63946", scDk = gold ? "#a86b00" : "#9d0208";
+  var flow = Math.min(1, speed/40);
+  for(var tIdx=0; tIdx<2; tIdx++){
+    var len = 14 + flow*16 - tIdx*4, ph = T*0.02 + tIdx*1.3;
+    g.strokeStyle = scDk; g.lineWidth = 6.2 - tIdx;
+    g.beginPath(); g.moveTo(6, -9);
+    var px = 6, py = -9;
+    for(var k=1;k<=4;k++){
+      var nx = 6 - len*k/4, ny = -9 - tIdx*1.5 + Math.sin(ph - k*0.9)*(1.2 + flow*1.8)*k*0.5 - (1-flow)*k*1.2;
+      g.quadraticCurveTo(px - len/8, py, nx, ny); px = nx; py = ny;
+    }
+    g.stroke();
+    g.strokeStyle = scCol; g.lineWidth = 4 - tIdx;
+    g.stroke();
   }
-  g.fillStyle = gold ? "#ffd60a" : "#e63946"; // knot
-  g.beginPath(); g.arc(-14*s, -8*s, 4*s, 0, 7); g.fill();
-  g.strokeStyle = gold ? "#7c2d00" : "#9d0208"; g.lineWidth = 1.4; g.stroke();
+  g.fillStyle = scCol; g.strokeStyle = scDk; g.lineWidth = 1.4;
+  g.beginPath(); g.ellipse(9, -8.5, 6.5, 3.6, -0.35, 0, Math.PI*2); g.fill(); g.stroke();
+  g.fillStyle = "rgba(255,255,255,0.35)";
+  g.beginPath(); g.ellipse(8, -10, 3.5, 1, -0.35, 0, Math.PI*2); g.fill();
+
+  // near wing: bare Dennis flaps like mad, geared Dennis tucks + flutters
+  var flap = (gid === 0) ? Math.sin(T*0.05)*0.9 - 0.2
+    : (stalled ? Math.sin(T*0.03)*0.5 : Math.sin(T*0.01)*0.08 + (boosting ? 0.25 : 0));
+  g.save();
+  g.translate(-1, -5); g.rotate(-flap);
+  var wg = g.createLinearGradient(0, -2, 0, 10);
+  wg.addColorStop(0, gold ? "#f6c843" : "#6f80a8"); wg.addColorStop(1, gold ? "#b47a10" : "#48547a");
+  g.fillStyle = wg; g.strokeStyle = DODO_INK; g.lineWidth = 1.8;
+  g.beginPath();
+  g.moveTo(2, -2); g.bezierCurveTo(-6, -4, -16, 0, -17, 7);
+  g.lineTo(-13, 6); g.lineTo(-12, 9.5); g.lineTo(-8, 7.5); g.lineTo(-5, 10);
+  g.bezierCurveTo(0, 8, 4, 3, 2, -2);
+  g.closePath(); g.fill(); g.stroke();
+  g.strokeStyle = "rgba(20,24,40,0.35)"; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(-3, 1); g.lineTo(-10, 5); g.moveTo(-1, 4); g.lineTo(-6, 8); g.stroke();
+  g.restore();
+
+  leg(4, 1, "#f2bb4a");
 
   // ---- face ----
-  var eyeR = panic ? 5.8*s : 5*s;
-  g.fillStyle = "#fff";
-  g.beginPath(); g.arc(9*s, -5*s, eyeR, 0, 7); g.fill();
-  g.strokeStyle = "#2b2d42"; g.lineWidth = 1.8; g.stroke();
-  var look = Math.max(-2.4, Math.min(2.4, (S.vy||0)*0.06));
-  var pup = (stalled || opts.crashed) ? 1.8*s : (panic ? 3*s : 2.2*s);
-  g.fillStyle = "#14141f";
-  g.beginPath(); g.arc((10+look)*s, (-5+(stalled?-1.2:0))*s, pup, 0, 7); g.fill();
-  g.fillStyle = "#fff";
-  g.beginPath(); g.arc((10+look)*s+0.8*s, (-5.8)*s, 0.9*s, 0, 7); g.fill(); // catchlight
-  // brows: determined default, worried when fast/stalled
-  g.strokeStyle = "#14141f"; g.lineWidth = 2.2*s; g.lineCap = "round";
-  g.beginPath();
-  if(panic || stalled){ g.moveTo(2*s,-13*s); g.lineTo(16*s,-9.5*s); }
-  else { g.moveTo(3*s,-11.5*s); g.lineTo(14*s,-12.5*s); }
-  g.stroke();
-  if(stalled){ // sweat drop
-    g.fillStyle = "#90e0ef";
-    var swy = (Math.sin(T*0.01)*2-2)*s;
-    g.beginPath(); g.ellipse(17*s, -14*s+swy, 2*s, 3*s, 0, 0, 7); g.fill();
-  }
-  // beak: closed normally, open shouting when boosting
-  g.fillStyle = "#fb8500";
-  g.strokeStyle = "#9c4a00"; g.lineWidth = 1.6;
-  if(boosting){
-    g.beginPath(); g.moveTo(15*s, -8*s); g.lineTo(30*s, -4*s); g.lineTo(16*s, -1*s); g.closePath(); g.fill(); g.stroke();
-    g.fillStyle = "#e36414";
-    g.beginPath(); g.moveTo(15*s, 2*s); g.lineTo(28*s, 2*s); g.lineTo(16*s, 7*s); g.closePath(); g.fill(); g.stroke();
-    g.fillStyle = "#7f1d1d";
-    g.beginPath(); g.ellipse(21*s, 0.5*s, 4.5*s, 2*s, 0, 0, 7); g.fill(); // mouth
+  g.fillStyle = gold ? "#fff4cf" : "#e8dcc2";        // bare face patch
+  g.beginPath(); g.ellipse(19.5, -16.5, 6.4, 5.4, -0.2, 0, Math.PI*2); g.fill();
+  var eyeR = panic ? 4.8 : 4.1;
+  g.fillStyle = "#ffffff"; g.strokeStyle = DODO_INK; g.lineWidth = 1.5;
+  g.beginPath(); g.arc(19.5, -17, eyeR, 0, Math.PI*2); g.fill(); g.stroke();
+  if(crashed){
+    g.strokeStyle = DODO_INK; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(17, -19.5); g.lineTo(22, -14.5); g.moveTo(22, -19.5); g.lineTo(17, -14.5); g.stroke();
   } else {
-    g.beginPath(); g.moveTo(16*s, -6*s); g.lineTo(30*s, 0); g.lineTo(16*s, 4*s); g.closePath(); g.fill(); g.stroke();
-    g.fillStyle = "#e36414";
-    g.beginPath(); g.moveTo(16*s, 0); g.lineTo(30*s, 0); g.lineTo(16*s, 4*s); g.closePath(); g.fill();
-  }
-
-  // aviator goggles for aero builds
-  var aero = S.aeroLvl||0;
-  if(aero>0){
-    g.strokeStyle = "#3a2200"; g.lineWidth = 2.4*s;
-    g.beginPath(); g.moveTo(-6*s, -9*s); g.quadraticCurveTo(2*s, -13*s, 12*s, -10.5*s); g.stroke(); // strap
-    g.fillStyle = "rgba(140,200,240,0.85)";
-    g.beginPath(); g.arc(9*s, -5.5*s, 6.4*s, 0, 7); g.fill();
-    g.strokeStyle = "#5b3a29"; g.lineWidth = 2.4*s; g.stroke();
-    g.strokeStyle = "rgba(255,255,255,0.9)"; g.lineWidth = 1.4*s;
-    g.beginPath(); g.moveTo(5.5*s, -8*s); g.lineTo(8*s, -3.5*s); g.stroke(); // lens glint
-  }
-
-  // crash X eyes + orbiting stars
-  if(opts.crashed){
-    g.strokeStyle = "#14141f"; g.lineWidth = 2.6*s;
-    g.beginPath();
-    g.moveTo(5*s,-9*s); g.lineTo(13*s,-1*s); g.moveTo(13*s,-9*s); g.lineTo(5*s,-1*s);
-    g.stroke();
-    g.fillStyle = "#ffd60a";
-    for(var si=0; si<3; si++){
-      var sa = T*0.005 + si*2.094;
-      g.beginPath();
-      g.arc(Math.cos(sa)*17*s, -13*s + Math.sin(sa)*6*s, 2.6*s, 0, 7);
-      g.fill();
+    var look = Math.max(-1.6, Math.min(1.6, -(S.vy||0)*0.05));
+    var pup = stalled ? 1.5 : (panic ? 2.1 : 2.4);
+    g.fillStyle = "#14141f";
+    g.beginPath(); g.arc(20.6, -17 + look, pup, 0, Math.PI*2); g.fill();
+    g.fillStyle = "#ffffff";
+    g.beginPath(); g.arc(21.4, -18 + look, 0.9, 0, Math.PI*2); g.fill();
+    // eyelid: determined half-lid when cruising, wide open when panicking
+    if(!panic){
+      g.fillStyle = gold ? "#f0c24a" : "#8d9dc3"; g.strokeStyle = DODO_INK; g.lineWidth = 1.3;
+      g.beginPath(); g.arc(19.5, -17, eyeR+0.2, Math.PI*1.08, Math.PI*1.92); g.closePath(); g.fill(); g.stroke();
     }
   }
-  // boost motion ticks behind the bird
+  // brow
+  g.strokeStyle = DODO_INK; g.lineWidth = 2.2;
+  g.beginPath();
+  if(panic){ g.moveTo(15, -24.5); g.quadraticCurveTo(19.5, -26.5, 24, -23.5); }
+  else { g.moveTo(15, -22.5); g.lineTo(24, -23.5); }
+  g.stroke();
+  if(stalled){ // sweat drop
+    g.fillStyle = "#90e0ef"; g.strokeStyle = "#3a86a8"; g.lineWidth = 1;
+    var swy = Math.sin(T*0.01)*1.5;
+    g.beginPath(); g.moveTo(9, -28+swy); g.quadraticCurveTo(12, -23+swy, 9, -22+swy); g.quadraticCurveTo(6, -23+swy, 9, -28+swy); g.fill(); g.stroke();
+  }
+
+  // beak: bulbous hooked dodo beak; jaw drops open (shouting) when boosting
+  var open = boosting || panic;
+  if(open){
+    g.fillStyle = "#7f1d1d";
+    g.beginPath(); g.moveTo(21, -11); g.lineTo(33, -8); g.lineTo(30, -4); g.lineTo(21, -6); g.closePath(); g.fill();
+  }
+  g.strokeStyle = DODO_INK; g.lineWidth = 1.7;
+  var jg = g.createLinearGradient(20, 0, 35, 0);
+  jg.addColorStop(0, "#e5b44a"); jg.addColorStop(1, "#c77d1e");
+  g.fillStyle = jg; dodoJawPath(g, open); g.fill(); g.stroke();
+  var bkg = g.createLinearGradient(20, -22, 41, -8);
+  bkg.addColorStop(0, "#f7d774"); bkg.addColorStop(0.65, "#f0b440"); bkg.addColorStop(1, "#c46a17");
+  g.fillStyle = bkg; dodoBeakPath(g, open); g.fill(); g.stroke();
+  g.fillStyle = "rgba(255,255,255,0.55)";
+  g.beginPath(); g.ellipse(28, -18.5, 5, 1.3, -0.12, 0, Math.PI*2); g.fill();
+  g.strokeStyle = "rgba(60,30,0,0.55)"; g.lineWidth = 1.1;      // nostril
+  g.beginPath(); g.moveTo(26.5, -16.5); g.lineTo(29.5, -16); g.stroke();
+
+  // aviator goggles for aero builds (rest on the forehead when calm)
+  var aero = S.aeroLvl||0;
+  if(aero>0){
+    var gy2 = panic ? -17 : -24;
+    g.strokeStyle = "#3a2200"; g.lineWidth = 2.4;
+    g.beginPath(); g.moveTo(6, -18); g.quadraticCurveTo(12, gy2-3, 16, gy2); g.stroke();
+    g.fillStyle = "rgba(140,210,245,0.85)"; g.strokeStyle = "#6b4226"; g.lineWidth = 2;
+    g.beginPath(); g.ellipse(19.5, gy2, 5, 3.6, 0, 0, Math.PI*2); g.fill(); g.stroke();
+    g.strokeStyle = "rgba(255,255,255,0.9)"; g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(17.3, gy2-1.6); g.lineTo(19, gy2+1.5); g.stroke();
+  }
+
+  // glider rigging in front of Dennis (control bar, straps, strings)
+  if(window.DA.drawGlider){
+    try{ window.DA.drawGlider(g, gid, 1, {boosting:boosting, stalled:stalled, t:T, speed:speed, layer:"front"}); }catch(e){}
+  }
+
+  // crash: orbiting stars
+  if(crashed){
+    g.fillStyle = "#ffd60a"; g.strokeStyle = "#8a5a00"; g.lineWidth = 0.8;
+    for(var si=0; si<3; si++){
+      var sa = T*0.005 + si*2.094;
+      starPath(g, 14 + Math.cos(sa)*14, -30 + Math.sin(sa)*4.5, 3.2);
+      g.fill(); g.stroke();
+    }
+  }
+  // speed ticks behind the bird
   if(boosting || speed > 48){
-    g.strokeStyle = "rgba(255,255,255,0.65)"; g.lineWidth = 2;
+    g.strokeStyle = "rgba(255,255,255,0.7)"; g.lineWidth = 1.8;
     for(var mi=0; mi<3; mi++){
-      var my = (-10+mi*9)*s + Math.sin(T*0.03+mi)*2;
-      var mx = -30*s - mi*9*s - Math.random()*6;
-      g.beginPath(); g.moveTo(mx, my); g.lineTo(mx-14*s, my); g.stroke();
+      var my = -12 + mi*9 + Math.sin(T*0.03+mi)*1.5;
+      var mx = -34 - mi*7 - Math.random()*5;
+      g.beginPath(); g.moveTo(mx, my); g.lineTo(mx-12, my); g.stroke();
     }
   }
   g.restore();
+}
+function starPath(g, cx, cy, r){
+  g.beginPath();
+  for(var i=0;i<10;i++){
+    var a = -Math.PI/2 + i*Math.PI/5, rr3 = (i%2) ? r*0.45 : r;
+    var px = cx + Math.cos(a)*rr3, py = cy + Math.sin(a)*rr3;
+    if(i) g.lineTo(px, py); else g.moveTo(px, py);
+  }
+  g.closePath();
+}
+/* layered teardrop flame out of the rocket nozzle (local -x = backwards) */
+function drawFlame(g, rk, T){
+  var nz = (window.DA.rocketNozzles && window.DA.rocketNozzles(rk)) || [[-31, -3, 1]];
+  for(var i=0;i<nz.length;i++){
+    var n = nz[i], big = n[2];
+    var L = (18 + Math.random()*12) * big * (1 + rk*0.18), Wd = 4.2*big;
+    var x0 = n[0], y0 = n[1];
+    var layers = [["rgba(255,120,20,0.55)", 1.35, 1.2],["#ff8c1a", 1, 1],["#ffd23f", 0.68, 0.72],["#fffbe0", 0.36, 0.45]];
+    for(var l=0;l<layers.length;l++){
+      var c = layers[l], len = L*c[1], w = Wd*c[2];
+      g.fillStyle = c[0];
+      g.beginPath();
+      g.moveTo(x0, y0 - w);
+      g.quadraticCurveTo(x0 - len*0.55, y0 - w*1.1, x0 - len, y0 + Math.sin(T*0.05+i)*1.2);
+      g.quadraticCurveTo(x0 - len*0.55, y0 + w*1.1, x0, y0 + w);
+      g.closePath(); g.fill();
+    }
+  }
 }
 
 window.DA = window.DA || {};
