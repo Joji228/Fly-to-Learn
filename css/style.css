@@ -90,7 +90,9 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--ink);
 #pitch-label{font-size:17px;font-weight:900;color:#fff;letter-spacing:1px;min-width:72px;text-align:center;}
 #loadout-label{margin-top:3px;font-size:12px;font-weight:700;color:var(--muted);text-shadow:0 1px 4px #000;
   white-space:nowrap;background:rgba(8,18,36,.62);border:1px solid rgba(255,255,255,.1);border-radius:999px;
-  padding:3px 12px;}
+  padding:3px 12px;max-width:92vw;overflow:hidden;text-overflow:ellipsis;}
+.hud-stat.fuel.nobooster{opacity:.55;}
+.ver-tag{margin-top:10px;font-size:11px;letter-spacing:1.5px;color:var(--muted);font-weight:700;}
 #record-banner{background:linear-gradient(90deg,#ffd60a,#ff8500);color:var(--accent-ink);font-weight:900;border-radius:999px;
   padding:4px 16px;display:inline-block;animation:pop .5s ease infinite alternate;font-size:14px;
   box-shadow:var(--glow-amber);}

@@ -20,11 +20,23 @@ function anyProxy() {
     apply() { return anyProxy(); }
   });
 }
+function mkParent() {
+  const st = {};
+  return { classList: {
+    add(c) { st[c] = true; }, remove(c) { delete st[c]; },
+    toggle(c, f) {
+      if (f === undefined) { if (st[c]) delete st[c]; else st[c] = true; }
+      else if (f) st[c] = true; else delete st[c];
+    },
+    contains(c) { return !!st[c]; }
+  } };
+}
 function mkEl(tag) {
   const el = {
     tag, children: [], style: {}, _attrs: {}, _handlers: {},
     textContent: "", innerHTML: "", value: "", checked: false,
     disabled: false, width: 300, height: 150, files: [], offsetWidth: 100,
+    parentNode: mkParent(),
     classList: {
       add(c) { el._cls[c] = true; }, remove(c) { delete el._cls[c]; },
       toggle(c, f) {
@@ -143,6 +155,23 @@ try {
   ok(Game.paused && vis("screen-pause"), "8a: pause overlay shows mid-flight");
   DA.pauseGame(false);
   ok(!Game.paused && !vis("screen-pause"), "8b: resume hides it");
+
+  // 9. HUD mute is a master mute (SFX + music together)
+  byId("btn-mute-hud").click();
+  ok(Game.save.settings.sfx === false && Game.save.settings.music === false &&
+    byId("btn-mute-hud").textContent === "🔇", "9a: mute kills all sound");
+  byId("btn-mute-hud").click();
+  ok(Game.save.settings.sfx === true && Game.save.settings.music === true &&
+    byId("btn-mute-hud").textContent === "🔊", "9b: unmute restores all sound");
+
+  // 10. rocket-less flight dims the fuel stat instead of flashing red
+  ok(byId("fuel-bar").parentNode.classList.contains("nobooster"), "10: fuel stat dimmed with no booster");
+
+  // 11. crashed phase reads out the landing grade, not stale STALL/FLY
+  Game.phase = "crashed";
+  Game.crashedInfo = { severity: "smooth", water: false };
+  DA.UI.updateHUD();
+  ok(byId("phase-label").textContent === "🛬 SMOOTH", "11: crash pill shows landing grade");
 } catch (e) {
   ok(false, "boot integration threw", (e && e.stack || e).toString().split("\n").slice(0, 3).join(" | "));
 }

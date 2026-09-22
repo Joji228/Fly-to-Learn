@@ -56,11 +56,15 @@ function bindButtons(){
   $("btn-pause-settings").onclick = function(){ click(); showSettingsFromPause(); };
   $("btn-quit").onclick = function(){ click(); $("screen-pause").classList.add("hidden"); window.DA.abandonRun(); };
   $("btn-pause").onclick = function(){ click(); window.DA.pauseGame(true); };
+  // HUD mute is a MASTER mute (SFX + music): the old SFX-only toggle left
+  // the music playing, which read as "mute is broken". Granular toggles
+  // stay in Settings.
   $("btn-mute-hud").onclick = function(){
-    save.settings.sfx = !save.settings.sfx;
+    var on = !(save.settings.sfx || save.settings.music);
+    save.settings.sfx = on; save.settings.music = on;
     window.DA.Save.save(save);
     window.DA.Audio.setEnabled(save.settings.sfx, save.settings.music);
-    updateMuteBtn();
+    applySettingsToInputs();
   };
   $("set-sfx").onchange = function(e){ save.settings.sfx=e.target.checked; window.DA.Save.save(save); window.DA.Audio.setEnabled(save.settings.sfx, save.settings.music); updateMuteBtn(); };
   $("set-music").onchange = function(e){ save.settings.music=e.target.checked; window.DA.Save.save(save); window.DA.Audio.setEnabled(save.settings.sfx, save.settings.music); };
@@ -99,8 +103,9 @@ function giveMoney(n){
   toast("🎮 +$" + n.toLocaleString() + " added. Spend it wisely-ish.");
 }
 function updateMuteBtn(){
-  $("btn-mute-hud").textContent = save.settings.sfx ? "🔊" : "🔇";
-  try{ $("btn-mute-hud").setAttribute("aria-label", save.settings.sfx ? "Mute sound" : "Unmute sound"); }catch(e){}
+  var anyOn = !!(save.settings.sfx || save.settings.music);
+  $("btn-mute-hud").textContent = anyOn ? "🔊" : "🔇";
+  try{ $("btn-mute-hud").setAttribute("aria-label", anyOn ? "Mute all sound" : "Unmute sound"); }catch(e){}
 }
 function hasBooster(){ return !!(save && save.rocket && save.rocket.equipped >= 0); }
 /* Completionist skin: every bonus objective done, in any order. */
@@ -263,42 +268,66 @@ function showFlight(){
   $("record-banner").classList.add("hidden");
 }
 
+/* HUD write cache: updateHUD runs every rAF, so text/color writes only go
+   out when the value actually changed (cheap mobile perf win). */
+var _hudCache = {};
+function setText(id, v){
+  if(_hudCache[id] === v) return;
+  _hudCache[id] = v;
+  var el = $(id);
+  if(el) el.textContent = v;
+}
 function updateHUD(){
   var G = window.DA.Game;
   if(!G.S) return;
   // lip-relative distance (0 at launch) — same origin as milestones/landing
   var LX = (window.DA.LAUNCH_X === undefined) ? 140 : window.DA.LAUNCH_X;
   var dist = (window.DA.flightDist ? window.DA.flightDist() : Math.max(0, G.S.x - LX));
-  $("hud-dist").textContent = window.DA.Physics.fmtDist(dist);
-  $("hud-alt").textContent = Math.max(0,G.S.y).toFixed(0)+" m";
+  setText("hud-dist", window.DA.Physics.fmtDist(dist));
+  setText("hud-alt", Math.max(0,G.S.y).toFixed(0)+" m");
   updateSpeedo(G);
   var hasBooster = !!(G.P && G.P.thrust > 0);
   var f = (G.S.fuelMax>0 && hasBooster) ? G.S.fuel/G.S.fuelMax : 0;
   var fill = $("fuel-fill");
   fill.style.width = (f*100).toFixed(1)+"%";
   fill.className = (!hasBooster || f<0.25) ? "low" : "";
-  var fl = $("fuel-label");
-  if(fl) fl.textContent = hasBooster ? "FUEL" : "NO BOOSTER";
+  setText("fuel-label", hasBooster ? "FUEL" : "NO BOOSTER");
   var fb = $("fuel-bar");
   if(fb){
     fb.classList.toggle("burning", !!G.S.boosting && hasBooster);
     fb.classList.toggle("empty", hasBooster && G.S.fuelMax>0 && G.S.fuel<=0);
+    // rocket-less flights stare at a red "low" bar all flight: dim the stat
+    var fstat = fb.parentNode;
+    if(fstat && fstat.classList) fstat.classList.toggle("nobooster", !hasBooster);
   }
-  $("hud-best").textContent = window.DA.Physics.fmtDist(save.best.dist);
+  setText("hud-best", window.DA.Physics.fmtDist(save.best.dist));
   // pause panel run readout (kept fresh live; shown only when paused)
   var pd = $("pause-stat-dist"), ps2 = $("pause-stat-speed"), pa = $("pause-stat-alt");
   if(pd) pd.textContent = window.DA.Physics.fmtDist(dist);
   if(ps2) ps2.textContent = Math.round((G.S.speed||0)*3.6)+" km/h";
   if(pa) pa.textContent = Math.max(0,G.S.y).toFixed(0)+" m";
-  $("phase-label").textContent = G.phase==="ramp" ? "🛷 RAMP!" : (G.S.boosting?"🔥 BOOST!":(G.S.stalled?"⚠ STALL":"🕊️ FLY"));
-  if(G.S.boosting) $("phase-label").style.color = "#ffb703"; else $("phase-label").style.color = "#fff";
+  var crashed = (G.phase === "crashed" && G.crashedInfo);
+  var sevTxt = crashed ? { smooth:"🛬 SMOOTH", rough:"⛷️ ROUGH", crash:"💥 CRASH", mega:"☄️ MEGA" }[G.crashedInfo.severity] : null;
+  var phaseTxt = G.phase==="ramp" ? "🛷 RAMP!" : sevTxt ? sevTxt
+    : (G.S.boosting?"🔥 BOOST!":(G.S.stalled?"⚠ STALL":"🕊️ FLY"));
+  setText("phase-label", phaseTxt);
+  var phaseCol = sevTxt ? "#fff" : (G.S.boosting ? "#ffb703" : "#fff");
+  if(_hudCache["phase-color"] !== phaseCol){
+    _hudCache["phase-color"] = phaseCol;
+    var phel = $("phase-label");
+    if(phel) phel.style.color = phaseCol;
+  }
   // pitch indicator: arrow + degrees, one glance tells where the nose (and booster) points
   var deg = Math.round((G.S.pitch||0) * 180/Math.PI);
   var arrow = deg > 12 ? "↗" : deg < -12 ? "↘" : "→";
   var pl = $("pitch-label");
   if(pl){
-    pl.textContent = arrow + " " + (deg>0?"+":"") + deg + "°";
-    pl.style.color = G.S.stalled ? "#ff5d5d" : (Math.abs(deg) > 55 ? "#ffb703" : "#fff");
+    setText("pitch-label", arrow + " " + (deg>0?"+":"") + deg + "°");
+    var degCol = G.S.stalled ? "#ff5d5d" : (Math.abs(deg) > 55 ? "#ffb703" : "#fff");
+    if(_hudCache["pitch-color"] !== degCol){
+      _hudCache["pitch-color"] = degCol;
+      pl.style.color = degCol;
+    }
   }
   // loadout: tiny equipped-equipment readout (cached, cheap)
   var lo = gliderName(save.glider.equipped) + "|" + save.rocket.equipped;
