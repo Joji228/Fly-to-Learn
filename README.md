@@ -108,6 +108,7 @@ Plain HTML, CSS and JavaScript on a `<canvas>`. There are no frameworks, no buil
 
 ## Changelog
 
+- **0.9:** Rebuilt shop with Gliders, Rockets and Workshop tabs, a next-purchase goal bar and cleaner cards. New Nitro Mix artwork. Map fixes: the shoreline is now a snow bank, islands rise out of the sea, waves follow the water, and boats, buoys and the city sit in the right places. Milestones are readable signboards.
 - **0.8:** Dennis, all gliders and rockets redrawn. New HUD, menus, shop and results screen. The game runs faster with a closer camera. Added golden fish and gust rings.
 - **0.7:** Fixed the pause menu dropping your flight. Added W/S and ↑/↓ steering. BEST updates live during record flights.
 - **0.6 and earlier:** landing islands, streak and glide bonuses, Nitro Mix, Sandbox mode, and the deterministic flight model.

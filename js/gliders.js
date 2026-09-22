@@ -421,11 +421,10 @@ function drawPartPreview(canvas, kind, level){
     if(!isFinite(w) || w <= 0) w = 160;
     if(!isFinite(h) || h <= 0) h = 90;
     var lv = Math.max(0, Math.min(8, level || 0));
-    var grd = ctx.createLinearGradient(0, 0, 0, h);
-    grd.addColorStop(0, "#7ec0ee"); grd.addColorStop(0.7, "#cfe8f7"); grd.addColorStop(1, "#e8f3fa");
-    ctx.fillStyle = grd; ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, h-16, w, 16);
-    ctx.fillStyle = "#dfe7ec"; ctx.fillRect(0, h-16, w, 2);
+    // the art is authored on a 160-wide stage; scale it up to the card canvas
+    var k = w / 160; h = Math.round(160 * h / w); w = 160;
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    stage(ctx, w, h, null);
     ctx.save();
     ctx.lineJoin = "round"; ctx.lineCap = "round";
     var cx = w*0.5, cy = h*0.58, OUT = "#2b2d42";
@@ -466,6 +465,29 @@ function drawPartPreview(canvas, kind, level){
         ctx.beginPath(); ctx.moveTo(cx-14,cy-4); ctx.lineTo(cx-6,cy+1); ctx.stroke();
         ctx.strokeStyle = "#5b3a29"; ctx.lineWidth = 2; // strap
         ctx.beginPath(); ctx.moveTo(cx-24,cy+2); ctx.quadraticCurveTo(cx,cy+12,cx+24,cy+2); ctx.stroke();
+      } else if(kind === "nitro"){
+        // kelp-green nitro flask: fuller and fizzier with level
+        var fill = 0.25 + 0.75 * Math.min(4, lv) / 4;
+        var flask = function(){
+          ctx.beginPath();
+          ctx.moveTo(cx-6, cy-26); ctx.lineTo(cx+6, cy-26); ctx.lineTo(cx+6, cy-12);
+          ctx.quadraticCurveTo(cx+24, cy-4, cx+22, cy+10); ctx.quadraticCurveTo(cx+20, cy+20, cx, cy+20);
+          ctx.quadraticCurveTo(cx-20, cy+20, cx-22, cy+10); ctx.quadraticCurveTo(cx-24, cy-4, cx-6, cy-12);
+          ctx.closePath();
+        };
+        ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.strokeStyle = OUT; ctx.lineWidth = 2.5;
+        flask(); ctx.fill();
+        ctx.save(); ctx.clip();
+        var ly = cy + 20 - fill*34;
+        var ng = ctx.createLinearGradient(0, ly, 0, cy+20);
+        ng.addColorStop(0, "#9bff6a"); ng.addColorStop(1, "#2fb344");
+        ctx.fillStyle = ng; ctx.fillRect(cx-30, ly, 60, 40);
+        ctx.fillStyle = "rgba(255,255,255,0.7)";
+        for(var bi=0; bi<3+lv; bi++){ ctx.beginPath(); ctx.arc(cx-12+((bi*7)%24), ly+6+((bi*5)%12), 1.4+(bi%2), 0, 7); ctx.fill(); }
+        ctx.restore();
+        ctx.strokeStyle = OUT; ctx.lineWidth = 2.5; flask(); ctx.stroke();
+        ctx.fillStyle = "#8a5a36"; ctx.lineWidth = 1.5; ctx.fillRect(cx-7, cy-31, 14, 6); ctx.strokeRect(cx-7, cy-31, 14, 6);
+        ctx.fillStyle = "rgba(255,255,255,0.6)"; ctx.beginPath(); ctx.ellipse(cx-12, cy+2, 2.5, 7, 0.3, 0, 7); ctx.fill();
       } else { // fuel
         // fish-oil tank: barrel, pipes, gauge, level pips on the tank
         ctx.fillStyle = "#e36414"; ctx.strokeStyle = OUT; ctx.lineWidth = 2.5;
@@ -490,6 +512,7 @@ function drawPartPreview(canvas, kind, level){
       }
     } catch(e){}
     ctx.restore();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
   } catch(e2){}
 }
 function g2(ctx, x, y){ ctx.moveTo(x,y-4); ctx.lineTo(x+6,y); ctx.lineTo(x,y+4); ctx.closePath(); }

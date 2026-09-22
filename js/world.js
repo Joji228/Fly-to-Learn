@@ -184,6 +184,10 @@ function groundY(x){
   return Math.sin(x*0.01)*1.2 + Math.sin(x*0.043)*0.5 + islandH(x);
 }
 function isWater(x){ return x > 500 && islandH(x) < 0.5; }
+/* Visual sea level: the terrain without island bumps. Islands rise OUT of
+   this surface; the water itself never bulges over them. */
+var SHORE_X = 500, BANK_LEN = 46, BANK_DROP = 130;
+function seaY(x){ return Math.sin(x*0.01)*1.2 + Math.sin(x*0.043)*0.5; }
 
 var _rampLvl = 0;
 function setRampLevel(r){ _rampLvl = Math.max(0, Math.min(8, r || 0)); }
@@ -221,47 +225,17 @@ function drawScene(g, W, H, cam, zoom, S, opts){
   var overWater = (S.x > 500);
   drawTerrain(g, W, H, cam, zoom, SX, SY, overWater, S);
 
-  // shoreline foam + sign
-  var shx = SX(500);
-  if(shx > -80 && shx < W+80){
-    var shy = SY(groundY(500));
-    var tt = Date.now()*0.003;
-    g.save();
-    for(var f=0; f<3; f++){
-      g.strokeStyle = "rgba(255,255,255,"+(0.75-f*0.2)+")";
-      g.lineWidth = 3-f*0.7;
-      g.beginPath();
-      g.moveTo(shx-40, shy+6+f*7+Math.sin(tt+f)*2);
-      g.quadraticCurveTo(shx, shy-2+f*7+Math.sin(tt+f+1)*2, shx+40, shy+6+f*7);
-      g.stroke();
-    }
-    drawSign(g, shx-70, shy-46*zoom, "SEA →", zoom);
-    g.restore();
-  }
-
   drawDetails(g, SX, SY, cam, W, H, zoom, S);
 
-  // milestone plaques
+  // milestone signboards (lip-relative distances; world x = d + 140, exactly
+  // where the toast fires). Label + distance live inside one wooden board.
   var MS = window.DA.MILESTONES;
-  g.textAlign = "center";
-  for(var i=0;i<MS.length;i++){
-    // milestones are lip-relative distances; the sign must stand at the
-    // matching WORLD x (lip sits at x=140), exactly where the toast fires.
-    // (Before: signs were planted 140 m early, ahead of their scenery.)
-    var mx = MS[i].d, wx = mx + 140, msx = SX(wx);
-    if(msx < -160 || msx > W+160) continue;
-    var msy = SY(groundY(wx));
-    g.save();
-    g.strokeStyle = "#4a3728"; g.lineWidth = 5;
-    g.beginPath(); g.moveTo(msx, msy); g.lineTo(msx, msy-64); g.stroke();
-    g.fillStyle = i===0 ? "#e63946" : "#ffb703";
-    rr(g, msx, msy-92, 52, 30, 6); g.fill();
-    g.strokeStyle = "rgba(0,0,0,0.35)"; g.lineWidth = 2; g.stroke();
-    g.fillStyle = "#3a2200"; g.font = "bold 12px sans-serif";
-    g.fillText(fmtM(mx), msx+26, msy-73);
-    g.fillStyle = "#fff"; g.font = "12px sans-serif";
-    g.fillText(stripEmoji(MS[i].label), msx+26, msy-98);
-    g.restore();
+  for(var i=1;i<MS.length;i++){
+    var mx = MS[i].d, wx = mx + 140;
+    if(wx >= SHORE_X && islandH(wx) < 1) wx = SHORE_X - 8; // never plant a sign in the sea
+    var msx = SX(wx);
+    if(msx < -200 || msx > W+200) continue;
+    drawMilestone(g, msx, SY(groundY(wx)), stripEmoji(MS[i].label), fmtM(mx), zoom);
   }
 
   drawRamp(g, SX, SY, zoom);
@@ -315,6 +289,30 @@ function drawScene(g, W, H, cam, zoom, S, opts){
   if(opts.pickups && PK){ try{ PK.drawFront(g, SX, SY, zoom, opts.pickups, W); }catch(e){} }
 }
 
+function drawMilestone(g, x, y, label, dist, zoom){
+  var s = Math.max(0.85, Math.min(1.25, zoom*1.05));
+  g.save();
+  g.font = "800 " + Math.round(12*s) + "px Nunito, 'Segoe UI', sans-serif";
+  var tw = Math.max(g.measureText(label).width, 40*s);
+  var bw = tw + 22*s, bh = 38*s, by = y - 58*s - bh;
+  // posts
+  g.fillStyle = "#6b4226";
+  g.fillRect(x - bw*0.3 - 2*s, by + bh - 2, 4*s, y - by - bh + 2);
+  g.fillRect(x + bw*0.3 - 2*s, by + bh - 2, 4*s, y - by - bh + 2);
+  // board
+  g.fillStyle = "rgba(0,0,0,0.18)";
+  rr(g, x - bw/2 + 2*s, by + 3*s, bw, bh, 7*s); g.fill();
+  var bg = g.createLinearGradient(0, by, 0, by + bh);
+  bg.addColorStop(0, "#b67a4b"); bg.addColorStop(1, "#8a5733");
+  g.fillStyle = bg; rr(g, x - bw/2, by, bw, bh, 7*s); g.fill();
+  g.strokeStyle = "#5b3a29"; g.lineWidth = 2; g.stroke();
+  g.fillStyle = "rgba(255,255,255,0.14)"; g.fillRect(x - bw/2 + 5*s, by + 3*s, bw - 10*s, 2*s);
+  g.textAlign = "center"; g.textBaseline = "middle";
+  g.fillStyle = "#fff6e0"; g.fillText(label, x, by + 13*s);
+  g.font = "900 " + Math.round(12*s) + "px Nunito, 'Segoe UI', sans-serif";
+  g.fillStyle = "#ffd166"; g.fillText(dist, x, by + 27*s);
+  g.restore();
+}
 function fmtM(m){ return m>=1000 ? (m/1000).toFixed(m>=10000?0:1)+"km" : m+"m"; }
 
 /* ---------------- terrain: snow + water ---------------- */
@@ -324,15 +322,15 @@ function drawTerrain(g, W, H, cam, zoom, SX, SY, overWater, S){
   g.save();
   g.beginPath();
   g.moveTo(-12, H+12);
-  for(var sx=0; sx<=W+12; sx+=step){
-    var wx = cam.x + sx/(PPM*zoom);
-    g.lineTo(sx, SY(groundY(wx)));
+  var snowEnd = Math.min(W+12, SX(SHORE_X + BANK_LEN));
+  for(var sx=-12; sx<=snowEnd; sx+=step){
+    g.lineTo(sx, SY(landY(cam.x + sx/(PPM*zoom))));
   }
-  g.lineTo(W+12, H+12);
+  g.lineTo(snowEnd, SY(landY(cam.x + snowEnd/(PPM*zoom))));
+  g.lineTo(snowEnd, H+12);
   g.closePath();
   var sg = g.createLinearGradient(0, H*0.45, 0, H);
-  if(!overWater && S.x < 620){ sg.addColorStop(0, "#f7faff"); sg.addColorStop(1, "#b7c9e4"); }
-  else { sg.addColorStop(0, "#d8e7f7"); sg.addColorStop(1, "#9db9d9"); }
+  sg.addColorStop(0, "#f7faff"); sg.addColorStop(1, "#b7c9e4");
   g.fillStyle = sg; g.fill();
   g.clip();
   // blue shadow blobs (deterministic, world-anchored)
@@ -387,93 +385,180 @@ function drawTerrain(g, W, H, cam, zoom, SX, SY, overWater, S){
   }
   g.restore();
 
-  // ---- water: alive layered ocean over x>500 ----
-  var waterSX = SX(Math.max(cam.x, 500));
-  if(waterSX < W+40){
+  // ---- water: flat living sea past the shore; the snow bank dives under it ----
+  var wt = Date.now()*0.0022;
+  var shoreSX = SX(SHORE_X);
+  if(shoreSX < W+40){
+    var wStart = Math.max(-12, shoreSX);
     g.save();
+    // deep water: top = sea surface, left edge follows the submerged bank
     g.beginPath();
-    g.moveTo(Math.max(0, waterSX), H+12);
-    for(var wx2=Math.max(0,waterSX); wx2<=W+12; wx2+=step){
-      var wxx = cam.x + wx2/(PPM*zoom);
-      g.lineTo(wx2, SY(groundY(wxx)));
+    g.moveTo(wStart, SY(seaY(cam.x + wStart/(PPM*zoom))));
+    for(var wx2=wStart; wx2<=W+12; wx2+=step){
+      g.lineTo(wx2, SY(seaY(cam.x + wx2/(PPM*zoom))));
     }
     g.lineTo(W+12, H+12);
+    var bankBotSX = SX(SHORE_X + BANK_LEN);
+    if(bankBotSX > wStart){
+      g.lineTo(bankBotSX, H+12);
+      for(var bx2=SHORE_X + BANK_LEN; bx2>=SHORE_X; bx2-=5){ var bsx2 = SX(bx2); if(bsx2 >= wStart) g.lineTo(bsx2, SY(landY(bx2))); }
+    } else g.lineTo(wStart, H+12);
     g.closePath();
-    var wg = g.createLinearGradient(0, H*0.55, 0, H);
-    wg.addColorStop(0, "#4aa3df"); wg.addColorStop(0.35, "#2b7fc4"); wg.addColorStop(1, "#0b3d75");
+    _waterTop = SY(seaY(cam.x)) - 4; _waterH = H;
+    var wg = g.createLinearGradient(0, _waterTop, 0, H);
+    wg.addColorStop(0, "#56b4e9"); wg.addColorStop(0.25, "#2b86cc"); wg.addColorStop(1, "#0b3d75");
     g.fillStyle = wg; g.fill();
-    g.clip();
-    // animated wave rows
-    var wt = Date.now()*0.0022;
-    for(var row=0; row<3; row++){
-      g.strokeStyle = "rgba(255,255,255,"+(0.55-row*0.14)+")";
-      g.lineWidth = 3-row*0.6;
+    // wet edge where the snow bank meets the water
+    if(bankBotSX > -40 && shoreSX < W+40){
+      g.strokeStyle = "rgba(60,112,170,0.55)"; g.lineWidth = 6;
       g.beginPath();
-      var baseY = H*0.80 + 14 + row*22; // screen-locked rows
-      for(var px2=Math.max(0,waterSX)-20; px2<=W+20; px2+=16){
-        var phw = (cam.x + px2/(PPM*zoom))*0.08 + wt*(1+row*0.4) + row*2;
-        var py2 = baseY + Math.sin(phw)*4;
-        if(px2<=Math.max(0,waterSX)-19) g.moveTo(px2, py2); else g.lineTo(px2, py2);
+      for(var bx3=SHORE_X; bx3<=SHORE_X+BANK_LEN; bx3+=2){ var bsy3 = SY(landY(bx3)); if(bx3 === SHORE_X) g.moveTo(SX(bx3), bsy3); else g.lineTo(SX(bx3), bsy3); }
+      g.stroke();
+      g.strokeStyle = "rgba(255,255,255,0.7)"; g.lineWidth = 2;
+      g.stroke();
+    }
+    // wave rows ride the surface (they used to be pinned to the screen)
+    g.beginPath();
+    g.moveTo(wStart, SY(seaY(cam.x + wStart/(PPM*zoom))));
+    for(var cx2=wStart; cx2<=W+12; cx2+=step) g.lineTo(cx2, SY(seaY(cam.x + cx2/(PPM*zoom))));
+    g.lineTo(W+12, H+12); g.lineTo(wStart, H+12); g.closePath();
+    g.clip();
+    for(var row=0; row<3; row++){
+      g.strokeStyle = "rgba(255,255,255,"+(0.42-row*0.11)+")";
+      g.lineWidth = 2.6-row*0.5;
+      g.beginPath();
+      for(var px2=wStart; px2<=W+20; px2+=14){
+        var wxr = cam.x + px2/(PPM*zoom);
+        var py2 = SY(seaY(wxr)) + (10 + row*20)*Math.max(0.7, zoom) + Math.sin(wxr*0.08 + wt*(1+row*0.4) + row*2)*3;
+        if(px2 === wStart) g.moveTo(px2, py2); else g.lineTo(px2, py2);
       }
       g.stroke();
     }
-    // crest highlights + foam patches (open water only — never on dry sand)
+    // surface highlight line + crest foam + sun glints (open water only)
+    g.strokeStyle = "rgba(255,255,255,0.55)"; g.lineWidth = 2;
+    g.beginPath();
+    for(var hx=wStart; hx<=W+12; hx+=step){
+      var hy = SY(seaY(cam.x + hx/(PPM*zoom))) + 1.5;
+      if(hx === wStart) g.moveTo(hx, hy); else g.lineTo(hx, hy);
+    }
+    g.stroke();
     for(var fx2=Math.floor(x0/37)*37; fx2<x1; fx2+=37){
-      if(fx2 < 510 || !isWater(fx2)) continue;
+      if(fx2 < SHORE_X + 20 || islandNear(fx2, 12)) continue;
       var fsx = SX(fx2+hash(fx2+1)*18);
       if(fsx<-60||fsx>W+60) continue;
-      var fsy = SY(groundY(fx2)) + 4 + Math.sin(wt*1.3+fx2)*3;
-      g.fillStyle = "rgba(255,255,255,0.5)";
-      g.beginPath(); g.ellipse(fsx, fsy, (8+hash(fx2+2)*14)*zoom, 3*zoom, 0, 0, 7); g.fill();
+      var fsy = SY(seaY(fx2)) + 4 + Math.sin(wt*1.3+fx2)*2;
+      g.fillStyle = "rgba(255,255,255,0.45)";
+      g.beginPath(); g.ellipse(fsx, fsy, (8+hash(fx2+2)*14)*zoom, 2.4*zoom, 0, 0, 7); g.fill();
     }
-    // sun glints
     g.fillStyle = "rgba(255,246,200,0.5)";
     for(var lx=Math.floor(x0/53)*53; lx<x1; lx+=53){
-      if(lx < 510 || !isWater(lx)) continue;
+      if(lx < SHORE_X + 10) continue;
       var lsx = SX(lx+hash(lx+4)*24);
       if(lsx<-40||lsx>W+40) continue;
-      var lsy = SY(groundY(lx)) + 12 + hash(lx+6)*30;
-      g.globalAlpha = 0.25 + 0.25*Math.abs(Math.sin(wt*2+lx));
+      var lsy = SY(seaY(lx)) + 12 + hash(lx+6)*30;
+      g.globalAlpha = 0.2 + 0.25*Math.abs(Math.sin(wt*2+lx));
       g.fillRect(lsx, lsy, (3+hash(lx+8)*5)*zoom, 2*zoom);
     }
     g.globalAlpha = 1;
     g.restore();
+    // shore foam where the bank meets the sea
+    shoreFoam(g, SX, SY, SHORE_X, zoom, wt, 1);
   }
 
-  // ---- islands: sand / ice caps hugging the terrain above the surf ----
-  g.save();
+  // ---- islands: land rising out of the sea, base visible in the shallows ----
+  var viewX0 = cam.x - 60, viewX1 = cam.x + W/(PPM*zoom) + 60;
   for(var ii=0; ii<ISLANDS.length; ii++){
-    var cap = ISLANDS[ii];
-    var pts = [];
-    var vx0 = Math.max(cam.x-40, cap.x0-30), vx1 = Math.min(cam.x+W/(PPM*zoom)+40, cap.x1+30);
-    for(var wx3=vx0; wx3<=vx1; wx3+=6){
-      if(islandH(wx3) < 0.25) continue;
-      pts.push([SX(wx3), SY(groundY(wx3))]);
-    }
-    if(pts.length < 2) continue;
+    var isl = ISLANDS[ii];
+    if(isl.x1 + 40 < viewX0 || isl.x0 - 40 > viewX1) continue;
+    drawIsland(g, SX, SY, isl, zoom, wt, viewX0, viewX1);
+  }
+}
+
+/* The sea's vertical colour ramp (screen space: top -> H). Underwater tints
+   sample it so submerged land fades into exactly the water behind it. */
+var WATER_STOPS = [[0,[86,180,233]],[0.25,[43,134,204]],[1,[11,61,117]]];
+var _waterTop = 0, _waterH = 1;
+function waterRGBA(sy, a){
+  var k = Math.max(0, Math.min(1, (sy - _waterTop) / Math.max(1, _waterH - _waterTop)));
+  var c = WATER_STOPS[2][1];
+  for(var i=0;i<2;i++){
+    var s0 = WATER_STOPS[i], s1 = WATER_STOPS[i+1];
+    if(k <= s1[0]){ var u = (k - s0[0])/(s1[0]-s0[0]); c = mix(s0[1], s1[1], u); break; }
+  }
+  return "rgba("+(c[0]|0)+","+(c[1]|0)+","+(c[2]|0)+","+a+")";
+}
+function landY(x){
+  // snowfield, then the bank sloping under the sea past the shoreline
+  if(x <= SHORE_X) return groundY(x);
+  var k = Math.min(1, (x - SHORE_X) / BANK_LEN);
+  return seaY(x) - BANK_DROP * k * k * (3 - 2*k) - 0.4 * Math.min(1, k*8);
+}
+function islandNear(x, pad){ return islandH(x) > 0.05 || islandH(x - pad) > 0.05 || islandH(x + pad) > 0.05; }
+function shoreFoam(g, SX, SY, x, zoom, wt, dir){
+  var fx = SX(x), fy = SY(seaY(x));
+  g.save();
+  g.lineCap = "round";
+  for(var f=0; f<3; f++){
+    g.strokeStyle = "rgba(255,255,255,"+(0.85-f*0.25)+")";
+    g.lineWidth = (3.2-f*0.8)*Math.max(0.8, zoom);
+    var off = (f*7 + Math.sin(wt*1.4+f)*2)*dir*zoom;
     g.beginPath();
-    g.moveTo(pts[0][0], pts[0][1]+30*zoom);
-    for(var pi3=0; pi3<pts.length; pi3++) g.lineTo(pts[pi3][0], pts[pi3][1]);
-    g.lineTo(pts[pts.length-1][0], pts[pts.length-1][1]+30*zoom);
-    g.closePath();
-    var ig = g.createLinearGradient(0, pts[0][1]-24*zoom, 0, pts[0][1]+30*zoom);
-    if(cap.ice){ ig.addColorStop(0, "#ffffff"); ig.addColorStop(1, "#bcd9f5"); }
-    else { ig.addColorStop(0, "#f4e3b2"); ig.addColorStop(1, "#d4a373"); }
-    g.fillStyle = ig; g.fill();
+    g.moveTo(fx - 10*zoom*dir + off, fy + 1 + f*2.5);
+    g.quadraticCurveTo(fx + off + 6*dir*zoom, fy - 2 + f*2.5, fx + (22 + f*6)*dir*zoom + off, fy + 1.5 + f*2.5);
+    g.stroke();
   }
   g.restore();
 }
-
-function drawSign(g, x, y, text, zoom){
+function drawIsland(g, SX, SY, isl, zoom, wt, viewX0, viewX1){
+  var pad = 30, depth = 22;
+  var a0 = Math.max(viewX0, isl.x0 - pad), a1 = Math.min(viewX1, isl.x1 + pad);
+  var sand = isl.ice ? ["#ffffff", "#d6ebfb", "#9cc6ea"] : ["#f7e4b0", "#e6c283", "#b98a52"];
   g.save();
-  g.strokeStyle = "#5b3a29"; g.lineWidth = 3*zoom;
-  g.beginPath(); g.moveTo(x, y+34*zoom); g.lineTo(x, y); g.stroke();
-  g.fillStyle = "#9c6644";
-  rr(g, x-4*zoom, y-16*zoom, 64*zoom, 22*zoom, 4); g.fill();
-  g.strokeStyle = "#5b3a29"; g.lineWidth = 2; g.stroke();
-  g.fillStyle = "#fff"; g.font = "bold "+Math.round(11*zoom+3)+"px sans-serif"; g.textAlign = "center";
-  g.fillText(text, x+28*zoom, y-Math.round(1*zoom));
+  // submerged base (a wide skirt under the waterline), seen through water
+  g.beginPath();
+  g.moveTo(SX(a0), SY(seaY(a0)));
+  for(var x=a0; x<=a1; x+=6) g.lineTo(SX(x), SY(seaY(x)));
+  g.lineTo(SX(a1), SY(seaY(a1)));
+  var mid = (isl.x0 + isl.x1)/2, half = (isl.x1 - isl.x0)/2 + pad;
+  for(var xb=a1; xb>=a0; xb-=6){
+    var u = Math.min(1, Math.abs(xb - mid)/half);
+    g.lineTo(SX(xb), SY(seaY(xb) - depth*Math.sqrt(Math.max(0, 1 - u*u))));
+  }
+  g.closePath();
+  g.fillStyle = sand[2]; g.fill();
+  // tint fades to the deep-water colour, so the base has no visible edge
+  var sy0 = SY(seaY(mid)), sy1 = SY(seaY(mid) - depth);
+  var tg = g.createLinearGradient(0, sy0, 0, sy1);
+  tg.addColorStop(0, waterRGBA(sy0, 0.5)); tg.addColorStop(0.55, waterRGBA((sy0+sy1)/2, 0.9)); tg.addColorStop(1, waterRGBA(sy1, 1));
+  g.fillStyle = tg; g.fill();
+  // land above water: island top down to the sea surface. It tapers to
+  // nothing at both ends, so there is never a cut-off slab edge.
+  var pts = [];
+  for(var x2=Math.max(a0, isl.x0); x2<=Math.min(a1, isl.x1); x2+=4) pts.push(x2);
+  if(pts.length > 1){
+    var topY = SY(seaY((isl.x0+isl.x1)/2) + isl.h);
+    var ig = g.createLinearGradient(0, topY, 0, SY(seaY(isl.x0)));
+    ig.addColorStop(0, sand[0]); ig.addColorStop(0.6, sand[1]); ig.addColorStop(1, sand[2]);
+    g.beginPath();
+    g.moveTo(SX(pts[0]), SY(seaY(pts[0])));
+    for(var i=0;i<pts.length;i++) g.lineTo(SX(pts[i]), SY(groundY(pts[i])));
+    for(var j=pts.length-1;j>=0;j--) g.lineTo(SX(pts[j]), SY(seaY(pts[j])));
+    g.closePath();
+    g.fillStyle = ig; g.fill();
+    // rim light along the top + wet band at the waterline
+    g.strokeStyle = isl.ice ? "rgba(255,255,255,0.95)" : "rgba(255,244,214,0.9)"; g.lineWidth = 2;
+    g.beginPath();
+    for(var k=0;k<pts.length;k++){ var tx = SX(pts[k]), ty = SY(groundY(pts[k])); if(k) g.lineTo(tx, ty); else g.moveTo(tx, ty); }
+    g.stroke();
+    g.strokeStyle = isl.ice ? "rgba(120,170,215,0.55)" : "rgba(140,96,50,0.45)"; g.lineWidth = 3*Math.max(0.8, zoom);
+    g.beginPath();
+    for(var m=0;m<pts.length;m++){ var wx4 = pts[m], wy = SY(seaY(wx4) + Math.min(0.9, islandH(wx4)*0.4)); if(m) g.lineTo(SX(wx4), wy); else g.moveTo(SX(wx4), wy); }
+    g.stroke();
+  }
   g.restore();
+  // foam hugging both beaches
+  shoreFoam(g, SX, SY, isl.x0 + 4, zoom, wt, -1);
+  shoreFoam(g, SX, SY, isl.x1 - 4, zoom, wt, 1);
 }
 
 /* ---------------- details: dense near-field + vector mid props ---------------- */
@@ -518,10 +603,10 @@ function drawDetails(g, SX, SY, cam, W, H, zoom, S){
   }
   // buoys + floating ice at sea (open water only)
   for(x=Math.floor(x0/30)*30; x<x1; x+=30){
-    if(x < 520) continue;
+    if(x < SHORE_X + 40) continue;
     jx = x + hash(x+9)*16; sx = SX(jx); if(sx<-60||sx>W+60) continue;
-    if(!isWater(jx)) continue;
-    sy = SY(groundY(jx)) + Math.sin(Date.now()*0.002+x)*2*zoom;
+    if(islandNear(jx, 20)) continue;
+    sy = SY(seaY(jx)) + Math.sin(Date.now()*0.002+x)*2*zoom;
     if(hash(x+13) < 0.55) drawBuoy(g, sx, sy, NS);
     else drawFloater(g, sx, sy, NS, x);
   }
@@ -530,7 +615,7 @@ function drawDetails(g, SX, SY, cam, W, H, zoom, S){
     var isl = ISLANDS[iz];
     for(var px=isl.x0+30; px<isl.x1-10; px+=70){
       jx = px + hash(px)*20;
-      if(jx < x0 || jx > x1) continue;
+      if(jx < x0 || jx > x1 || islandH(jx) < 2) continue;
       sx = SX(jx); if(sx<-60||sx>W+60) continue;
       sy = SY(groundY(jx));
       if(isl.ice) drawShard(g, sx, sy, (0.8+hash(px+1)*0.5)*NS);
@@ -554,14 +639,24 @@ function drawDetails(g, SX, SY, cam, W, H, zoom, S){
   g.restore();
 
   // bigger midground set pieces
-  for(var wx=Math.floor(x0/400)*400; wx<x1; wx+=400){
-    var sx2 = SX(wx+hash(wx)*200), gy2 = groundY(wx);
-    var sy2 = SY(gy2);
+  for(var wx=Math.floor((x0-200)/400)*400; wx<x1+200; wx+=400){
+    var px0 = wx + hash(wx)*200, sx2 = SX(px0);
     if(sx2<-220||sx2>W+220) continue;
-    if(wx+200 < 500) continue;
+    if(px0 < SHORE_X + 60) continue;
     var pick = pickFor(wx+200);
-    if(pick) drawProp(g, sx2, sy2, pick, PPM*zoom*0.32, wx);
+    if(pick === "city") pick = (hash(wx+3) < 0.5) ? "whale" : "ice";
+    var seaProp = (pick === "boat" || pick === "ice" || pick === "whale");
+    if(seaProp && (islandNear(px0, 45))) continue;
+    var gy2 = seaProp ? seaY(px0) : groundY(px0);
+    if(pick) drawProp(g, sx2, SY(gy2), pick, PPM*zoom*0.32, wx);
   }
+  // City Isle skyline
+  var city = ISLANDS[3];
+  [[city.x0 + 150, 11],[city.x0 + 235, 23],[city.x0 + 300, 37]].forEach(function(c){
+    var csx = SX(c[0]);
+    if(csx < -220 || csx > W + 220) return;
+    drawProp(g, csx, SY(groundY(c[0])) + 2, "city", PPM*zoom*0.3, c[1]);
+  });
 }
 function pickFor(x){
   if(x<500) return null;

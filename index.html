@@ -100,49 +100,43 @@
         <div class="step"><span class="keys"><kbd>P</kbd></span><span><b>Pause</b></span></div>
       </div>
       <div class="menu-tips">Grab <b>golden fish</b> for cash, thread <b>gust rings</b> for speed, and ease the nose up before touchdown for smooth landings.</div>
-      <div class="ver-tag">v0.8 • saves locally in your browser</div>
+      <div class="ver-tag">v0.9 • saves locally in your browser</div>
     </div>
   </section>
 
   <!-- SHOP -->
   <section id="screen-shop" class="screen shop-screen hidden">
     <div class="shop-card">
-      <div class="shop-head">
+      <header class="shop-head">
+        <div id="hangar-preview" class="shop-avatar">
+          <canvas id="preview-canvas" width="360" height="200" aria-hidden="true"></canvas>
+        </div>
         <div class="shop-title">
-          <svg class="shop-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7l1.5-3h13L20 7v2h-1.2l-1.1 8.2a2 2 0 0 1-2 1.8H8.3a2 2 0 0 1-2-1.8L5.2 9H4V7zm2.4 4l.8 5.4h9.6l.8-5.4H6.4z" fill="currentColor"/><circle cx="9" cy="19.5" r="1.6" fill="currentColor"/><circle cx="15.5" cy="19.5" r="1.6" fill="currentColor"/></svg>
-          <h2>SHOP</h2>
+          <h2>Hangar</h2>
+          <div id="preview-text" class="shop-loadout">Bare Dodo</div>
         </div>
-        <div id="shop-cash" class="cash">$0</div>
-        <div id="shop-goal" class="goal-line"></div>
+        <div class="shop-wallet"><span class="hud-label">WALLET</span><div id="shop-cash" class="cash">$0</div></div>
         <div class="shop-head-btns">
+          <button id="btn-shop-back" class="btn">Menu</button>
           <button id="btn-shop-fly" class="big-btn small">FLY AGAIN</button>
-          <button id="btn-shop-back" class="btn">← Menu</button>
         </div>
-      </div>
+      </header>
+      <div id="shop-goal" class="shop-goal"></div>
       <div id="sandbox-bar" class="hidden">
-        <span id="sandbox-note">🧪 SANDBOX — free experimentation, campaign untouched.</span>
+        <span id="sandbox-note">Sandbox: free experimentation, your campaign is untouched.</span>
         <button id="btn-sb-all" class="btn">Unlock all gear</button>
         <button id="btn-sb-max" class="btn">Max workshop</button>
         <button id="btn-sb-cash" class="btn">+$50k</button>
       </div>
-      <div class="shop-body">
-        <aside class="shop-side">
-          <div id="hangar-preview">
-            <canvas id="preview-canvas" width="420" height="200" aria-hidden="true"></canvas>
-            <div id="preview-text">Dennis judges your spending.</div>
-            <div class="loadout-summary">
-              <div class="loadout-row"><span>GLIDER</span><b id="loadout-glider">Bare Dodo</b></div>
-              <div class="loadout-row"><span>ROCKET</span><b id="loadout-rocket">none yet</b></div>
-              <div class="loadout-row"><span>FUEL</span><b id="loadout-fuel">Lv 0</b></div>
-            </div>
-          </div>
-        </aside>
-        <div class="shop-main">
-          <div id="glider-grid"></div>
-          <div id="rocket-grid"></div>
-          <div id="shop-grid"></div>
-          <div class="shop-foot">Early parts are cheap — grab something after almost every flight. Late parts get gloriously stupid.</div>
-        </div>
+      <nav id="shop-tabs" class="shop-tabs" role="tablist">
+        <button class="shop-tab" data-tab="glider" role="tab">Gliders <span class="tab-meta" id="tab-meta-glider"></span></button>
+        <button class="shop-tab" data-tab="rocket" role="tab">Rockets <span class="tab-meta" id="tab-meta-rocket"></span></button>
+        <button class="shop-tab" data-tab="track" role="tab">Workshop <span class="tab-meta" id="tab-meta-track"></span></button>
+      </nav>
+      <div class="shop-main" id="shop-main" data-tab="glider">
+        <div id="glider-grid" class="shop-grid"></div>
+        <div id="rocket-grid" class="shop-grid"></div>
+        <div id="shop-grid" class="shop-grid"></div>
       </div>
     </div>
   </section>

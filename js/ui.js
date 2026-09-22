@@ -8,6 +8,7 @@ function $(id){ return document.getElementById(id); }
 function init(s){
   save = s;
   bindButtons();
+  bindShopTabs();
   buildSpeedo();
   renderShop();
   refreshMenu();
@@ -196,6 +197,7 @@ function showMenu(){
 function showShop(){
   window.DA.Game.phase = "shop";
   hideAll(); $("screen-shop").classList.remove("hidden");
+  computeHotPick(); shopTab = hotPick ? hotPick.type : (shopTab || "glider");
   $("hud").classList.add("hidden"); setSpeedoVisible(false); $("touch-controls").classList.add("hidden"); $("pitch-hint").classList.add("hidden");
   renderShop();
 }
@@ -528,13 +530,6 @@ function onCrash(info){
 }
 
 /* ---------- SHOP: loadout preview, gliders, rockets, workshop ---------- */
-var SVG_WING = '<svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 L21 19 L12 15.5 L3 19 Z" fill="currentColor"/><path d="M12 3 L12 15.5" stroke="#0b1626" stroke-width="1.6"/></svg>';
-var SVG_ROCKET = '<svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1c3 2.5 4.5 6.5 4.5 10.5l2.5 3.5-3.5-.5c-.8 1-1.9 1.7-3.5 2-1.6-.3-2.7-1-3.5-2l-3.5.5L7.5 11.5C7.5 7.5 9 3.5 12 1z" fill="currentColor"/><circle cx="12" cy="9" r="2" fill="#0b1626"/><path d="M10 17.5 L12 22 L14 17.5" fill="currentColor"/></svg>';
-var SVG_GEAR = '<svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5zM12 1l1.4 3a8 8 0 0 1 2.5 1.1L19 3.8l1.2 2.1-2.4 2.2a8 8 0 0 1 0 2.6l2.4 2.2-1.2 2.1-3.1-1.3a8 8 0 0 1-2.5 1.1L12 19l-1.4-3a8 8 0 0 1-2.5-1.1L5 16.2l-1.2-2.1 2.4-2.2a8 8 0 0 1 0-2.6L3.8 7.1 5 5l3.1 1.3a8 8 0 0 1 2.5-1.1L12 1z" fill="currentColor" fill-rule="evenodd"/></svg>';
-function secHead(icon, title, sub){
-  return '<span class="sec-title">' + icon + "<b>" + title + "</b>" +
-    (sub ? "<small>" + sub + "</small>" : "") + "</span>";
-}
 /* Vector icons for workshop tracks (cards show real icons, not emoji). */
 var SVG_PART = {
   ramp: '<svg class="item-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 20 L14 20 L20 8 L16 8 L10 18 L2 18 Z" fill="currentColor"/><path d="M14 20 L20 8" stroke="#0b1626" stroke-width="1.4"/><circle cx="18" cy="5.5" r="1.6" fill="currentColor"/></svg>',
@@ -554,6 +549,32 @@ function rocketName(id){
   var r = window.DA.ROCKETS && id >= 0 && window.DA.ROCKETS[id];
   return r ? r.name : "none yet";
 }
+/* ---------- HANGAR (shop): one tab at a time, clean cards ----------
+   Gliders | Rockets | Workshop. Every grid keeps a one-line caption row
+   first, then its cards. The open tab defaults to wherever the best
+   affordable buy lives. */
+var shopTab = null;
+function setShopTab(tab){
+  shopTab = tab;
+  var m = $("shop-main");
+  if(m && m.setAttribute) m.setAttribute("data-tab", tab);
+  try{
+    var tabs = document.querySelectorAll ? document.querySelectorAll(".shop-tab") : [];
+    for(var i=0;i<tabs.length;i++){
+      var on = tabs[i].getAttribute("data-tab") === tab;
+      tabs[i].classList.toggle("active", on);
+      tabs[i].setAttribute("aria-selected", on ? "true" : "false");
+    }
+  }catch(e){}
+}
+function bindShopTabs(){
+  try{
+    var tabs = document.querySelectorAll ? document.querySelectorAll(".shop-tab") : [];
+    for(var i=0;i<tabs.length;i++){
+      tabs[i].onclick = function(){ click(); setShopTab(this.getAttribute("data-tab")); };
+    }
+  }catch(e){}
+}
 function renderShop(){
   $("shop-cash").textContent = "$" + save.money.toLocaleString();
   // sandbox bar: free experimentation, never touches campaign
@@ -561,20 +582,37 @@ function renderShop(){
     var sb = $("sandbox-bar");
     if(sb) sb.classList.toggle("hidden", window.DA.Save.getMode() !== "sandbox");
   }catch(e){}
-  // savings-goal line: same wallet number as the affordable nudge
+  // goal bar: the next recommended buy and how close the wallet is
   var sg = $("shop-goal"), goal = savingsGoal();
-  if(sg) sg.textContent = goal
-    ? ("🎯 SAVINGS GOAL: " + goal.label + " $" + goal.price.toLocaleString() +
-       " — $" + save.money.toLocaleString() + " saved (" + goal.pct + "%)")
-    : "🎯 No goal — everything maxed. Magnificent.";
+  if(sg){
+    sg.innerHTML = goal
+      ? '<span class="goal-k">NEXT UP</span><b>' + esc(stripIcon(goal.label)) + '</b>' +
+        '<span class="goal-bar"><i style="width:' + goal.pct + '%"></i></span>' +
+        '<span class="goal-v">' + (goal.pct >= 100 ? "Affordable now" : "$" + save.money.toLocaleString() + " / $" + goal.price.toLocaleString()) + '</span>'
+      : '<span class="goal-k">ALL DONE</span><b>Everything is maxed. Magnificent.</b>';
+    sg.classList.toggle("ready", !!(goal && goal.pct >= 100));
+  }
   computeHotPick();
+  if(!shopTab) shopTab = hotPick ? hotPick.type : "glider";
   renderGliders();
   renderRockets();
   renderTracks();
+  tabMeta();
+  setShopTab(shopTab);
   drawPreview();
-  var q = window.DA.PREVIEW_QUIPS[(Math.random()*window.DA.PREVIEW_QUIPS.length)|0];
-  $("preview-text").textContent = '"' + q + '" — 🪂 ' + gliderName(save.glider.equipped) +
-    " • 🚀 " + rocketName(save.rocket.equipped);
+  $("preview-text").textContent = gliderName(save.glider.equipped) + " • " +
+    (save.rocket.equipped >= 0 ? rocketName(save.rocket.equipped) : "no rocket");
+}
+function esc(t){ return String(t).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+function stripIcon(label){ return String(label).replace(/^[^A-Za-z0-9$]+\s*/, ""); }
+function tabMeta(){
+  var aff = { glider:false, rocket:false, track:false };
+  rankedPurchases(true).forEach(function(c){ aff[c.type] = true; });
+  var meta = { glider: ownedGliders() + "/" + gliderStockCount(), rocket: ownedRockets() + "/3", track: "Lv " + totalLv() + "/" + maxLv() };
+  ["glider","rocket","track"].forEach(function(k){
+    var el = $("tab-meta-" + k);
+    if(el){ el.textContent = meta[k]; el.classList.toggle("buyable", aff[k]); }
+  });
 }
 function totalLv(){ var t=0; for(var k in save.upgrades) t+=save.upgrades[k]; return t; }
 function maxLv(){
@@ -598,29 +636,36 @@ function gliderStockCount(){
 }
 function ownedRockets(){ var n=0, r = save.rocket.owned; for(var i=0;i<r.length;i++) if(r[i]) n++; return n; }
 
-/* ---------- GLIDER HANGAR: exactly 5 buyable gliders (id 1-5) ---------- */
-function statBar(label, v){
-  var bars = "";
-  for(var i=0;i<10;i++) bars += '<div class="pip'+(i<Math.round(v)?' on':'')+'"></div>';
-  return '<div class="gstat"><span>'+label+'</span><div class="pips">'+bars+'</div></div>';
+/* one stat row: label, a continuous bar (0-10), and the change versus the
+   currently equipped item as a small +/- chip */
+function statBar(label, v, delta){
+  var d = "";
+  if(typeof delta === "number" && delta !== 0) d = '<em class="' + (delta > 0 ? "up" : "down") + '">' + (delta > 0 ? "+" : "") + delta + '</em>';
+  return '<div class="gstat"><span>' + label + '</span><div class="sbar"><i style="width:' + Math.max(4, Math.min(100, v*10)) + '%"></i></div>' + d + '</div>';
+}
+function captionRow(text){
+  var head = document.createElement("div");
+  head.className = "glider-head";
+  head.textContent = text;
+  return head;
 }
 function equipCard(opts){
-  // shared card builder: {name, tag, status, barsHtml, preview(draw fn),
-  // btnText, btnDisabled, onBtn, flashId, equipped, dim, hot}
+  // {name, tag, statusText, statusKind, barsHtml, preview, btnText, btnDisabled, onBtn, flashId, equipped, dim, hot}
   var card = document.createElement("div");
-  card.className = "up-card gcard" + (opts.equipped ? " maxed equipped" : "") + (opts.dim ? " cant" : "") + (opts.hot ? " hotpick" : "");
+  card.className = "up-card gcard" + (opts.equipped ? " equipped" : "") + (opts.dim ? " cant" : "") + (opts.hot ? " hotpick" : "");
   if(opts.flashId) card.id = opts.flashId;
   var cv = document.createElement("canvas");
   cv.width = 480; cv.height = 210; cv.className = "gprev";
   card.appendChild(cv);
   var info = document.createElement("div");
+  info.className = "card-body";
   info.innerHTML =
     '<div class="up-top"><span class="up-name">' + opts.name + '</span>' +
-    '<span class="up-lvl">' + opts.status + '</span></div>' +
+    '<span class="up-lvl ' + (opts.statusKind || "") + '">' + opts.statusText + '</span></div>' +
     '<div class="up-desc">' + opts.tag + '</div>' + opts.barsHtml;
   card.appendChild(info);
   var btn = document.createElement("button");
-  btn.className = "buy-btn";
+  btn.className = "buy-btn" + (opts.owned && !opts.equipped ? " ghost" : "");
   btn.textContent = opts.btnText;
   btn.disabled = !!opts.btnDisabled;
   if(opts.onBtn) btn.onclick = opts.onBtn;
@@ -633,28 +678,24 @@ function renderGliders(){
   if(!wrap || !window.DA.GLIDERS) return;
   wrap.innerHTML = "";
   var eq = save.glider.equipped;
-  var head = document.createElement("div");
-  head.className = "glider-head";
-  head.innerHTML = secHead(SVG_WING, "GLIDERS", sectionSummary("glider"));
-  wrap.appendChild(head);
+  var egl = window.DA.GLIDERS[eq] || window.DA.GLIDERS[0];
+  wrap.appendChild(captionRow("Wings decide how far Dennis glides. Better wings sink slower, dive faster and steer sharper."));
   window.DA.GLIDERS.forEach(function(gl){
     if(gl.id === 0) return; // Bare Dodo is the free baseline, not a shop card
     var owned = !!save.glider.owned[gl.id];
     var equipped = (eq === gl.id);
-    var hot = isHotPick("glider", gl.id);
-    // comparison deltas vs the equipped glider (same bars the shop shows)
-    var egl = window.DA.GLIDERS[eq] || window.DA.GLIDERS[0];
-    var delta = (gl.id === eq) ? "" : '<div class="up-next">vs ' + egl.name + ": GLIDE " +
-      fmtDelta(gl.bars.fly - egl.bars.fly) + " • SPEED " + fmtDelta(gl.bars.speed - egl.bars.speed) +
-      " • CTRL " + fmtDelta(gl.bars.ctrl - egl.bars.ctrl) + "</div>";
+    var cmp = !equipped;
     wrap.appendChild(equipCard({
       name: gl.name, tag: gl.tag,
-      status: equipped ? "EQUIPPED" : owned ? "OWNED" : "$" + gl.price.toLocaleString(),
-      barsHtml: statBar("GLIDE", gl.bars.fly) + statBar("SPEED", gl.bars.speed) + statBar("CONTROL", gl.bars.ctrl) + delta,
+      statusText: equipped ? "EQUIPPED" : owned ? "OWNED" : "$" + gl.price.toLocaleString(),
+      statusKind: equipped ? "eq" : owned ? "own" : "",
+      barsHtml: statBar("GLIDE", gl.bars.fly, cmp ? gl.bars.fly - egl.bars.fly : 0) +
+        statBar("SPEED", gl.bars.speed, cmp ? gl.bars.speed - egl.bars.speed : 0) +
+        statBar("CONTROL", gl.bars.ctrl, cmp ? gl.bars.ctrl - egl.bars.ctrl : 0),
       preview: function(cv){ window.DA.drawGliderPreview(cv, gl.id); },
-      equipped: equipped, dim: !owned && gl.price > save.money,
-      flashId: "card-glider-" + gl.id, hot: hot,
-      btnText: (hot && !equipped && !owned ? "★ " : "") + (equipped ? "✔ EQUIPPED" : owned ? "EQUIP" : "BUY — $" + gl.price.toLocaleString()),
+      equipped: equipped, owned: owned, dim: !owned && gl.price > save.money,
+      flashId: "card-glider-" + gl.id, hot: isHotPick("glider", gl.id),
+      btnText: equipped ? "Equipped" : owned ? "Equip" : "Buy $" + gl.price.toLocaleString(),
       btnDisabled: equipped || (!owned && gl.price > save.money),
       onBtn: equipped ? null : owned
         ? (function(id){ return function(){ equipGlider(id); }; })(gl.id)
@@ -662,33 +703,28 @@ function renderGliders(){
     }));
   });
 }
-/* ---------- ROCKET HANGAR: exactly 3 boosters ---------- */
 function renderRockets(){
   var wrap = $("rocket-grid");
   if(!wrap || !window.DA.ROCKETS) return;
   wrap.innerHTML = "";
   var eq = save.rocket.equipped;
-  var head = document.createElement("div");
-  head.className = "glider-head";
-  head.innerHTML = secHead(SVG_ROCKET, "ROCKET BOOSTERS", sectionSummary("rocket"));
-  wrap.appendChild(head);
+  var erk = (eq >= 0 && window.DA.ROCKETS[eq]) ? window.DA.ROCKETS[eq] : null;
+  wrap.appendChild(captionRow("Hold SPACE to burn. Thrust pushes exactly where the nose points, so aim before you light it."));
   window.DA.ROCKETS.forEach(function(rk){
     var owned = !!save.rocket.owned[rk.id];
     var equipped = (eq === rk.id);
-    var hot = isHotPick("rocket", rk.id);
-    // real numbers (same table the physics uses) + deltas vs equipped
-    var erk = (eq >= 0 && window.DA.ROCKETS[eq]) ? window.DA.ROCKETS[eq] : null;
-    var rdelta = '<div class="up-next">THRUST ' + rk.thrust + " • BURN " + rk.burn.toFixed(1) + "s" +
-      ((erk && erk.id !== rk.id) ? ("  (vs " + erk.name + ": " + fmtDelta(rk.thrust - erk.thrust) +
-        " thrust • " + fmtDelta(Math.round((rk.burn - erk.burn) * 10) / 10) + "s burn)") : "") + "</div>";
+    var cmp = erk && !equipped;
+    var burn = rk.burn * window.DA.fuelMult(save.upgrades.fuel || 0);
     wrap.appendChild(equipCard({
-      name: rk.name, tag: rk.tag,
-      status: equipped ? "EQUIPPED" : owned ? "OWNED" : "$" + rk.price.toLocaleString(),
-      barsHtml: statBar("THRUST", rk.bars.thrust) + statBar("BURN", rk.bars.burn) + rdelta,
+      name: rk.name, tag: rk.tag + ' <span class="spec">' + Math.round(rk.thrust * window.DA.thrustMult(save.upgrades.nitro || 0)) + " thrust • " + burn.toFixed(1) + "s burn</span>",
+      statusText: equipped ? "EQUIPPED" : owned ? "OWNED" : "$" + rk.price.toLocaleString(),
+      statusKind: equipped ? "eq" : owned ? "own" : "",
+      barsHtml: statBar("THRUST", rk.bars.thrust, cmp ? rk.bars.thrust - erk.bars.thrust : 0) +
+        statBar("BURN", rk.bars.burn, cmp ? rk.bars.burn - erk.bars.burn : 0),
       preview: function(cv){ window.DA.drawRocketPreview(cv, rk.id); },
-      equipped: equipped, dim: !owned && rk.price > save.money,
-      flashId: "card-rocket-" + rk.id, hot: hot,
-      btnText: (hot && !equipped && !owned ? "★ " : "") + (equipped ? "✔ EQUIPPED" : owned ? "EQUIP" : "BUY — $" + rk.price.toLocaleString()),
+      equipped: equipped, owned: owned, dim: !owned && rk.price > save.money,
+      flashId: "card-rocket-" + rk.id, hot: isHotPick("rocket", rk.id),
+      btnText: equipped ? "Equipped" : owned ? "Equip" : "Buy $" + rk.price.toLocaleString(),
       btnDisabled: equipped || (!owned && rk.price > save.money),
       onBtn: equipped ? null : owned
         ? (function(id){ return function(){ equipRocket(id); }; })(rk.id)
@@ -696,15 +732,11 @@ function renderRockets(){
     }));
   });
 }
-/* ---------- WORKSHOP: small permanent upgrades ---------- */
 function renderTracks(){
   var grid = $("shop-grid");
   if(!grid) return;
   grid.innerHTML = "";
-  var head = document.createElement("div");
-  head.className = "glider-head";
-  head.innerHTML = secHead(SVG_GEAR, "WORKSHOP", sectionSummary("track"));
-  grid.appendChild(head);
+  grid.appendChild(captionRow("Permanent upgrades. They apply to every glider and rocket you own."));
   ["ramp","sled","aero","fuel","nitro"].forEach(function(k){
     var u = window.DA.UPGRADES[k];
     if(!u) return;
@@ -713,38 +745,33 @@ function renderTracks(){
     var price = maxed?0:window.DA.priceOf(k,lvl);
     var hot = isHotPick("track", k);
     var card = document.createElement("div");
-    card.className = "up-card" + (maxed?" maxed":"") + (price>save.money&&!maxed?" cant":"") + (hot?" hotpick":"");
+    card.className = "up-card track" + (maxed?" maxed":"") + (price>save.money&&!maxed?" cant":"") + (hot?" hotpick":"");
     card.id = "card-"+k;
     var cv = document.createElement("canvas");
     cv.width = 480; cv.height = 210; cv.className = "gprev";
     card.appendChild(cv);
     try{ if(window.DA.drawPartPreview) window.DA.drawPartPreview(cv, k, lvl); }catch(e){}
-    var pips = "";
-    for(var i=0;i<u.max;i++) pips += '<div class="pip'+(i<lvl?' on':'')+'"></div>';
+    var segs = "";
+    for(var i=0;i<u.max;i++) segs += '<i class="' + (i<lvl ? "on" : "") + '"></i>';
     var extra = "";
-    if(k === "fuel"){ // show real burn seconds for the equipped rocket
+    if(k === "fuel" || k === "nitro"){
       var rq = save.rocket.equipped;
-      if(rq >= 0 && window.DA.ROCKETS && window.DA.ROCKETS[rq]){
-        var base = window.DA.ROCKETS[rq].burn;
-        extra = '<div class="up-next">Burn with ' + window.DA.ROCKETS[rq].name + ': ' +
-          (base*window.DA.fuelMult(lvl)).toFixed(1) + "s" +
-          (maxed ? "" : " → " + (base*window.DA.fuelMult(lvl+1)).toFixed(1) + "s") + "</div>";
-      } else {
-        extra = '<div class="up-next">No rocket equipped — buy one to burn anything!</div>';
-      }
+      if(!(rq >= 0 && window.DA.ROCKETS && window.DA.ROCKETS[rq])) extra = '<div class="up-note">Needs a rocket to do anything.</div>';
     }
     var info = document.createElement("div");
+    info.className = "card-body";
     info.innerHTML =
-      '<div class="up-top"><span class="up-name">' + partIcon(k, u.icon) + " " + u.name + '</span><span class="up-lvl">Lv '+lvl+'/'+u.max+'</span></div>' +
-      '<div class="pips">'+pips+'</div>' +
-      '<div class="up-desc">'+u.blurb+'</div>' +
-      '<div class="up-desc" style="color:#fff">Now: '+u.desc(lvl)+'</div>' +
-      '<div class="up-next">'+u.next(lvl)+'</div>' + extra;
+      '<div class="up-top"><span class="up-name">' + partIcon(k, u.icon) + " " + u.name + '</span>' +
+      '<span class="up-lvl' + (maxed ? " eq" : "") + '">Lv ' + lvl + '/' + u.max + '</span></div>' +
+      '<div class="segs">' + segs + '</div>' +
+      '<div class="up-desc">' + u.blurb + '</div>' +
+      '<div class="up-now"><span>NOW</span>' + u.desc(lvl) + '</div>' +
+      (maxed ? "" : '<div class="up-next"><span>NEXT</span>' + String(u.next(lvl)).replace(/^→\s*/, "") + '</div>') + extra;
     card.appendChild(info);
     var btn = document.createElement("button");
     btn.className = "buy-btn";
-    if(maxed){ btn.textContent = "★ MAXED ★"; btn.disabled = true; }
-    else { btn.textContent = (hot?"★ ":"") + "BUY — $" + price.toLocaleString(); btn.disabled = price>save.money; }
+    if(maxed){ btn.textContent = "Maxed"; btn.disabled = true; }
+    else { btn.textContent = "Upgrade $" + price.toLocaleString(); btn.disabled = price>save.money; }
     btn.onclick = (function(key, p){
       return function(){ buy(key, p); };
     })(k, price);
@@ -873,10 +900,6 @@ function savingsGoal(){
   return { label: nx.label, price: nx.price,
     pct: Math.min(100, Math.floor(100 * save.money / Math.max(1, nx.price))) };
 }
-function fmtDelta(d, suffix){
-  if(d === 0) return "±0";
-  return (d > 0 ? "+" : "") + d + (suffix || "");
-}
 /* Cheapest AFFORDABLE purchase right now (for the in-shop hotpick). */
 var hotPick = null;
 function computeHotPick(){
@@ -915,10 +938,6 @@ function drawPreview(){
     glider: save.glider.equipped, rocket: save.rocket.equipped,
     sledLvl: save.upgrades.sled, aeroLvl: save.upgrades.aero, golden: isGolden(save)
   }, H/118, {});
-  var lg = $("loadout-glider"), lr = $("loadout-rocket"), lf = $("loadout-fuel");
-  if(lg) lg.textContent = gliderName(save.glider.equipped);
-  if(lr) lr.textContent = rocketName(save.rocket.equipped);
-  if(lf) lf.textContent = "Lv " + (save.upgrades.fuel || 0) + " / 5";
 }
 
 /* ---------- RESULTS ---------- */
