@@ -120,11 +120,15 @@ function uiOverlayOpen(){
   }catch(e){}
   return false;
 }
+// A/◀ and W/▲ both lift the nose; D/▶ and S/▼ both drop it (most players
+// reach for up/down first, so both layouts steer).
+function isUpKey(c){ return c==="ArrowLeft"||c==="KeyA"||c==="ArrowUp"||c==="KeyW"; }
+function isDownKey(c){ return c==="ArrowRight"||c==="KeyD"||c==="ArrowDown"||c==="KeyS"; }
 function bindInput(){
   window.addEventListener("keydown", function(e){
-    if(e.repeat){ if(isFlyKey(e.code)) e.preventDefault(); return; }
-    if(e.code==="ArrowLeft"||e.code==="KeyA") Game.input.up = true;
-    else if(e.code==="ArrowRight"||e.code==="KeyD") Game.input.down = true;
+    if(e.repeat){ if(capturesKey(e.code)) e.preventDefault(); return; }
+    if(isUpKey(e.code)) Game.input.up = true;
+    else if(isDownKey(e.code)) Game.input.down = true;
     else if(e.code==="Space"){ Game.input.boost = true; e.preventDefault(); }
     else if(e.code==="KeyP"){
       if((Game.phase==="fly"||Game.phase==="ramp") && !uiOverlayOpen()) pause(!Game.paused);
@@ -139,12 +143,12 @@ function bindInput(){
     } else if(e.code==="Enter"){
       if(window.DA.UI) window.DA.UI.enterPressed();
     }
-    if(isFlyKey(e.code)) e.preventDefault();
+    if(capturesKey(e.code)) e.preventDefault();
     window.DA.Audio.ensure();
   });
   window.addEventListener("keyup", function(e){
-    if(e.code==="ArrowLeft"||e.code==="KeyA") Game.input.up = false;
-    else if(e.code==="ArrowRight"||e.code==="KeyD") Game.input.down = false;
+    if(isUpKey(e.code)) Game.input.up = false;
+    else if(isDownKey(e.code)) Game.input.down = false;
     else if(e.code==="Space") Game.input.boost = false;
   });
   // touch buttons
@@ -162,7 +166,13 @@ function bindInput(){
   }
   hold("tc-up","up"); hold("tc-down","down"); hold("tc-boost","boost");
 }
-function isFlyKey(c){ return c==="ArrowLeft"||c==="ArrowRight"||c==="KeyA"||c==="KeyD"||c==="Space"; }
+function isFlyKey(c){ return isUpKey(c)||isDownKey(c)||c==="Space"; }
+// Space never scrolls the page; steering keys are only swallowed in flight,
+// so the arrow keys still scroll the shop and menus.
+function capturesKey(c){
+  if(c==="Space") return true;
+  return isFlyKey(c) && (Game.phase==="ramp"||Game.phase==="fly"||Game.phase==="crashed");
+}
 
 function startRun(){
   var up = Game.save.upgrades;
@@ -324,7 +334,7 @@ function update(dt){
         Game.milestonesHit[m.d]=true;
         if(window.DA.UI) window.DA.UI.toast("📍 " + m.label);
         DA.Audio.SFX.milestone();
-        if(window.DA.UI) window.DA.UI.floatText("+"+Math.round(m.d/50)+"$ bonus coming!", "#80ed99");
+        if(window.DA.UI) window.DA.UI.floatText("+$"+Math.round(m.d/50)+" bonus coming!", "#80ed99");
       }
     });
     // island approach calls: name the landing target while there's still

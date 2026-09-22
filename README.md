@@ -1,14 +1,16 @@
 # Fly-to-Learn
 
-*Version 0.6 — HUD/menu polish: cached HUD writes, honest master mute, fuel dim without booster, crash-grade pill, menu version tag.*
+### ▶ [Play Dodo Airways in your browser](https://joji228.github.io/Fly-to-Learn/)
+
+*Version 0.7: pause-menu fix (Settings → Cheats → Back no longer drops your flight), W/S and ↑/↓ steering, live BEST readout on record flights, crash toasts no longer cover the results buttons, save tools hidden mid-flight.*
 
 *V0.1 audit: deterministic sim, honest flight model, polished shop.*
 
-Dodo Airways — a tiny launch-and-upgrade browser game. Launch a stubborn dodo down a snowy ramp, manage pitch and booster fuel to fly farther, earn cash, buy upgrades, repeat.
+Dodo Airways is a tiny launch-and-upgrade browser game. Launch a stubborn dodo down a snowy ramp, manage pitch and booster fuel to fly farther, earn cash, buy upgrades, repeat.
 
-**Play:** open `index.html` in a browser (or `python -m http.server`, then `http://localhost:8000`).
+**Play:** [joji228.github.io/Fly-to-Learn](https://joji228.github.io/Fly-to-Learn/). To run it locally, open `index.html` in a browser (or run `python -m http.server` and go to `http://localhost:8000`).
 
-**Controls:** `A`/`◀` nose up · `D`/`▶` nose down · `SPACE` booster once a rocket is owned (touch buttons on mobile).
+**Controls:** `A`/`W`/`◀`/`▲` nose up · `D`/`S`/`▶`/`▼` nose down · `SPACE` booster once a rocket is owned · `P`/`ESC` pause. Touch buttons appear on mobile.
 
 **Modes:** Campaign (progression) and Sandbox (all gear + funds, separate save) via the Mode button. Sandbox progress never touches campaign.
 

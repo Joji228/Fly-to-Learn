@@ -55,11 +55,12 @@ function bindButtons(){
   };
   $("btn-pause-settings").onclick = function(){ click(); showSettingsFromPause(); };
   $("btn-quit").onclick = function(){ click(); $("screen-pause").classList.add("hidden"); window.DA.abandonRun(); };
-  $("btn-pause").onclick = function(){ click(); window.DA.pauseGame(true); };
+  $("btn-pause").onclick = function(){ click(); dropFocus(this); window.DA.pauseGame(true); };
   // HUD mute is a MASTER mute (SFX + music): the old SFX-only toggle left
   // the music playing, which read as "mute is broken". Granular toggles
   // stay in Settings.
   $("btn-mute-hud").onclick = function(){
+    dropFocus(this); // a focused HUD button would re-fire on Enter mid-flight
     var on = !(save.settings.sfx || save.settings.music);
     save.settings.sfx = on; save.settings.music = on;
     window.DA.Save.save(save);
@@ -92,6 +93,7 @@ function bindButtons(){
 }
 
 function click(){ window.DA.Audio.ensure(); window.DA.Audio.SFX.click(); }
+function dropFocus(el){ try{ if(el && el.blur) el.blur(); }catch(e){} }
 /* Cheat menu: instant local money. Save + every visible wallet refresh now. */
 function giveMoney(n){
   click();
@@ -181,6 +183,10 @@ function applySettingsToInputs(){
 }
 
 var subReturn = "menu";
+// where Settings itself goes back to. Tracked apart from subReturn so a
+// detour Settings -> Cheats -> Back -> Back still lands on the paused
+// flight instead of dumping the run on the main menu.
+var settingsReturn = "menu";
 function showMenu(){
   window.DA.Game.phase = "menu";
   hideAll(); $("screen-menu").classList.remove("hidden");
@@ -194,20 +200,33 @@ function showShop(){
   renderShop();
 }
 function showStats(){ subReturn = window.DA.Game.phase==="shop"?"shop":"menu"; hideAll(); $("screen-stats").classList.remove("hidden"); renderStats(); }
-function showSettings(){ subReturn = window.DA.Game.phase==="shop"?"shop":"menu"; hideAll(); $("screen-settings").classList.remove("hidden"); }
+function showSettings(){
+  settingsReturn = subReturn = window.DA.Game.phase==="shop"?"shop":"menu";
+  openSettings(false);
+}
 function showCheats(){
   subReturn = window.DA.Game.phase==="shop" ? "shop" : "menu";
   if(!$("screen-settings").classList.contains("hidden")) subReturn = "settings";
   hideAll(); $("screen-cheats").classList.remove("hidden");
 }
 function showSettingsFromPause(){
-  subReturn = "pause"; // back button returns to the paused game, still paused
-  hideAll(); $("screen-settings").classList.remove("hidden");
+  settingsReturn = subReturn = "pause"; // back button returns to the paused game, still paused
+  openSettings(true);
+}
+/* Mid-flight, the save-swapping actions (reset / import) would replace the
+   save under a live run, so they only show from the menu or shop. */
+function openSettings(fromPause){
+  hideAll();
+  try{
+    $("save-row").classList.toggle("hidden", fromPause);
+    $("btn-reset-save").classList.toggle("hidden", fromPause);
+  }catch(e){}
+  $("screen-settings").classList.remove("hidden");
 }
 function goBackFromSub(){
   hideAll();
   if(subReturn==="shop") showShop();
-  else if(subReturn==="settings") showSettings();
+  else if(subReturn==="settings"){ subReturn = settingsReturn; openSettings(settingsReturn==="pause"); }
   else if(subReturn==="pause"){ $("screen-pause").classList.remove("hidden"); }
   else showMenu();
 }
@@ -256,7 +275,7 @@ function showFlight(){
       var coarse = false;
       try{ coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches; }catch(e){}
       if(!coarse && window.innerWidth>700){
-        ph.textContent = hasBooster() ? "◀ A / D ▶ • SPACE = boost" : "◀ A / D ▶ steer • buy a rocket to unlock BOOST";
+        ph.textContent = hasBooster() ? "A/W nose up • D/S nose down • SPACE = boost" : "A/W nose up • D/S nose down • buy a rocket to unlock BOOST";
         ph.classList.remove("hidden");
       } else {
         ph.classList.add("hidden");
@@ -300,7 +319,9 @@ function updateHUD(){
     var fstat = fb.parentNode;
     if(fstat && fstat.classList) fstat.classList.toggle("nobooster", !hasBooster);
   }
-  setText("hud-best", window.DA.Physics.fmtDist(save.best.dist));
+  // once the record falls, BEST tracks the live distance (it no longer lags
+  // behind the NEW RECORD banner until the results screen)
+  setText("hud-best", window.DA.Physics.fmtDist(G.bestBeaten ? Math.max(save.best.dist, dist) : save.best.dist));
   // pause panel run readout (kept fresh live; shown only when paused)
   var pd = $("pause-stat-dist"), ps2 = $("pause-stat-speed"), pa = $("pause-stat-alt");
   if(pd) pd.textContent = window.DA.Physics.fmtDist(dist);
@@ -1007,6 +1028,9 @@ function showResults(res){
     od2.appendChild(sn);
   }
   $("screen-results").classList.remove("hidden");
+  // crash toasts fired a moment ago still sit at the bottom: move them up
+  // now so they never cover PLAY AGAIN / Shop / Menu.
+  try{ $("toast-wrap").classList.add("top"); }catch(e){}
   refreshMenu();
 }
 function animateMoney(el, to, id){

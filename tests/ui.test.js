@@ -115,5 +115,28 @@ DA.UI.escapePressed();
 DA.UI.escapePressed();
 ok(vis("screen-menu") && !vis("screen-settings"), "5: double ESC stays on menu");
 
+// 6. pause -> settings -> cheats -> back -> back returns to the PAUSED
+//    flight (was: fell through to the main menu and dropped the run)
+DA.Game.phase = "fly";
+showOnly("screen-pause");
+els["btn-pause-settings"].onclick();
+ok(vis("screen-settings") && !vis("save-row") && !vis("btn-reset-save"),
+  "6a: settings from pause hides reset/import");
+els["btn-cheats"].onclick();
+ok(vis("screen-cheats"), "6b: cheats open from pause-settings");
+els["btn-cheats-back"].onclick();
+ok(vis("screen-settings") && !vis("save-row"), "6c: cheats back returns to pause-settings");
+els["btn-settings-back"].onclick();
+ok(vis("screen-pause") && !vis("screen-menu") && DA.Game.phase === "fly",
+  "6d: settings back returns to the paused flight");
+
+// 7. settings from the menu still shows the save tools
+DA.Game.phase = "menu";
+showOnly("screen-menu");
+els["btn-settings"].onclick();
+ok(vis("save-row") && vis("btn-reset-save"), "7: settings from menu shows reset/import");
+els["btn-settings-back"].onclick();
+ok(vis("screen-menu"), "7b: settings back returns to menu");
+
 console.log(`\nUI TESTS: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

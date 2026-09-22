@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Dodo Airways — Flight of the Ridiculous</title>
+<meta name="description" content="Dodo Airways: launch a stubborn dodo down a snowy ramp, glide, boost and land on islands. Earn cash, buy gliders and rockets, fly farther. Free browser game.">
+<meta property="og:title" content="Dodo Airways — Flight of the Ridiculous">
+<meta property="og:description" content="A tiny launch-and-upgrade browser game about a stubborn dodo. Plays in any browser, no install.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦤</text></svg>">
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -35,7 +38,7 @@
   </div>
 
   <!-- pitch indicator -->
-  <div id="pitch-hint" class="hidden">◀ A / D ▶ &nbsp;•&nbsp; SPACE = boost</div>
+  <div id="pitch-hint" class="hidden">A/W nose up • D/S nose down &nbsp;•&nbsp; SPACE = boost</div>
 
   <!-- touch controls -->
   <div id="touch-controls" class="hidden">
@@ -70,7 +73,7 @@
       <h1 class="logo">DODO<br><span>AIRWAYS</span></h1>
       <p class="tagline">Dennis the dodo can't fly. He disagrees.<br>Help him become an <b>extreme long-distance pilot</b>.</p>
       <div class="menu-best"><span id="menu-best-dist">Best: 0 m</span><span id="menu-flights">Flights: 0</span><span id="menu-cash">$0</span></div>
-      <div class="ver-tag">v0.6 • vanilla JS, no dependencies, saves locally</div>
+      <div class="ver-tag">v0.7 • vanilla JS, no dependencies, saves locally</div>
       <button id="btn-fly" class="big-btn">🛷 &nbsp;LAUNCH!</button>
       <div class="menu-row">
         <button id="btn-shop" class="btn btn-shop-hero">🛒 SHOP</button>
@@ -83,8 +86,8 @@
         <button id="btn-mode" class="btn" title="Campaign and sandbox keep separate saves">🗂️ Mode: Campaign</button>
       </div>
       <div class="howto">
-        <div class="step"><span><kbd>A</kbd> <kbd>◀</kbd></span><span><b>Nose up</b> — trade speed for altitude</span></div>
-        <div class="step"><span><kbd>D</kbd> <kbd>▶</kbd></span><span><b>Nose down</b> — dive to gain speed</span></div>
+        <div class="step"><span><kbd>A</kbd> <kbd>W</kbd> <kbd>◀</kbd> <kbd>▲</kbd></span><span><b>Nose up</b> — trade speed for altitude</span></div>
+        <div class="step"><span><kbd>D</kbd> <kbd>S</kbd> <kbd>▶</kbd> <kbd>▼</kbd></span><span><b>Nose down</b> — dive to gain speed</span></div>
         <div class="step" id="howto-boost"><span><kbd>SPACE</kbd></span><span><b>Booster</b> — thrust where you point</span></div>
         <div class="step"><span>⬇</span><span><b>Flare</b> — ease the nose up before touchdown for smooth landings</span></div>
       </div>
@@ -175,7 +178,7 @@
       <label class="set-row"><input type="checkbox" id="set-music" checked> Music</label>
       <label class="set-row"><input type="checkbox" id="set-shake" checked> Screen shake</label>
       <label class="set-row"><input type="checkbox" id="set-particles" checked> Particles</label>
-      <div class="menu-row">
+      <div class="menu-row" id="save-row">
         <button id="btn-export" class="btn" title="Download this mode's save as JSON">💾 Export save</button>
         <button id="btn-import" class="btn" title="Load a save from a JSON file">📥 Import save</button>
         <input type="file" id="import-file" accept="application/json,.json" class="hidden">
