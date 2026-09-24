@@ -225,7 +225,9 @@ function setBoostLevel(strength){
 function stopBoost(){
   if(!boostNodes) return;
   try{ boostNodes.o.stop(); boostNodes.src.stop(); }catch(e){}
-  try{ boostNodes.o.disconnect(); boostNodes.src.disconnect(); }catch(e2){}
+  // disconnect gains too: the old code left og/ng wired to sfxGain forever
+  // (silent leak, one orphaned gain pair per boost ignition).
+  try{ boostNodes.o.disconnect(); boostNodes.og.disconnect(); boostNodes.src.disconnect(); boostNodes.ng.disconnect(); }catch(e2){}
   boostNodes = null;
 }
 

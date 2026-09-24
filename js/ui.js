@@ -320,7 +320,12 @@ function updateHUD(){
   var hasBooster = !!(G.P && G.P.thrust > 0);
   var f = (G.S.fuelMax>0 && hasBooster) ? G.S.fuel/G.S.fuelMax : 0;
   var fill = $("fuel-fill");
-  fill.style.width = (f*100).toFixed(1)+"%";
+  // width string only changes as fuel burns: don't rewrite style every rAF
+  var fw = (f*100).toFixed(1)+"%";
+  if(_hudCache["fuel-w"] !== fw){
+    _hudCache["fuel-w"] = fw;
+    fill.style.width = fw;
+  }
   fill.className = (!hasBooster || f<0.25) ? "low" : "";
   setText("fuel-label", hasBooster ? "FUEL" : "NO BOOSTER");
   var fb = $("fuel-bar");
@@ -334,11 +339,24 @@ function updateHUD(){
   // once the record falls, BEST tracks the live distance (it no longer lags
   // behind the NEW RECORD banner until the results screen)
   setText("hud-best", window.DA.Physics.fmtDist(G.bestBeaten ? Math.max(save.best.dist, dist) : save.best.dist));
-  // pause panel run readout (kept fresh live; shown only when paused)
-  var pd = $("pause-stat-dist"), ps2 = $("pause-stat-speed"), pa = $("pause-stat-alt");
-  if(pd) pd.textContent = window.DA.Physics.fmtDist(dist);
-  if(ps2) ps2.textContent = Math.round((G.S.speed||0)*3.6)+" km/h";
-  if(pa) pa.textContent = Math.max(0,G.S.y).toFixed(0)+" m";
+  // pause panel run readout (live while paused; skipped entirely otherwise —
+  // the old code rewrote three nodes + the goal line every rAF of flight)
+  if(!$("screen-pause").classList.contains("hidden")){
+    setText("pause-stat-dist", window.DA.Physics.fmtDist(dist));
+    setText("pause-stat-speed", Math.round((G.S.speed||0)*3.6)+" km/h");
+    setText("pause-stat-alt", Math.max(0,G.S.y).toFixed(0)+" m");
+    // pause panel goal line: loadout + next buy, refreshed live while paused
+    var pg = $("pause-goal");
+    if(pg){
+      var pgoal = savingsGoal();
+      var pgt = "🪂 " + gliderName(save.glider.equipped) + " • 🚀 " + rocketName(save.rocket.equipped) +
+        (pgoal ? " • 🎯 " + pgoal.label + " $" + pgoal.price.toLocaleString() : " • 🎯 everything maxed ★");
+      if(_hudCache["pause-goal"] !== pgt){
+        _hudCache["pause-goal"] = pgt;
+        pg.textContent = pgt;
+      }
+    }
+  }
   var crashed = (G.phase === "crashed" && G.crashedInfo);
   var sevTxt = crashed ? { smooth:"🛬 SMOOTH", rough:"⛷️ ROUGH", crash:"💥 CRASH", mega:"☄️ MEGA" }[G.crashedInfo.severity] : null;
   var phaseTxt = G.phase==="ramp" ? "🛷 RAMP!" : sevTxt ? sevTxt
@@ -368,13 +386,6 @@ function updateHUD(){
     G._lastLoadout = lo;
     var ll = $("loadout-label");
     if(ll) ll.textContent = "🪂 " + gliderName(save.glider.equipped) + " • 🚀 " + rocketName(save.rocket.equipped);
-  }
-  // pause panel goal line: loadout + next buy, refreshed live while paused
-  var pg = $("pause-goal");
-  if(pg){
-    var pgoal = savingsGoal();
-    pg.textContent = "🪂 " + gliderName(save.glider.equipped) + " • 🚀 " + rocketName(save.rocket.equipped) +
-      (pgoal ? " • 🎯 " + pgoal.label + " $" + pgoal.price.toLocaleString() : " • 🎯 everything maxed ★");
   }
 }
 
@@ -950,6 +961,10 @@ function onRunStart(){ runId++; }
 function showResults(res){
   var id = runId;
   hideAll();
+  // FIX: drop focus like showFlight does — a focused PLAY AGAIN button
+  // would ALSO fire on Enter/Space mid-results (double startRun via
+  // enterPressed + button click in the same tick).
+  try{ if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); }catch(e){}
   $("hud").classList.add("hidden"); setSpeedoVisible(false); $("touch-controls").classList.add("hidden");
   var st = res.stats, rw = res.rewards;
   var crashed = res.crash || {};
@@ -1002,14 +1017,16 @@ function showResults(res){
   });
   setTimeout(function(){ if(id === runId) animateMoney(totalEl, rw.total, id); }, 120*(rows.length+1));
   // default loop: FLIGHT -> RESULTS -> SHOP. After counting finishes plus a
-  // beat, glide into the shop — unless the player already chose otherwise
-  // (PLAY AGAIN bumps runId; SHOP/Menu hide this screen; phase changes).
+  // proper reading beat, glide into the shop — unless the player already
+  // chose otherwise (PLAY AGAIN bumps runId; SHOP/Menu hide this screen;
+  // phase changes). The old +1500ms beat cut the breakdown off mid-read
+  // (~3s total); ~8s lets a human actually finish the rows.
   setTimeout(function(){
     if(id !== runId) return;
     if(window.DA.Game.phase !== "results") return;
     if($("screen-results").classList.contains("hidden")) return;
     showShop();
-  }, 120*(rows.length+1) + 1500);
+  }, 120*(rows.length+1) + 8000);
   // affordable nudge: point at the next equipment ("one more flight" fuel)
   var od2 = $("results-objectives");
   var next = nextAffordable();

@@ -162,7 +162,10 @@ function load(mode){
     if(!raw) return s;
     var d = JSON.parse(raw);
     if(d && typeof d === "object"){
-      if(typeof d.money === "number" && isFinite(d.money)) s.money = Math.max(0, Math.floor(d.money));
+      // wallet is floored + floored at 0 like before, now also capped: a
+      // hand-edited import with $9e15 used to flow straight into the HUD,
+      // shop math and toLocaleString with no questions asked.
+      if(typeof d.money === "number" && isFinite(d.money)) s.money = Math.min(999999999, Math.max(0, Math.floor(d.money)));
       if(d.upgrades && typeof d.upgrades === "object"){
         // legacy 0-8 fuel track (always stored alongside a booster key) is NOT
         // the new 0-5 tank: it refunds as cash below, so never load it as a level
@@ -215,11 +218,24 @@ function load(mode){
       if(Array.isArray(d.bestByGlider) && d.bestByGlider.length === NGL){
         s.bestByGlider = d.bestByGlider.map(function(v){ return (typeof v === "number" && isFinite(v)) ? Math.max(0, v) : 0; });
       }
-      if(Array.isArray(d.objectivesDone)) s.objectivesDone = d.objectivesDone.filter(function(x){ return typeof x === "string"; });
+      if(Array.isArray(d.objectivesDone)){
+        // only real objective ids survive: a crafted import used to inject
+        // arbitrary strings here (isGolden counts checklist length against
+        // OBJECTIVES, so junk ids were harmless-but-dirty; now they're dropped)
+        var knownObj = null;
+        try{
+          if(typeof window !== "undefined" && window.DA && Array.isArray(window.DA.OBJECTIVES))
+            knownObj = window.DA.OBJECTIVES.map(function(o){ return o.id; });
+        }catch(e){}
+        s.objectivesDone = d.objectivesDone.filter(function(x){
+          if(typeof x !== "string") return false;
+          return !knownObj || knownObj.indexOf(x) >= 0;
+        });
+      }
       if(d.settings && typeof d.settings === "object"){
         for(var j in s.settings){ if(typeof d.settings[j] === "boolean") s.settings[j] = d.settings[j]; }
       }
-      if(typeof d.totalEarned === "number" && isFinite(d.totalEarned)) s.totalEarned = Math.max(0, Math.floor(d.totalEarned));
+      if(typeof d.totalEarned === "number" && isFinite(d.totalEarned)) s.totalEarned = Math.min(9999999999, Math.max(0, Math.floor(d.totalEarned)));
     }
   }catch(e){ /* corrupted save -> defaults */ }
   return s;

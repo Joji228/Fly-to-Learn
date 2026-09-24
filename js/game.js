@@ -196,6 +196,9 @@ function startRun(){
   Game.paused = false;
   Game.acc = 0; // never carry a stale backlog into a fresh run
   Game.zoomPunch = 0;
+  Game._spdDisp = undefined; // needle smoothing must not inherit the last flight's speed
+  Game._lastSpd = undefined;
+  Game._lastLoadout = undefined; // force the loadout readout to refresh for the new rig
   clearInputs();
   Game.runStats = { dist:0, maxAlt:0, maxSpeedKmh:0, airTime:0, usedAllFuel:false, maxSpeed:0,
     boostUsed:false, landing:null, water:false, fish:0, rings:0 };
@@ -730,10 +733,13 @@ function render(){
     g.fillText("⚠ STALL — NOSE DOWN! ⚠", W/2, 90);
   }
   g.restore();
-  // speed vignette
-  var fx = document.getElementById("speed-fx");
-  if(S && S.speed>38 && Game.phase==="fly") fx.style.opacity = Math.min(0.9,(S.speed-38)/40);
-  else fx.style.opacity = 0;
+  // speed vignette (element cached: this runs every rAF of every flight)
+  if(!Game._speedFx) Game._speedFx = document.getElementById("speed-fx");
+  var fx = Game._speedFx;
+  if(fx){
+    if(S && S.speed>38 && Game.phase==="fly") fx.style.opacity = Math.min(0.9,(S.speed-38)/40);
+    else fx.style.opacity = 0;
+  }
 }
 
 var menuT = 0;
