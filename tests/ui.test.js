@@ -138,5 +138,15 @@ ok(vis("save-row") && vis("btn-reset-save"), "7: settings from menu shows reset/
 els["btn-settings-back"].onclick();
 ok(vis("screen-menu"), "7b: settings back returns to menu");
 
+// 8. menu/shop entry drops button focus (stale Space/Enter re-fire)
+let blurs = 0;
+global.document.activeElement = { blur() { blurs++; } };
+DA.Game.phase = "fly";
+DA.UI.showMenu();
+ok(blurs === 1 && DA.Game.phase === "menu", "8a: showMenu blurs the focused control");
+DA.Game.phase = "results";
+DA.UI.showShop();
+ok(blurs === 2 && DA.Game.phase === "shop", "8b: showShop blurs the focused control");
+
 console.log(`\nUI TESTS: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

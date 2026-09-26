@@ -240,6 +240,10 @@ function pause(on){
   try{ document.getElementById("touch-controls").classList.toggle("hidden", Game.paused); }catch(e){}
   // resuming restores steering — but never the BOOST button without a rocket
   if(!Game.paused){
+    // drop button focus: a focused RESUME / pause-settings button would
+    // otherwise re-fire on the next Space/Enter mid-flight (stray clicks at
+    // best, the settings screen over a live flight at worst)
+    try{ if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); }catch(e3){}
     try{
       var tb = document.getElementById("tc-boost");
       if(tb) tb.style.display = (Game.save && Game.save.rocket && Game.save.rocket.equipped >= 0) ? "" : "none";

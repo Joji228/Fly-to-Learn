@@ -116,5 +116,14 @@ Game.save.rocket.equipped = 0;
 DA.pauseGame(true); DA.pauseGame(false);
 ok(tbEl.style.display === "", "11: resume restores BOOST with a rocket");
 
+// ---- resume drops button focus (stale Space/Enter re-fire) ----
+let blurs = 0;
+global.document.activeElement = { blur() { blurs++; } };
+Game.phase = "fly"; Game.paused = false;
+DA.pauseGame(true);
+ok(blurs === 0, "12a: pausing keeps focus (overlay buttons stay keyboard-usable)");
+DA.pauseGame(false);
+ok(blurs === 1, "12b: resume blurs the focused button so Space/Enter can't re-fire it mid-flight");
+
 console.log(`\nFOCUS TESTS: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

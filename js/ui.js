@@ -190,12 +190,14 @@ var subReturn = "menu";
 var settingsReturn = "menu";
 function showMenu(){
   window.DA.Game.phase = "menu";
+  try{ dropFocus(document.activeElement); }catch(e){} // quit-to-menu must not leave a focused flight button behind
   hideAll(); $("screen-menu").classList.remove("hidden");
   $("hud").classList.add("hidden"); setSpeedoVisible(false); $("touch-controls").classList.add("hidden"); $("pitch-hint").classList.add("hidden");
   refreshMenu();
 }
 function showShop(){
   window.DA.Game.phase = "shop";
+  try{ dropFocus(document.activeElement); }catch(e){} // same stale-focus hazard as showFlight/showResults
   hideAll(); $("screen-shop").classList.remove("hidden");
   computeHotPick(); shopTab = hotPick ? hotPick.type : (shopTab || "glider");
   $("hud").classList.add("hidden"); setSpeedoVisible(false); $("touch-controls").classList.add("hidden"); $("pitch-hint").classList.add("hidden");

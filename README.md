@@ -108,6 +108,7 @@ Plain HTML, CSS and JavaScript on a `<canvas>`. There are no frameworks, no buil
 
 ## Changelog
 
+- **0.11:** Audit fixes: resume/menu/shop entry drops button focus (stale Space/Enter can no longer re-fire pause buttons mid-flight), results grid blowout guard, dead CSS classes removed, focus regression tests.
 - **0.10:** Audit fixes: readable results screen (longer beat before the shop, no Enter double-launch), boost-audio node cleanup, HUD write savings, save-import hardening (objective allowlist, wallet caps), stale speedo needle reset.
 - **0.9:** Rebuilt shop with Gliders, Rockets and Workshop tabs, a next-purchase goal bar and cleaner cards. New Nitro Mix artwork. Map fixes: the shoreline is now a snow bank, islands rise out of the sea, waves follow the water, and boats, buoys and the city sit in the right places. Milestones are readable signboards.
 - **0.8:** Dennis, all gliders and rockets redrawn. New HUD, menus, shop and results screen. The game runs faster with a closer camera. Added golden fish and gust rings.

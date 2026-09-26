@@ -309,6 +309,7 @@ kbd{display:inline-block;min-width:22px;text-align:center;background:#0b1530;bor
 .results-card h2{margin:0;font-size:38px;line-height:1.05;}
 .quote{color:var(--muted);font-style:italic;font-size:14.5px;margin-top:4px;}
 .res-body{display:grid;grid-template-columns:1fr 1fr;gap:16px;min-height:0;overflow-y:auto;padding:2px;}
+.res-col{min-width:0;} /* grid children default to min-width:auto: long breakdown rows would blow out the column */
 .results-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .rstat{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:var(--r-md);padding:10px 12px;text-align:left;}
 .rstat label{display:block;font-size:10px;font-weight:900;letter-spacing:2px;color:var(--muted);}
