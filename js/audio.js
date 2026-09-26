@@ -237,7 +237,10 @@ function startMusic(){
   if(!ensure() || !enabled.music || musicTimer) return;
   musicStep = 0;
   musicTimer = setInterval(function(){
-    if(!enabled.music || !ctx) return;
+    // a context still waiting for the first user gesture (autoplay policy)
+    // is frozen at currentTime 0: every tick would queue its notes at t=0
+    // and the whole backlog would fire as one blast on the first click
+    if(!enabled.music || !ctx || ctx.state !== "running") return;
     var t = now();
     var fq = MELODY[musicStep % MELODY.length];
     if(fq){

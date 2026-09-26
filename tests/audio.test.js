@@ -13,9 +13,10 @@ function node() {
   return { connect() {}, disconnect() {}, start() {}, stop() {},
     gain: param(0), frequency: param(440), Q: param(1) };
 }
+let lastCtx = null;
 global.window = {
   AudioContext: function () {
-    return {
+    return lastCtx = {
       state: "running", sampleRate: 44100, currentTime: 0, destination: {},
       resume() {}, createGain: () => node(), createOscillator: () => node(),
       createBuffer: (ch, len) => ({ getChannelData: () => new Float32Array(len) }),
@@ -43,6 +44,27 @@ runs("booster cycle + double-stop", () => { A.startBoost(0.7); A.startBoost(0.3)
 runs("disable silences", () => A.setEnabled(false, false));
 runs("re-enable restarts", () => A.setEnabled(true, true));
 runs("music loop cycles", () => { A.startMusic(); A.stopMusic(); });
+
+// music never queues notes on a context the autoplay policy still holds
+// suspended (frozen at t=0): the backlog would fire as one blast on the
+// first click
+{
+  A.stopMusic();
+  let tick = null, oscs = 0;
+  const realSI = global.setInterval;
+  global.setInterval = (f) => { tick = f; return 1; };
+  A.startMusic();
+  global.setInterval = realSI;
+  const realOsc = lastCtx.createOscillator;
+  lastCtx.createOscillator = () => { oscs++; return realOsc(); };
+  lastCtx.state = "suspended";
+  for (let i = 0; i < 20; i++) tick();
+  ok(oscs === 0, "music ticks skip while the context is suspended", `${oscs} oscillators`);
+  lastCtx.state = "running";
+  for (let i = 0; i < 4; i++) tick();
+  ok(oscs > 0, "music ticks play once the context runs", `${oscs} oscillators`);
+  A.stopMusic();
+}
 
 console.log(`\nAUDIO TESTS: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

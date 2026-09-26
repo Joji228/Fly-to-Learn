@@ -135,7 +135,7 @@ function switchMode(){
 }
 function exportSave(){
   try{
-    var blob = new Blob([window.DA.Save.exportJSON()], { type: "application/json" });
+    var blob = new Blob([window.DA.Save.exportJSON(save)], { type: "application/json" });
     var a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "dodo-airways-" + window.DA.Save.getMode() + ".json";

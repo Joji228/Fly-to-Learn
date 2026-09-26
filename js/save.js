@@ -154,13 +154,21 @@ function sanitizeRocket(r){
 }
 
 function load(mode){
+  var d = null;
+  try{
+    var raw = localStorage.getItem(keyFor(mode));
+    if(raw) d = JSON.parse(raw);
+  }catch(e){ d = null; /* blocked storage or corrupted save -> defaults */ }
+  return fromData(d, mode);
+}
+/* Full sanitize + migrate path for any parsed save object (storage or an
+   imported file). Never touches localStorage, so import still works in
+   browsers that refuse to persist. */
+function fromData(d, mode){
   var want = (mode || currentMode);
   var s = (want === "sandbox") ? sandboxFresh() : defaults();
   s.mode = want;
   try{
-    var raw = localStorage.getItem(keyFor(mode));
-    if(!raw) return s;
-    var d = JSON.parse(raw);
     if(d && typeof d === "object"){
       // wallet is floored + floored at 0 like before, now also capped: a
       // hand-edited import with $9e15 used to flow straight into the HUD,
@@ -261,16 +269,24 @@ function save(s, mode){
 function reset(mode){
   try{ localStorage.removeItem(keyFor(mode)); }catch(e){}
 }
-/* Export / import the CURRENT mode's save as JSON (settings screen). */
-function exportJSON(mode){
+/* Export / import the CURRENT mode's save as JSON (settings screen).
+   Export serializes the live save when given one: in a browser that won't
+   persist (the very case the boot toast sends players here for), storage
+   holds nothing and the old storage read exported a blank save. */
+function exportJSON(live, mode){
+  if(live && typeof live === "object"){
+    live.version = SAVE_VERSION; live.mode = (mode || currentMode);
+    return JSON.stringify(live);
+  }
   try{ return localStorage.getItem(keyFor(mode)) || JSON.stringify(defaults()); }
   catch(e){ return JSON.stringify(defaults()); }
 }
 function importJSON(text, mode){
   var d = JSON.parse(text); // throws on invalid JSON: caller reports it
   if(!d || typeof d !== "object" || Array.isArray(d)) throw new Error("not a save file");
-  try{ localStorage.setItem(keyFor(mode), JSON.stringify(d)); }catch(e){}
-  return load(mode); // re-read through the full sanitize + migrate path
+  var s = fromData(d, mode); // full sanitize + migrate, straight from the file
+  save(s, mode);             // persist when the browser allows it
+  return s;
 }
 
 window.DA = window.DA || {};
