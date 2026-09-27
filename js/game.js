@@ -138,7 +138,16 @@ function nativeKey(e){
 function bindInput(){
   window.addEventListener("keydown", function(e){
     if(nativeKey(e)){ window.DA.Audio.ensure(); return; }
-    if(e.repeat){ if(capturesKey(e.code)) e.preventDefault(); return; }
+    if(e.repeat){
+      // a key still held after pause/resume, blur or a fresh launch had its
+      // input cleared: auto-repeat re-arms it instead of leaving it dead
+      // until re-pressed (P/ESC/Enter repeats stay ignored)
+      if(isUpKey(e.code)) Game.input.up = true;
+      else if(isDownKey(e.code)) Game.input.down = true;
+      else if(e.code==="Space") Game.input.boost = true;
+      if(capturesKey(e.code)) e.preventDefault();
+      return;
+    }
     if(isUpKey(e.code)) Game.input.up = true;
     else if(isDownKey(e.code)) Game.input.down = true;
     else if(e.code==="Space"){ Game.input.boost = true; e.preventDefault(); }
@@ -674,7 +683,7 @@ function finishRun(){
    always advances in exact STEP slices, no matter the display refresh rate.
    Inputs are sampled once per slice, so identical input schedules produce
    identical flights at 20/30/60/120 FPS. Rendering/HUD still run every rAF.
-   Backlog beyond 5 slices in one frame is dropped (spiral-of-death guard
+   Backlog beyond MAX_STEPS slices in one frame is dropped (spiral-of-death guard
    for heavy hitches — the sim slows instead of freezing). */
 var STEP = 1/60;
 var MAX_STEPS = 6;

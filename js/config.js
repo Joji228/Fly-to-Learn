@@ -66,9 +66,10 @@ var UPGRADES = {
   }
 };
 
-/* Objectives are LIP-RELATIVE (0 at launch). Top tier sits just past what
-   the tuning bots reach (~3.3 km) so it stays an epic-but-honest stretch
-   goal for skilled pilots (~4 km), not a dead entry. */
+/* Objectives are LIP-RELATIVE (0 at launch). The top distance tier is a
+   late-campaign goal: the economy bot first clears 3.5 km on the Black
+   Swan around flight 60 (~3.9 km fully upgraded) and skilled pilots reach
+   ~6 km, so it is epic-but-honest, never a dead entry. */
 var OBJECTIVES = [
   { id:"d250",  text:"Reach 250 m",            bonus:25,   check:function(s){ return s.dist>=250; } },
   { id:"d600",  text:"Reach 600 m",            bonus:70,   check:function(s){ return s.dist>=600; } },
