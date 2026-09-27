@@ -26,6 +26,7 @@ const GATES = [
   "tests/rewards.test.js",
   "tests/pickups.test.js",
   "tests/landing.test.js",
+  "tests/skill.test.js",
   "scripts/repro-exploit.js"
 ];
 const INFO = [

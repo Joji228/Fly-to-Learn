@@ -279,7 +279,7 @@ function showFlight(){
       var coarse = false;
       try{ coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches; }catch(e){}
       if(!coarse && window.innerWidth>700){
-        ph.textContent = hasBooster() ? "A/W nose up • D/S nose down • SPACE = boost" : "A/W nose up • D/S nose down • buy a rocket to unlock BOOST";
+        ph.textContent = "W/S steer • keep the speed in the GREEN band for the longest glide" + (hasBooster() ? " • SPACE boost" : "");
         ph.classList.remove("hidden");
       } else {
         ph.classList.add("hidden");
@@ -362,9 +362,9 @@ function updateHUD(){
   var crashed = (G.phase === "crashed" && G.crashedInfo);
   var sevTxt = crashed ? { smooth:"🛬 SMOOTH", rough:"⛷️ ROUGH", crash:"💥 CRASH", mega:"☄️ MEGA" }[G.crashedInfo.severity] : null;
   var phaseTxt = G.phase==="ramp" ? "🛷 RAMP!" : sevTxt ? sevTxt
-    : (G.S.boosting?"🔥 BOOST!":(G.S.stalled?"⚠ STALL":"🕊️ FLY"));
+    : (G.S.boosting?"🔥 BOOST!":(G.S.stalled?"⚠ STALL":(G.S.mushing?"⚠ MUSH • NOSE DOWN":"🕊️ FLY")));
   setText("phase-label", phaseTxt);
-  var phaseCol = sevTxt ? "#fff" : (G.S.boosting ? "#ffb703" : "#fff");
+  var phaseCol = sevTxt ? "#fff" : (G.S.boosting || G.S.mushing ? "#ffb703" : "#fff");
   if(_hudCache["phase-color"] !== phaseCol){
     _hudCache["phase-color"] = phaseCol;
     var phel = $("phase-label");
@@ -450,6 +450,9 @@ function buildSpeedo(){
   }
   var track = $("sp-track"), prog = $("sp-prog");
   if(track && track.setAttribute) track.setAttribute("d", spArcD(0, 1, 64));
+  // best-glide band (green): the speed every glider glides farthest at
+  var best = $("sp-best"), BG = (window.DA.Physics && window.DA.Physics.BEST_GLIDE) || [21, 25];
+  if(best && best.setAttribute) best.setAttribute("d", spArcD(BG[0]*3.6/SP_MAX, BG[1]*3.6/SP_MAX, 64));
   if(prog && prog.setAttribute) prog.setAttribute("d", spArcD(0, 1, 64));
 }
 function updateSpeedo(G){
@@ -497,8 +500,13 @@ function updateSpeedo(G){
   box.classList.toggle("redline", overTop);
   box.classList.toggle("extreme", overMax);
   box.classList.toggle("boosting", boosting);
+  var BG = (window.DA.Physics && window.DA.Physics.BEST_GLIDE) || [21, 25];
+  var sp = G.S.speed || 0, flying = G.phase === "fly";
+  var inBand = flying && sp >= BG[0] && sp <= BG[1] + 0.5;
+  box.classList.toggle("inband", inBand);
   if(num){
-    num.style.color = overTop ? "#ff5d5d" : fast ? "#ffb703" : "#fff";
+    var col = overTop ? "#ff5d5d" : (G.S.mushing ? "#ffb703" : (inBand ? "#6ee7a0" : (fast ? "#ffb703" : "#fff")));
+    if(_hudCache["sp-color"] !== col){ _hudCache["sp-color"] = col; num.style.color = col; }
   }
 }
 // launch moment: punchy whoosh (the ramp sound already played at release)

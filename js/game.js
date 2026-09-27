@@ -314,8 +314,13 @@ function update(dt){
   }
   else if(Game.phase === "fly"){
     var prevX = Game.S.x;
+    // ground effect needs height above the surface; the launch settle eases
+    // the nose to a glide attitude until the pilot first touches pitch
+    Game.S.agl = Game.S.y - Math.max(0, DA.World.groundY(Game.S.x));
+    DA.Physics.launchSettle(Game.S, Game.input, dt);
     var res = DA.Physics.stepFlight(Game.S, Game.input, Game.P, dt);
     Game.S.boosting = res.boosting;
+    Game.S.mushing = res.mushing && !res.stalled;
     if(Game.pk && DA.Pickups) collectPickups(prevX, dt);
     Game.S.stalled = res.stalled;
     if(res.stalled && !Game.stallWarned){ Game.stallWarned = true; DA.Audio.SFX.stall(); }
@@ -756,10 +761,15 @@ function render(){
     }
   }
   // stall warning
-  if(S && S.stalled && Game.phase==="fly"){
-    g.fillStyle = "rgba(230,57,70,0.9)";
-    g.font = "bold 22px sans-serif"; g.textAlign="center";
-    g.fillText("⚠ STALL — NOSE DOWN! ⚠", W/2, 90);
+  if(S && (S.stalled || S.mushing) && Game.phase==="fly"){
+    // below the HUD row (it used to sit on the loadout pill)
+    var wy = Math.max(130, H*0.2);
+    g.font = "900 22px Nunito, 'Segoe UI', sans-serif"; g.textAlign = "center";
+    g.lineWidth = 5; g.strokeStyle = "rgba(10,20,40,0.55)";
+    var wt = S.stalled ? "STALL: NOSE DOWN!" : "MUSHING: NOSE DOWN FOR SPEED";
+    g.strokeText(wt, W/2, wy);
+    g.fillStyle = S.stalled ? "#ff5d6c" : "#ffc23a";
+    g.fillText(wt, W/2, wy);
   }
   g.restore();
   // speed vignette (element cached: this runs every rAF of every flight)
