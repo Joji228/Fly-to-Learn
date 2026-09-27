@@ -60,27 +60,9 @@ function rideLift(k){
   return RIDE_Y + (LAUNCH_Y - RIDE_Y) * u*u*(3 - 2*u);
 }
 
-function derivedParams(up, gliderId, rocketId){
-  var DA = window.DA;
-  var G = (DA.GLIDERS && DA.GLIDERS[gliderId]) || DA.GLIDERS[0] ||
-    { control:1.5, drag:0.06, turnK:0.12, comfort:28, top:45, stall:11 };
-  var R = (DA.ROCKETS && rocketId >= 0) ? DA.ROCKETS[rocketId] : null;
-  var aero = up.aero || 0;
-  return {
-    bare: gliderId === 0, // NO GLIDER = NO GLIDING (falling-body flight mode)
-    sinkBias: G.sink || 0, // mandatory glide sink: nose-level never means path-level
-    control: G.control,
-    drag: G.drag * (1 - 0.055 * aero), // aero shaves body drag, honestly stacked
-    turnK: G.turnK,
-    comfort: G.comfort + aero * 1.5,
-    top: G.top + aero * 2,
-    stall: G.stall,
-    thrust: R ? R.thrust * DA.thrustMult(up.nitro || 0) : 0, // nitro: every rocket punches harder
-    fuelMax: R ? R.burn * DA.fuelMult(up.fuel || 0) : 0, // tank upgrade stretches every rocket
-    launchSpeed: DA.launchSpeed(up.ramp, up.sled),
-    launchAngle: DA.launchAngleDeg(up.ramp) * Math.PI/180
-  };
-}
+// derivedParams (glider + rocket + upgrades -> flight params) lives in
+// gliders.js so the tuning sims share the exact same numbers.
+var derivedParams = function(up, gid, rid){ return window.DA.derivedParams(up, gid, rid); };
 
 function init(canvas, save, particles){
   Game.canvas = canvas; Game.g = canvas.getContext("2d");
@@ -837,7 +819,6 @@ window.DA.gameInit = init;
 window.DA.startRun = startRun;
 window.DA.pauseGame = pause;
 window.DA.abandonRun = abandon;
-window.DA.derivedParams = derivedParams;
 window.DA.gameLoop = loop;
 window.DA.flightDist = flightDist; // lip-relative distance (HUD/milestones/landing share it)
 window.DA.LAUNCH_X = LAUNCH_X;

@@ -30,21 +30,8 @@ function flyGlider(gid, up) {
   const spd = DA.launchSpeed(up.ramp || 0, up.sled || 0);
   const S = { x: 140, y: DA.rampLipY(up.ramp || 0) + 3, vx: Math.cos(ang) * spd,
     vy: Math.sin(ang) * spd, pitch: ang, pitchVel: 0, fuel: 0, fuelMax: 0, airTime: 0, speed: spd };
-  const dt = 1 / 60;
-  let maxAlt = 0, maxSpd = 0, t = 0;
-  for (let i = 0; i < 60 * 300; i++) {
-    const speed = S.speed, inp = { up: false, down: false, boost: false };
-    if (speed < 13) inp.down = true;
-    else if (S.y < 5 && S.vy < -1) inp.up = true;
-    else if (S.vy < -16) inp.up = true;
-    else if (speed > 32 && S.y < 45 && S.pitch < 20 * D) inp.up = true;
-    else if (S.y > 60) inp.down = true;
-    P.stepFlight(S, inp, p, dt);
-    if (S.y > maxAlt) maxAlt = S.y;
-    if (S.speed > maxSpd) maxSpd = S.speed;
-    t += dt;
-    if (S.y <= 0 && t > 0.5) break;
-  }
+  const r = require("./pilot.js").fly(P, null, p, S); // shared sim pilot: holds the best-glide band
+  const t = r.airTime, maxAlt = r.maxAlt, maxSpd = r.maxSpeedKmh / 3.6;
   // lip-relative distance, like the game HUD (launch at x=140)
   return { dist: Math.max(0, S.x - 140), air: t, alt: maxAlt, top: maxSpd * 3.6, launch: spd * 3.6 };
 }

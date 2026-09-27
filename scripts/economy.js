@@ -30,54 +30,28 @@ global.document = {
 load("config.js");
 load("gliders.js");
 load("physics.js");
+load("world.js");
+load("pickups.js");
 load("ui.js");
-const DA = global.window.DA, P = DA.Physics;
+const DA = global.window.DA, P = DA.Physics, W = DA.World, PK = DA.Pickups;
+const pilot = require("./pilot.js");
 const D = Math.PI / 180;
 
-// flown flight with current gear: boost at 30deg while fuel, then the
-// standard energy-loop autopilot (same family as balance.js)
+// flown flight with current gear: the shared sim pilot (scripts/pilot.js)
+// boosts at 30deg while fuel, then holds the best-glide band; the fixed
+// fish/ring course is flown too, so pickup income and ring kicks count.
 function flyGear(gid, rid, up) {
   const G = DA.GLIDERS[gid];
   const R = rid >= 0 ? DA.ROCKETS[rid] : null;
-  const p = {
-    control: G.control, drag: G.drag * (1 - 0.055 * (up.aero || 0)), turnK: G.turnK,
-    comfort: G.comfort + (up.aero || 0) * 1.5, top: G.top + (up.aero || 0) * 2,
-    stall: G.stall, thrust: R ? R.thrust * DA.thrustMult(up.nitro || 0) : 0,
-    fuelMax: R ? R.burn * DA.fuelMult(up.fuel || 0) : 0,
-    sinkBias: G.sink, bare: gid === 0
-  };
+  const p = DA.derivedParams(up, gid, rid);
+  W.setRampLevel(up.ramp || 0);
   const ang = DA.launchAngleDeg(up.ramp || 0) * D, spd = DA.launchSpeed(up.ramp || 0, up.sled || 0);
   const S = {
-    x: 140, y: DA.rampLipY(up.ramp || 0) + 3, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
+    x: 140, y: W.rampY(140) + 3, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
     pitch: ang, pitchVel: 0, fuel: p.fuelMax, fuelMax: p.fuelMax, airTime: 0, speed: spd
   };
-  const dt = 1 / 60;
-  let maxAlt = 0, maxSpd = 0, t = 0, usedAllFuel = false;
-  for (let i = 0; i < 60 * 600; i++) {
-    const inp = { up: false, down: false, boost: false };
-    if (S.fuel > 0.05 && R) {
-      const w = 30 * D;
-      if (S.pitch < w - 0.02) inp.up = true; else if (S.pitch > w + 0.02) inp.down = true;
-      inp.boost = true;
-    } else {
-      const speed = S.speed;
-      if (speed < 13) inp.down = true;
-      else if (S.y < 5 && S.vy < -1) inp.up = true;
-      else if (S.vy < -16) inp.up = true;
-      else if (speed > 32 && S.y < 45 && S.pitch < 20 * D) inp.up = true;
-      else if (S.y > 60) inp.down = true;
-    }
-    P.stepFlight(S, inp, p, dt);
-    if (S.y > maxAlt) maxAlt = S.y;
-    if (S.speed > maxSpd) maxSpd = S.speed;
-    t += dt;
-    if (S.y <= 0 && t > 0.5) break;
-  }
-  if (p.fuelMax > 0 && S.fuel <= 0) usedAllFuel = true;
-  // lip-relative distance, like the game HUD. Bot boosts whenever it has a
-  // tank, so boostUsed tracks the rocket (prevents free pure-glide bonuses).
-  return { dist: Math.max(0, S.x - 140), maxAlt, maxSpeedKmh: maxSpd * 3.6, airTime: t, usedAllFuel,
-    boostUsed: !!R, landing: null, water: false };
+  void G; void R;
+  return pilot.fly(P, W, p, S, { PK });
 }
 
 function freshSave() {
@@ -101,7 +75,8 @@ function rewardsFor(save, st, msHit) {
     if (save.objectivesDone.indexOf(o.id) < 0 && o.check(st)) newObj.push(o);
   });
   const objBonus = newObj.reduce(function (a, o) { return a + o.bonus; }, 0);
-  return { base, msBonus, newObj, objBonus, total: base.total + msBonus + objBonus };
+  const fishBonus = (st.fish || 0) * PK.FISH_VALUE;
+  return { base, msBonus, newObj, objBonus, fishBonus, total: base.total + msBonus + objBonus + fishBonus };
 }
 
 function priceOfCand(c) {

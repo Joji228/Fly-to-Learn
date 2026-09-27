@@ -40,28 +40,16 @@ function sinkTime(gid) {
   }
   return t;
 }
-// standardized flown run (launch + energy-loop autopilot)
+// standardized flown run: launch + the shared sim pilot (scripts/pilot.js),
+// which holds the best-glide band like a competent player
+const pilot = require("../scripts/pilot.js");
 function flyRun(gid) {
   const p = params(gid);
   const ang = DA.launchAngleDeg(0) * D, spd = DA.launchSpeed(0, 0);
   const S = { x: 140, y: DA.rampLipY(0) + 3, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
     pitch: ang, pitchVel: 0, fuel: 0, fuelMax: 0, airTime: 0, speed: spd };
-  const dt = 1 / 60;
-  let maxAlt = 0, maxSpd = 0, t = 0;
-  for (let i = 0; i < 60 * 300; i++) {
-    const speed = S.speed, inp = { up: false, down: false, boost: false };
-    if (speed < 13) inp.down = true;
-    else if (S.y < 5 && S.vy < -1) inp.up = true;
-    else if (S.vy < -16) inp.up = true;
-    else if (speed > 32 && S.y < 45 && S.pitch < 20 * D) inp.up = true;
-    else if (S.y > 60) inp.down = true;
-    P.stepFlight(S, inp, p, dt);
-    if (S.y > maxAlt) maxAlt = S.y;
-    if (S.speed > maxSpd) maxSpd = S.speed;
-    t += dt;
-    if (S.y <= 0 && t > 0.5) break;
-  }
-  return { dist: Math.max(0, S.x), air: t, alt: maxAlt, top: maxSpd * 3.6 };
+  const r = pilot.fly(P, null, p, S);
+  return { dist: r.dist + 140, air: r.airTime, alt: r.maxAlt, top: r.maxSpeedKmh };
 }
 
 // 1. every real glider sinks eventually (hands off, 5 minutes max —

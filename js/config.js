@@ -11,9 +11,10 @@ function priceOf(key, level){ // level = current level, price for next
   return Math.round(u.base * Math.pow(u.growth, level) / 5) * 5;
 }
 // Ramp: better launch geometry (higher lip, steeper exit) + base speed.
+var SLED_BOOST = 1.75; // m/s of launch speed per Waddle Sled level
 function launchSpeed(rampLvl, sledLvl){
   var r = rampLvl || 0, s = sledLvl || 0;
-  return 36 + r * 2.5 + s * 1.25;
+  return 36 + r * 2.5 + s * SLED_BOOST;
 }
 function launchAngleDeg(rampLvl){ return 9 + (rampLvl || 0) * 1.5; } // == ramp exit tangent, see World.rampY
 function rampLipY(rampLvl){ return 26 + (rampLvl || 0) * 1.6; }       // lip height in m, matches ramp track
@@ -32,35 +33,35 @@ var UPGRADES = {
   ramp: {
     name: "Launch Ramp", icon: "🚀",
     blurb: "Taller lip, steeper exit, hotter launch. The single best start.",
-    max: 8, base: 270, growth: 1.95,
+    max: 8, base: 405, growth: 1.95,
     desc: function(l){ return "Lip " + rampLipY(l).toFixed(0) + "m • exit " + launchAngleDeg(l).toFixed(0) + "° • base " + (36 + l*2.5).toFixed(0) + " m/s"; },
     next: function(l){ return l>=8 ? "MAXED — orbital dodo" : "→ lip " + rampLipY(l+1).toFixed(0) + "m • exit " + launchAngleDeg(l+1).toFixed(0) + "° • base " + (36 + (l+1)*2.5).toFixed(0) + " m/s"; }
   },
   sled: {
     name: "Waddle Sled", icon: "🛷",
     blurb: "Greased runners. Shorter ride, snappier launch.",
-    max: 8, base: 230, growth: 1.9,
-    desc: function(l){ return "Ride " + rampRideTime(l).toFixed(1) + "s" + (l>0 ? " • +" + (l*1.25).toFixed(1) + " m/s launch" : " • stock launch"); },
-    next: function(l){ return l>=8 ? "MAXED — frictionless nonsense" : "→ ride " + rampRideTime(l+1).toFixed(1) + "s • +" + ((l+1)*1.25).toFixed(1) + " m/s launch"; }
+    max: 8, base: 345, growth: 1.7,
+    desc: function(l){ return "Ride " + rampRideTime(l).toFixed(1) + "s" + (l>0 ? " • +" + (l*SLED_BOOST).toFixed(1) + " m/s launch" : " • stock launch"); },
+    next: function(l){ return l>=8 ? "MAXED — frictionless nonsense" : "→ ride " + rampRideTime(l+1).toFixed(1) + "s • +" + ((l+1)*SLED_BOOST).toFixed(1) + " m/s launch"; }
   },
   aero: {
     name: "Aerodynamics", icon: "💨",
     blurb: "Pointier helmet, slicker belly. Less drag, higher redline.",
-    max: 8, base: 300, growth: 2.0,
+    max: 8, base: 450, growth: 2.0,
     desc: function(l){ return "Drag x" + (1-0.055*l).toFixed(2) + " • top +" + (l*2) + " m/s"; },
     next: function(l){ return l>=8 ? "MAXED — soap-bar dodo" : "→ drag x" + (1-0.055*(l+1)).toFixed(2) + " • top +" + ((l+1)*2) + " m/s"; }
   },
   fuel: {
     name: "Rocket Fuel", icon: "🛢️",
     blurb: "Bigger fish-oil tank. Every rocket burns longer.",
-    max: 5, prices: [350, 900, 2000, 4500, 9000],
+    max: 5, prices: [525, 1350, 3000, 6750, 13500],
     desc: function(l){ return "Tank x" + fuelMult(l).toFixed(2) + " fuel (" + Math.round((fuelMult(l)-1)*100) + "% extra burn)"; },
     next: function(l){ return l>=5 ? "MAXED — mobile ocean" : "→ tank x" + fuelMult(l+1).toFixed(2) + " fuel (" + Math.round((fuelMult(l+1)-1)*100) + "% extra burn)"; }
   },
   nitro: {
     name: "Nitro Mix", icon: "🧨",
     blurb: "Questionable kelp chemistry. Every rocket punches harder.",
-    max: 4, prices: [400, 1100, 2500, 5500],
+    max: 4, prices: [600, 1650, 3750, 8250],
     desc: function(l){ return "Punch x" + thrustMult(l).toFixed(2) + " thrust (" + Math.round((thrustMult(l)-1)*100) + "% harder hits)"; },
     next: function(l){ return l>=4 ? "MAXED — maritime hazard" : "→ punch x" + thrustMult(l+1).toFixed(2) + " thrust (" + Math.round((thrustMult(l+1)-1)*100) + "% harder hits)"; }
   }
