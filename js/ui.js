@@ -279,7 +279,9 @@ function showFlight(){
       var coarse = false;
       try{ coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches; }catch(e){}
       if(!coarse && window.innerWidth>700){
-        ph.textContent = "W/S steer • keep the speed in the GREEN band for the longest glide" + (hasBooster() ? " • SPACE boost" : "");
+        ph.textContent = (save.glider.equipped === 0)
+          ? "No wings yet! Tap W / ▲ to FLAP (3 per flight) • save one to soften the landing"
+          : "W/S steer • keep the speed in the GREEN band for the longest glide" + (hasBooster() ? " • SPACE boost" : "");
         ph.classList.remove("hidden");
       } else {
         ph.classList.add("hidden");
@@ -320,7 +322,11 @@ function updateHUD(){
   setText("hud-alt", Math.max(0,G.S.y).toFixed(0)+" m");
   updateSpeedo(G);
   var hasBooster = !!(G.P && G.P.thrust > 0);
-  var f = (G.S.fuelMax>0 && hasBooster) ? G.S.fuel/G.S.fuelMax : 0;
+  // wingless Dennis shows his flaps in the fuel slot instead of "no booster"
+  var flapMode = !!(G.P && G.P.bare && !hasBooster);
+  var FL = (window.DA.Physics && window.DA.Physics.BARE_FLAPS) || 3;
+  var flapsLeft = (typeof G.S.flaps === "number") ? G.S.flaps : FL;
+  var f = flapMode ? flapsLeft / FL : ((G.S.fuelMax>0 && hasBooster) ? G.S.fuel/G.S.fuelMax : 0);
   var fill = $("fuel-fill");
   // width string only changes as fuel burns: don't rewrite style every rAF
   var fw = (f*100).toFixed(1)+"%";
@@ -328,15 +334,15 @@ function updateHUD(){
     _hudCache["fuel-w"] = fw;
     fill.style.width = fw;
   }
-  fill.className = (!hasBooster || f<0.25) ? "low" : "";
-  setText("fuel-label", hasBooster ? "FUEL" : "NO BOOSTER");
+  fill.className = flapMode ? (flapsLeft ? "" : "low") : ((!hasBooster || f<0.25) ? "low" : "");
+  setText("fuel-label", flapMode ? ("FLAPS " + flapsLeft) : (hasBooster ? "FUEL" : "NO BOOSTER"));
   var fb = $("fuel-bar");
   if(fb){
     fb.classList.toggle("burning", !!G.S.boosting && hasBooster);
     fb.classList.toggle("empty", hasBooster && G.S.fuelMax>0 && G.S.fuel<=0);
     // rocket-less flights stare at a red "low" bar all flight: dim the stat
     var fstat = fb.parentNode;
-    if(fstat && fstat.classList) fstat.classList.toggle("nobooster", !hasBooster);
+    if(fstat && fstat.classList) fstat.classList.toggle("nobooster", !hasBooster && !flapMode);
   }
   // once the record falls, BEST tracks the live distance (it no longer lags
   // behind the NEW RECORD banner until the results screen)

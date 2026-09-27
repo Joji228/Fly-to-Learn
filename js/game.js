@@ -321,6 +321,11 @@ function update(dt){
     var res = DA.Physics.stepFlight(Game.S, Game.input, Game.P, dt);
     Game.S.boosting = res.boosting;
     Game.S.mushing = res.mushing && !res.stalled;
+    if(res.flapped){
+      DA.Audio.SFX.flap();
+      if(Game.save.settings.particles)
+        Game.particles.burst(Game.S.x - 1, Game.S.y + BODY_Y - 1, 6, {speed:10, life:0.7, size:2.2, colors:["#8d9dc3","#b9c6e2","#ffffff"], grav:12, vy:-4});
+    }
     if(Game.pk && DA.Pickups) collectPickups(prevX, dt);
     Game.S.stalled = res.stalled;
     if(res.stalled && !Game.stallWarned){ Game.stallWarned = true; DA.Audio.SFX.stall(); }

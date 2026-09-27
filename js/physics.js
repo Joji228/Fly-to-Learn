@@ -43,6 +43,9 @@ var STEER_GAIN = 3.0;        // global trajectory responsiveness (glider ladder 
 // always decays. Dive entries stay snappy (gravity is 30 m/s^2).
 var OVER_TOP_K = 1.25;       // extra drag past redline top: firm, brief overshoot OK
 var BARE_SINK = 12.0;        // extra fall for the glider-less: no free gliding
+var BARE_FLAPS = 3;          // flaps per wingless flight
+var FLAP_VY = 13;            // m/s upward kick per flap
+var FLAP_VX = 2.5;           // m/s forward kick per flap
 var REDLINE_K = 0.25;        // shared redline drag strength (soft top speed)
 var AOA_K = 40;             // drag per rad^2 of unmet nose-up request (mush drag)
 var AOA_FREE = 0.05;        // small unmet requests (~3 deg) ride free
@@ -130,6 +133,21 @@ function stepFlight(s, input, p, dt){
   // (Gliders rely on steering to fight this; bare steering is ~15%.)
   var bare = !!p.bare;
   if(bare) s.vy -= BARE_SINK * dt;
+  // Bare Dennis can't glide, but he can FLAP: each fresh nose-up press
+  // spends one of BARE_FLAPS desperate flaps (an upward + forward kick).
+  // It makes the first, wingless flight something you play instead of
+  // watch, and a last flap just before touchdown softens the landing.
+  var flapped = false;
+  if(bare){
+    if(typeof s.flaps !== "number") s.flaps = BARE_FLAPS;
+    var upNow = !!input.up && !input.down;
+    if(upNow && !s.upHeld && s.flaps > 0){
+      s.flaps--; flapped = true;
+      s.vy = Math.max(s.vy + FLAP_VY, FLAP_VY * 0.45);
+      s.vx += FLAP_VX;
+    }
+    s.upHeld = upNow;
+  }
 
   // NOTE: no fall-assist pump — gravity alone powers every fall, so each
   // descent must be repaid on the climb back. Free descent energy turns
@@ -263,7 +281,7 @@ function stepFlight(s, input, p, dt){
   if(s.x < 0){ s.x = 0; if(s.vx < 0) s.vx = 0; }
   s.airTime += dt;
   s.speed = Math.sqrt(s.vx*s.vx + s.vy*s.vy);
-  return { stalled:stalled, boosting:boosting, turb:turb, mushing:mushing };
+  return { stalled:stalled, boosting:boosting, turb:turb, mushing:mushing, flapped:flapped };
 }
 
 /* Launch settle: call once per step before stepFlight. Returns true while
@@ -292,7 +310,7 @@ function fmtDist(m){
 }
 
 var api = { GRAVITY:GRAVITY, PITCH_RATE:PITCH_RATE, MAX_PITCH:MAX_PITCH, MIN_PITCH:MIN_PITCH,
-  AOA_K:AOA_K, AOA_FREE:AOA_FREE, GE_H:GE_H, GE_K:GE_K, BEST_GLIDE:BEST_GLIDE, LAUNCH_TRIM:LAUNCH_TRIM,
+  BARE_FLAPS:BARE_FLAPS, AOA_K:AOA_K, AOA_FREE:AOA_FREE, GE_H:GE_H, GE_K:GE_K, BEST_GLIDE:BEST_GLIDE, LAUNCH_TRIM:LAUNCH_TRIM,
   DIVE_K:0, clamp:clamp, wrapAngle:wrapAngle, // DIVE_K retired (was an energy pump); kept as 0 for API compat
   stepFlight:stepFlight, launchSettle:launchSettle, econReward:econReward, fmtDist:fmtDist };
 

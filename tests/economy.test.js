@@ -51,11 +51,13 @@ function ok(c, m, extra) {
   ok(r.total >= 200 && r.total <= 600, "2: starter flight earns starter-scale cash", "$" + r.total);
 }
 
-// 3. objective tiers are sorted, lip-relative, top is an honest stretch (<=4km honest max)
+// 3. objective tiers are sorted, lip-relative, top is an honest stretch.
+//    Skilled max-gear play reaches ~6.1 km (scripts/skill-ceiling.js), so
+//    the 5 km top tier is an epic-but-honest goal.
 {
   const ds = DA.OBJECTIVES.filter((o) => o.id[0] === "d").map((o) => parseInt(o.id.slice(1), 10));
   const sorted = ds.every((v, i) => i === 0 || v > ds[i - 1]);
-  ok(sorted && ds[ds.length - 1] <= 4000 && ds[0] <= 300, "3: distance objectives tier sanely",
+  ok(sorted && ds[ds.length - 1] <= 5000 && ds[0] <= 300, "3: distance objectives tier sanely",
     ds.join("/") + "m");
 }
 
@@ -64,7 +66,7 @@ function ok(c, m, extra) {
   const ds = DA.MILESTONES.map((m) => m.d);
   const sorted = ds.every((v, i) => i === 0 || v >= ds[i - 1]);
   const maxGeo = ds[ds.length - 1] + 140;
-  ok(sorted && maxGeo <= 4000, "4: milestones fit honest flight range", "top geo x=" + maxGeo + "m");
+  ok(sorted && maxGeo <= 5600, "4: milestones fit honest flight range (skill ceiling ~6.1 km)", "top geo x=" + maxGeo + "m");
 }
 
 // 5. shop summaries + savings goal share one wallet number

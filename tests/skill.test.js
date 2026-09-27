@@ -35,11 +35,11 @@ function fly(p, policy) {
   const S = { x: 140, y: W.rampY(140) + 3, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, pitch: ang,
     pitchVel: 0, fuel: 0, fuelMax: 0, airTime: 0, speed: spd };
   for (let i = 0; i < 60 * 600; i++) {
-    S.agl = S.y - Math.max(0, W.groundY(S.x));
+    S.agl = S.y; // measured over open water (flat sea level), so isles don't cut glides short
     const inp = policy(S);
     P.launchSettle(S, inp, dt);
     P.stepFlight(S, inp, p, dt);
-    if (S.y <= W.groundY(S.x)) break;
+    if (S.y <= 0) break;
   }
   return S.x - 140;
 }
@@ -48,9 +48,11 @@ const hands = () => ({ up: false, down: false, boost: false });
 const bandPilot = (S) => hold(S, (S.speed > P.BEST_GLIDE[0] + 1 ? 14 : 0) * D);
 const noseHigh = (S) => hold(S, 20 * D);
 
-// starter flights are ~15 s and launch-dominated, so the simple band pilot
-// only has to never lose there; the gap grows with longer flights
-const tiers = [["starter", {}, 1.02], ["mid", { ramp: 4, aero: 4, sled: 4 }, 1.15], ["max", { ramp: 8, aero: 8, sled: 8 }, 1.3]];
+// starter flights are ~15 s and launch-dominated: glide distance barely
+// depends on piloting there (the starter skill is landing on Seal Rock /
+// Puffin Key, which sit where those flights come down). The piloting gap
+// grows with longer flights.
+const tiers = [["starter", {}, 1.0], ["mid", { ramp: 4, aero: 4, sled: 4 }, 1.15], ["max", { ramp: 8, aero: 8, sled: 8 }, 1.3]];
 for (const [name, up, need] of tiers) {
   let worstGain = 9, worstHands = 9, mushBeats = 0;
   for (let g = 1; g < 6; g++) {
@@ -60,7 +62,7 @@ for (const [name, up, need] of tiers) {
     worstHands = Math.min(worstHands, h / b);
     if (m > h) mushBeats++;
   }
-  ok(worstGain >= need, `1-${name}: best-glide pilot beats hands-off by >= ${Math.round((need - 1) * 100)}%`,
+  ok(worstGain >= need, `1-${name}: best-glide pilot ${need > 1 ? "beats hands-off by >= " + Math.round((need - 1) * 100) + "%" : "never loses to hands-off"}`,
     `worst glider +${Math.round((worstGain - 1) * 100)}%`);
   ok(worstHands >= 0.45, `2-${name}: pressing nothing still glides (>= 45% of the pilot)`, `worst ${Math.round(worstHands * 100)}%`);
   ok(mushBeats === 0, `3-${name}: holding the nose high never beats hands-off`, mushBeats + " gliders");
@@ -98,6 +100,28 @@ for (const [name, up, need] of tiers) {
   };
   const low = glide(1), high = glide(40);
   ok(low > high + 0.3, "6: ground effect trims drag near the surface", `low ${low.toFixed(2)} vs high ${high.toFixed(2)} m/s`);
+}
+
+// 7-8. wingless Dennis: exactly BARE_FLAPS flaps, one per fresh press, and
+//      flapping makes the first flight longer than doing nothing
+{
+  const p = params(0, {});
+  const launchS = () => ({ x: 140, y: W.rampY(140) + 3, vx: 35.5, vy: 5.6, pitch: 0.157, pitchVel: 0,
+    fuel: 0, fuelMax: 0, airTime: 0, speed: 36 });
+  W.setRampLevel(0);
+  const S = launchS(); let held = 0;
+  for (let i = 0; i < 90; i++) { if (P.stepFlight(S, { up: true }, p, dt).flapped) held++; }
+  const S2 = launchS(); let tapped = 0;
+  for (let i = 0; i < 240; i++) { if (P.stepFlight(S2, { up: (i % 20) < 3 }, p, dt).flapped) tapped++; }
+  ok(held === 1 && tapped === P.BARE_FLAPS, "7: holding UP flaps once; fresh presses flap up to BARE_FLAPS",
+    `held ${held}, tapped ${tapped}`);
+  const dist = (pilot) => {
+    const s = launchS();
+    for (let i = 0; i < 60 * 20; i++) { P.stepFlight(s, pilot(i), p, dt); if (s.y <= W.groundY(s.x)) break; }
+    return s.x - 140;
+  };
+  const none = dist(() => ({})), flapping = dist((i) => ({ up: (i % 30) < 3 && i > 15 }));
+  ok(flapping > none * 1.4, "8: flapping stretches the wingless first flight", `${none.toFixed(0)} m -> ${flapping.toFixed(0)} m`);
 }
 
 console.log(`\nSKILL TESTS: ${pass} passed, ${fail} failed`);

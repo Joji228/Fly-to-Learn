@@ -14,7 +14,7 @@ var FISH_VALUE = 4;
 var RING_KICK = 7;      // m/s added along the velocity vector
 var RING_HALF = 6.5;    // hoop half-height (m): generous, readable
 var FISH_R = 3.4;       // pickup radius (m)
-var COURSE_END = 4300;
+var COURSE_END = 5700;
 var BODY_Y = 4.5;       // S.y is the sled; Dennis's body sits this far above it
 
 function hash(n){ var x = Math.sin(n*91.7+13.3)*43758.5453; return x - Math.floor(x); }

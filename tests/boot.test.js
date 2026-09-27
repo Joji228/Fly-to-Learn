@@ -91,7 +91,7 @@ const DA = global.window.DA, Game = DA.Game;
 DA.Audio = {
   ensure() {}, setEnabled() {}, startMusic() {}, stopMusic() {},
   startWind() {}, stopWind() {}, stopBoost() {}, startBoost() {}, setWind() {},
-  SFX: { click() {}, denied() {}, purchase() {}, equip() {}, launch() {}, whoosh() {},
+  SFX: { click() {}, denied() {}, purchase() {}, equip() {}, launch() {}, whoosh() {}, flap() {},
     ignite() {}, stall() {}, milestone() {}, splash() {}, smooth() {}, impact() {},
     record() {}, fuelEmpty() {}, recover() {}, coin() {} }
 };
@@ -164,8 +164,11 @@ try {
   ok(Game.save.settings.sfx === true && Game.save.settings.music === true &&
     byId("btn-mute-hud").textContent === "🔊", "9b: unmute restores all sound");
 
-  // 10. rocket-less flight dims the fuel stat instead of flashing red
-  ok(byId("fuel-bar").parentNode.classList.contains("nobooster"), "10: fuel stat dimmed with no booster");
+  // 10. a wingless (fresh-save) flight shows Dennis's flaps in the fuel slot
+  //     instead of a dimmed "no booster" bar
+  ok(!byId("fuel-bar").parentNode.classList.contains("nobooster") &&
+    String(byId("fuel-label").textContent).indexOf("FLAPS") === 0, "10: wingless flight shows flaps in the fuel slot",
+    String(byId("fuel-label").textContent));
 
   // 11. crashed phase reads out the landing grade, not stale STALL/FLY
   Game.phase = "crashed";

@@ -162,12 +162,7 @@ function drawClouds(g, W, H, cam, zoom){
    Palm Isle ~1010-1210 m (fishing boats), Floe Berg ~1810-2060 m
    (icebergs), Gull Rock ~2810-3060 m (whale waters), City Isle ~3510-3960 m
    (the d3500 epic finally has a landing pad). */
-var ISLANDS = [
-  { x0:1150, x1:1350, h:6,  ice:false, name:"Palm Isle" },
-  { x0:1950, x1:2200, h:8,  ice:true,  name:"Floe Berg" },
-  { x0:2950, x1:3200, h:7,  ice:false, name:"Gull Rock" },
-  { x0:3650, x1:4100, h:10, ice:false, name:"City Isle" }
-];
+var ISLANDS = window.DA.ISLANDS; // table lives in config.js (objectives read it too)
 function islandH(x){
   for(var i=0;i<ISLANDS.length;i++){
     var isl = ISLANDS[i];
@@ -512,9 +507,11 @@ function shoreFoam(g, SX, SY, x, zoom, wt, dir){
   g.restore();
 }
 function drawIsland(g, SX, SY, isl, zoom, wt, viewX0, viewX1){
-  var pad = 30, depth = 22;
+  // the underwater base scales with the island (small rocks get a small base)
+  var wdt = isl.x1 - isl.x0, pad = Math.min(30, wdt*0.18), depth = Math.min(22, 6 + isl.h*1.6);
   var a0 = Math.max(viewX0, isl.x0 - pad), a1 = Math.min(viewX1, isl.x1 + pad);
-  var sand = isl.ice ? ["#ffffff", "#d6ebfb", "#9cc6ea"] : ["#f7e4b0", "#e6c283", "#b98a52"];
+  var sand = isl.ice ? ["#ffffff", "#d6ebfb", "#9cc6ea"]
+    : isl.kind === "rock" ? ["#b8c0cc", "#8a94a3", "#5f6978"] : ["#f7e4b0", "#e6c283", "#b98a52"];
   g.save();
   // submerged base (a wide skirt under the waterline), seen through water
   g.beginPath();
@@ -548,7 +545,7 @@ function drawIsland(g, SX, SY, isl, zoom, wt, viewX0, viewX1){
     g.closePath();
     g.fillStyle = ig; g.fill();
     // rim light along the top + wet band at the waterline
-    g.strokeStyle = isl.ice ? "rgba(255,255,255,0.95)" : "rgba(255,244,214,0.9)"; g.lineWidth = 2;
+    g.strokeStyle = isl.ice ? "rgba(255,255,255,0.95)" : isl.kind === "rock" ? "rgba(230,236,245,0.8)" : "rgba(255,244,214,0.9)"; g.lineWidth = 2;
     g.beginPath();
     for(var k=0;k<pts.length;k++){ var tx = SX(pts[k]), ty = SY(groundY(pts[k])); if(k) g.lineTo(tx, ty); else g.moveTo(tx, ty); }
     g.stroke();
@@ -621,6 +618,7 @@ function drawDetails(g, SX, SY, cam, W, H, zoom, S){
       sx = SX(jx); if(sx<-60||sx>W+60) continue;
       sy = SY(groundY(jx));
       if(isl.ice) drawShard(g, sx, sy, (0.8+hash(px+1)*0.5)*NS);
+      else if(isl.kind === "rock") drawRock(g, sx, sy, (0.7+hash(px+1)*0.5)*NS);
       else drawPalm(g, sx, sy, (0.8+hash(px+1)*0.5)*NS);
     }
   }
@@ -652,13 +650,42 @@ function drawDetails(g, SX, SY, cam, W, H, zoom, S){
     var gy2 = seaProp ? seaY(px0) : groundY(px0);
     if(pick) drawProp(g, sx2, SY(gy2), pick, PPM*zoom*0.32, wx);
   }
+  // Dodo Island: the golden dodo statue, the far legend
+  var dodoIsl = null;
+  for(var di=0; di<ISLANDS.length; di++) if(ISLANDS[di].name === "Dodo Island") dodoIsl = ISLANDS[di];
+  if(dodoIsl){
+    var stx = (dodoIsl.x0 + dodoIsl.x1)/2, ssx = SX(stx);
+    if(ssx > -260 && ssx < W + 260) drawLegendStatue(g, ssx, SY(groundY(stx)) + 3, PPM*zoom);
+  }
   // City Isle skyline
-  var city = ISLANDS[3];
-  [[city.x0 + 150, 11],[city.x0 + 235, 23],[city.x0 + 300, 37]].forEach(function(c){
+  var city = null;
+  for(var ci2=0; ci2<ISLANDS.length; ci2++) if(ISLANDS[ci2].name === "City Isle") city = ISLANDS[ci2];
+  if(city) [[city.x0 + 150, 11],[city.x0 + 235, 23],[city.x0 + 300, 37]].forEach(function(c){
     var csx = SX(c[0]);
     if(csx < -220 || csx > W + 220) return;
     drawProp(g, csx, SY(groundY(c[0])) + 2, "city", PPM*zoom*0.3, c[1]);
   });
+}
+/* The legend: a golden Dennis on a two-tier stone plinth (Dodo Island). */
+function drawLegendStatue(g, x, y, s){
+  var pw = 12*s, ph = 4.2*s, tw = 8.5*s, th = 3*s;
+  g.save();
+  var st = g.createLinearGradient(0, y - ph - th, 0, y);
+  st.addColorStop(0, "#d9dee6"); st.addColorStop(1, "#8e97a6");
+  g.fillStyle = st; g.strokeStyle = "#4a5160"; g.lineWidth = 2;
+  g.beginPath(); g.rect(x - pw/2, y - ph, pw, ph); g.fill(); g.stroke();
+  g.beginPath(); g.rect(x - tw/2, y - ph - th, tw, th); g.fill(); g.stroke();
+  g.fillStyle = "rgba(255,255,255,0.35)"; g.fillRect(x - pw/2 + 3, y - ph + 3, pw - 6, 3);
+  g.fillStyle = "#6b5a2a"; g.font = "900 " + Math.max(10, Math.round(s*1.7)) + "px Nunito, sans-serif";
+  g.textAlign = "center"; g.textBaseline = "middle";
+  g.fillText("DENNIS", x, y - ph/2);
+  // golden glow + the golden Dennis himself (drawn standing on the plinth)
+  var gl = g.createRadialGradient(x, y - ph - th - 10*s, s, x, y - ph - th - 10*s, 20*s);
+  gl.addColorStop(0, "rgba(255,214,10,0.35)"); gl.addColorStop(1, "rgba(255,214,10,0)");
+  g.fillStyle = gl; g.fillRect(x - 20*s, y - ph - th - 30*s, 40*s, 40*s);
+  g.restore();
+  drawDodo(g, x, y - ph - th, { pitch: 0.12, vx: 0, vy: 0, glider: 0, rocket: -1, sledLvl: 0, aeroLvl: 0, golden: true, statue: true },
+    s * 0.5, { anchorFeet: true });
 }
 function pickFor(x){
   if(x<500) return null;
@@ -1068,7 +1095,7 @@ function drawDodo(g, x, y, S, zoom, opts){
   g.beginPath(); g.ellipse(8, -10, 3.5, 1, -0.35, 0, Math.PI*2); g.fill();
 
   // near wing: bare Dennis flaps like mad, geared Dennis tucks + flutters
-  var flap = (gid === 0) ? Math.sin(T*0.05)*0.9 - 0.2
+  var flap = S.statue ? 0.15 : (gid === 0) ? Math.sin(T*0.05)*0.9 - 0.2
     : (stalled ? Math.sin(T*0.03)*0.5 : Math.sin(T*0.01)*0.08 + (boosting ? 0.25 : 0));
   g.save();
   g.translate(-1, -5); g.rotate(-flap);

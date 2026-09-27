@@ -80,7 +80,7 @@ function landAt(x, vx) {
   return { touch, sev, maxX, wet: !!(Game.crashedInfo && Game.crashedInfo.wet) };
 }
 {
-  const palm = W.ISLANDS[0];
+  const palm = W.ISLANDS.find((i) => i.name === "Palm Isle");
   let dryEnd = palm.x0; for (let x = palm.x0; x <= palm.x1; x += 0.25) if (!W.isWater(x)) dryEnd = x;
   const r = landAt(dryEnd - 4, 26);
   ok(r.sev === "smooth" && r.maxX <= dryEnd + 0.6 && r.wet, "2: rollout stops at the island's waterline",

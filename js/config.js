@@ -69,8 +69,33 @@ var UPGRADES = {
 /* Objectives are LIP-RELATIVE (0 at launch). Top tier sits just past what
    the tuning bots reach (~3.3 km) so it stays an epic-but-honest stretch
    goal for skilled pilots (~4 km), not a dead entry. */
+/* Downrange islands (WORLD x; the lip sits at x=140). The only dry land
+   past the shoreline at x=500, so they are the landing targets. Each is a
+   gentle sin^2 bump (max slope < 0.2) so a flared touchdown can grease it.
+   Small isles fill the gaps so every stage of progression has somewhere
+   to land: Seal Rock / Puffin Key for starter gliders, Kelp Cay mid-game,
+   Dodo Island as the far legend for skilled max-gear pilots. */
+var ISLANDS = [
+  { x0:610,  x1:690,  h:4.5, kind:"rock", name:"Seal Rock" },
+  { x0:860,  x1:960,  h:5.5, kind:"sand", name:"Puffin Key" },
+  { x0:1150, x1:1350, h:6,   kind:"sand", name:"Palm Isle" },
+  { x0:1600, x1:1720, h:5,   kind:"sand", name:"Kelp Cay" },
+  { x0:1950, x1:2200, h:8,   kind:"ice",  name:"Floe Berg" },
+  { x0:2950, x1:3200, h:7,   kind:"sand", name:"Gull Rock" },
+  { x0:3650, x1:4100, h:10,  kind:"sand", name:"City Isle" },
+  { x0:5250, x1:5650, h:12,  kind:"sand", name:"Dodo Island" }
+];
+ISLANDS.forEach(function(i){ i.ice = i.kind === "ice"; });
 // landing objectives judge the TOUCHDOWN point (rollout still adds to dist)
 function landAt(s){ return (typeof s.touchDist === "number") ? s.touchDist : s.dist; }
+function onIsle(s, name){
+  if(s.landing !== "smooth" || s.water) return false;
+  for(var i=0;i<ISLANDS.length;i++) if(ISLANDS[i].name === name){
+    var d = landAt(s) + 140; // back to world x
+    return d >= ISLANDS[i].x0 && d <= ISLANDS[i].x1;
+  }
+  return false;
+}
 var OBJECTIVES = [
   { id:"d250",  text:"Reach 250 m",            bonus:25,   check:function(s){ return s.dist>=250; } },
   { id:"d600",  text:"Reach 600 m",            bonus:70,   check:function(s){ return s.dist>=600; } },
@@ -78,6 +103,7 @@ var OBJECTIVES = [
   { id:"d2000", text:"Reach 2,000 m",          bonus:450,  check:function(s){ return s.dist>=2000; } },
   { id:"d3000", text:"Reach 3,000 m",          bonus:1100, check:function(s){ return s.dist>=3000; } },
   { id:"d3500", text:"Reach 3,500 m. Absurd.", bonus:2000, check:function(s){ return s.dist>=3500; } },
+  { id:"d5000", text:"Reach 5,000 m. Mythical.", bonus:3000, check:function(s){ return s.dist>=5000; } },
   { id:"a40",    text:"Climb above 40 m",       bonus:30,   check:function(s){ return s.maxAlt>=40; } },
   { id:"a100",   text:"Climb above 100 m",      bonus:100,  check:function(s){ return s.maxAlt>=100; } },
   { id:"a200",   text:"Climb above 200 m",      bonus:300,  check:function(s){ return s.maxAlt>=200; } },
@@ -93,10 +119,14 @@ var OBJECTIVES = [
   { id:"smooth800", text:"Smooth landing past 800 m", bonus:180, check:function(s){ return s.landing==="smooth" && !s.water && landAt(s)>=800; } },
   { id:"glide500", text:"Reach 500 m without boosting", bonus:120, check:function(s){ return s.dist>=500 && !s.boostUsed; } },
   { id:"streak3", text:"3 smooth landings in a row", bonus:250, check:function(s, save){ return !!(save && save.bestStreak>=3); } },
-  { id:"palm", text:"Grease a landing on Palm Isle", bonus:150, check:function(s){ return s.landing==="smooth" && !s.water && landAt(s)>=1010 && landAt(s)<=1210; } },
-  { id:"floe", text:"Grease a landing on Floe Berg", bonus:200, check:function(s){ return s.landing==="smooth" && !s.water && landAt(s)>=1810 && landAt(s)<=2060; } },
-  { id:"gull", text:"Grease a landing on Gull Rock", bonus:250, check:function(s){ return s.landing==="smooth" && !s.water && landAt(s)>=2810 && landAt(s)<=3060; } },
-  { id:"city", text:"Grease a landing on City Isle", bonus:350, check:function(s){ return s.landing==="smooth" && !s.water && landAt(s)>=3510 && landAt(s)<=3960; } }
+  { id:"seal", text:"Grease a landing on Seal Rock", bonus:90, check:function(s){ return onIsle(s, "Seal Rock"); } },
+  { id:"puffin", text:"Grease a landing on Puffin Key", bonus:120, check:function(s){ return onIsle(s, "Puffin Key"); } },
+  { id:"palm", text:"Grease a landing on Palm Isle", bonus:150, check:function(s){ return onIsle(s, "Palm Isle"); } },
+  { id:"kelp", text:"Grease a landing on Kelp Cay", bonus:180, check:function(s){ return onIsle(s, "Kelp Cay"); } },
+  { id:"floe", text:"Grease a landing on Floe Berg", bonus:200, check:function(s){ return onIsle(s, "Floe Berg"); } },
+  { id:"gull", text:"Grease a landing on Gull Rock", bonus:250, check:function(s){ return onIsle(s, "Gull Rock"); } },
+  { id:"city", text:"Grease a landing on City Isle", bonus:350, check:function(s){ return onIsle(s, "City Isle"); } },
+  { id:"legend", text:"Grease a landing on Dodo Island. Legendary.", bonus:2500, check:function(s){ return onIsle(s, "Dodo Island"); } }
 ];
 
 /* Milestone thresholds are LIP-RELATIVE (distance is measured from launch,
@@ -110,7 +140,8 @@ var MILESTONES = [
   { d:1060,  label:"🎣 Fishing boats — they wave" },
   { d:1860,  label:"🧊 Icebergs" },
   { d:2860,  label:"🐋 Whale watching you" },
-  { d:3660,  label:"🏙️ Distant city" }
+  { d:3660,  label:"🏙️ Distant city" },
+  { d:5200,  label:"🗿 Dodo Island — the legend" }
 ];
 
 var QUOTES = [
@@ -159,6 +190,7 @@ window.DA.FUEL_MULTS = FUEL_MULTS;
 window.DA.thrustMult = thrustMult;
 window.DA.NITRO_MULTS = NITRO_MULTS;
 window.DA.OBJECTIVES = OBJECTIVES;
+window.DA.ISLANDS = ISLANDS;
 window.DA.MILESTONES = MILESTONES;
 window.DA.QUOTES = QUOTES;
 window.DA.GOOD_QUOTES = GOOD_QUOTES;
