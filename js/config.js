@@ -69,6 +69,8 @@ var UPGRADES = {
 /* Objectives are LIP-RELATIVE (0 at launch). Top tier sits just past what
    the tuning bots reach (~3.3 km) so it stays an epic-but-honest stretch
    goal for skilled pilots (~4 km), not a dead entry. */
+// landing objectives judge the TOUCHDOWN point (rollout still adds to dist)
+function landAt(s){ return (typeof s.touchDist === "number") ? s.touchDist : s.dist; }
 var OBJECTIVES = [
   { id:"d250",  text:"Reach 250 m",            bonus:25,   check:function(s){ return s.dist>=250; } },
   { id:"d600",  text:"Reach 600 m",            bonus:70,   check:function(s){ return s.dist>=600; } },
@@ -88,13 +90,13 @@ var OBJECTIVES = [
   { id:"t60",    text:"Stay airborne 60 s. Legendary.", bonus:650, check:function(s){ return s.airTime>=60; } },
   { id:"fuel",   text:"Use all your fuel",      bonus:45,   check:function(s){ return s.usedAllFuel; } },
   { id:"smooth", text:"Grease a smooth landing", bonus:60,  check:function(s){ return s.landing==="smooth" && !s.water; } },
-  { id:"smooth800", text:"Smooth landing past 800 m", bonus:180, check:function(s){ return s.landing==="smooth" && !s.water && s.dist>=800; } },
+  { id:"smooth800", text:"Smooth landing past 800 m", bonus:180, check:function(s){ return s.landing==="smooth" && !s.water && landAt(s)>=800; } },
   { id:"glide500", text:"Reach 500 m without boosting", bonus:120, check:function(s){ return s.dist>=500 && !s.boostUsed; } },
   { id:"streak3", text:"3 smooth landings in a row", bonus:250, check:function(s, save){ return !!(save && save.bestStreak>=3); } },
-  { id:"palm", text:"Grease a landing on Palm Isle", bonus:150, check:function(s){ return s.landing==="smooth" && !s.water && s.dist>=1010 && s.dist<=1210; } },
-  { id:"floe", text:"Grease a landing on Floe Berg", bonus:200, check:function(s){ return s.landing==="smooth" && !s.water && s.dist>=1810 && s.dist<=2060; } },
-  { id:"gull", text:"Grease a landing on Gull Rock", bonus:250, check:function(s){ return s.landing==="smooth" && !s.water && s.dist>=2810 && s.dist<=3060; } },
-  { id:"city", text:"Grease a landing on City Isle", bonus:350, check:function(s){ return s.landing==="smooth" && !s.water && s.dist>=3510 && s.dist<=3960; } }
+  { id:"palm", text:"Grease a landing on Palm Isle", bonus:150, check:function(s){ return s.landing==="smooth" && !s.water && landAt(s)>=1010 && landAt(s)<=1210; } },
+  { id:"floe", text:"Grease a landing on Floe Berg", bonus:200, check:function(s){ return s.landing==="smooth" && !s.water && landAt(s)>=1810 && landAt(s)<=2060; } },
+  { id:"gull", text:"Grease a landing on Gull Rock", bonus:250, check:function(s){ return s.landing==="smooth" && !s.water && landAt(s)>=2810 && landAt(s)<=3060; } },
+  { id:"city", text:"Grease a landing on City Isle", bonus:350, check:function(s){ return s.landing==="smooth" && !s.water && landAt(s)>=3510 && landAt(s)<=3960; } }
 ];
 
 /* Milestone thresholds are LIP-RELATIVE (distance is measured from launch,

@@ -48,6 +48,18 @@ function rampProfile(k, S){
   return (a*k + b)*k*k;
 }
 
+/* S.x/S.y is Dennis's CONTACT point (the sled runners): collisions, the
+   ramp ride and rollout all use it, and the sprite is drawn standing on it.
+   The sled rides on the deck, then the kicker lifts it into the release
+   height over the last stretch of the ramp, so the launch height is
+   unchanged and continuous. BODY_Y is his body centre above the runners
+   (pickups and exhaust come from the body, not the sled). */
+var RIDE_Y = 2, LAUNCH_Y = 3, BODY_Y = 4.5; // the deck is drawn 2 m above the track line
+function rideLift(k){
+  var u = Math.max(0, Math.min(1, (k - 0.85) / 0.15));
+  return RIDE_Y + (LAUNCH_Y - RIDE_Y) * u*u*(3 - 2*u);
+}
+
 function derivedParams(up, gliderId, rocketId){
   var DA = window.DA;
   var G = (DA.GLIDERS && DA.GLIDERS[gliderId]) || DA.GLIDERS[0] ||
@@ -182,7 +194,7 @@ function startRun(){
   Game.rampLvl = up.ramp;
   window.DA.World.setRampLevel(up.ramp);
   Game.S = {
-    x: -60, y: window.DA.World.rampY(-60)+2,
+    x: -60, y: window.DA.World.rampY(-60)+rideLift(0),
     vx: 0, vy: 0, pitch: Math.atan(window.DA.World.rampSlopeY(-60)), pitchVel: 0, speed: 0,
     fuel: Game.P.fuelMax, fuelMax: Game.P.fuelMax,
     airTime: 0, hoverHeat: 0, // saturated-trim heater memory (physics-owned, per-flight)
@@ -267,7 +279,7 @@ function update(dt){
     var send = Game.P.launchSpeed * Math.cos(exitA) * Game.rampDur / RAMP_TRACK_LEN;
     var f = rampProfile(k, send);
     Game.S.x = -60 + RAMP_TRACK_LEN*f;
-    Game.S.y = DA.World.rampY(Game.S.x)+2;
+    Game.S.y = DA.World.rampY(Game.S.x)+rideLift(k);
     var slope = DA.World.rampSlopeY(Game.S.x);
     Game.S.pitch = Math.atan(slope);
     Game.S.pitchVel = 0;
@@ -294,7 +306,7 @@ function update(dt){
       Game.S.pitch = exit;
       Game.S.pitchVel = 0;
       Game.S.speed = Game.P.launchSpeed;
-      Game.S.y = DA.World.rampY(Game.S.x)+3;
+      Game.S.y = DA.World.rampY(Game.S.x)+LAUNCH_Y;
       Game.shake = Game.save.settings.shake ? 0.3 : 0;
       if(!reducedMotion()) Game.zoomPunch = 1; // brief FOV kick as the sled leaves the lip
       if(window.DA.UI) window.DA.UI.onLaunch();
@@ -363,7 +375,7 @@ function update(dt){
     // exhaust + trail: emitted from the tail (4m behind the nose), backwards
     // along it. (S.pitch is authoritative: the same angle thrust uses.)
     var nx = Math.cos(Game.S.pitch), ny = Math.sin(Game.S.pitch);
-    var tailX = Game.S.x - nx*4, tailY = Game.S.y - ny*4;
+    var tailX = Game.S.x - nx*4, tailY = Game.S.y + BODY_Y - ny*4;
     if(res.boosting && Game.save.settings.particles){
       for(var i=0;i<3;i++)
         Game.particles.spawn({x:tailX, y:tailY,
@@ -409,7 +421,19 @@ function update(dt){
     var ci = Game.crashedInfo || {};
     if(!ci.water){
       // snow: roll/slide out with friction; rollout distance still counts!
-      Game.S.x += Game.S.vx*dt;
+      // The slide ends at the waterline (island end or the shoreline) with
+      // a splash, instead of skating out across the sea.
+      var nextX = Game.S.x + Game.S.vx*dt;
+      if(Game.S.vx > 0 && DA.World.isWater(nextX) && !DA.World.isWater(Game.S.x)){
+        Game.S.vx = 0;
+        if(!ci.wet){
+          ci.wet = true;
+          DA.Audio.SFX.splash(0);
+          if(Game.save.settings.particles)
+            Game.particles.burst(Game.S.x + 1, DA.World.groundY(Game.S.x) + 0.5, 14,
+              {speed:16, life:0.7, size:3, colors:["#caf0f8","#90e0ef","#ffffff"], grav:55, vy:10});
+        }
+      } else Game.S.x = nextX;
       Game.S.vx *= Math.max(0, 1-(Game.rollFriction||2.2)*dt);
       Game.S.y = DA.World.groundY(Game.S.x);
       Game.runStats.dist = Math.max(Game.runStats.dist, flightDist());
@@ -495,7 +519,7 @@ function collectPickups(prevX, dt){
     if(!reducedMotion()) Game.zoomPunch = Math.max(Game.zoomPunch, 0.8);
     if(Game.save.settings.shake) Game.shake = Math.max(Game.shake, 0.15);
     if(Game.save.settings.particles)
-      Game.particles.burst(Game.S.x, Game.S.y, 16, {speed:26, life:0.55, size:2.6, colors:["#3df2d6","#ffffff","#b8fff4"]});
+      Game.particles.burst(Game.S.x, Game.S.y + BODY_Y, 16, {speed:26, life:0.55, size:2.6, colors:["#3df2d6","#ffffff","#b8fff4"]});
     if(DA.UI) DA.UI.floatText("💨 GUST! +" + DA.Pickups.RING_KICK + " m/s", "#3df2d6");
   }
 }
@@ -503,6 +527,7 @@ function collectPickups(prevX, dt){
 function crash(gy){
   var DA = window.DA;
   Game.S.y = gy;
+  Game.runStats.touchDist = flightDist(); // where the wheels met the ground (rollout adds to dist)
   clearInputs(); // a held SPACE must not stick into the results screen
   var impactVy = -Game.S.vy; // positive = downward
   var speed = Game.S.speed;
@@ -660,7 +685,7 @@ function finishRun(){
    Backlog beyond 5 slices in one frame is dropped (spiral-of-death guard
    for heavy hitches — the sim slows instead of freezing). */
 var STEP = 1/60;
-var MAX_STEPS = 6;
+var MAX_STEPS = 10;
 // Game speed: the sim runs a touch faster than the wall clock, so dives,
 // arcs and glides read snappy instead of floaty. Distances, fuel and
 // economy are unchanged (they live in sim time); only pacing speeds up.

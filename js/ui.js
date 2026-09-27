@@ -404,7 +404,7 @@ function onRecord(){
 }
 
 /* ---------- SPEEDOMETER (bottom-right arcade gauge) ---------- */
-var SP_MAX = 400; // gauge face range; numbers never clamp, needle pins instead
+var SP_MAX = 500; // gauge face range (top-tier redline is ~454 km/h); numbers never clamp, needle pins instead
 var spBuilt = false, spRedKey = "";
 function spAngle(frac){ return (135 + 270 * Math.max(0, Math.min(1, frac))) * Math.PI / 180; }
 function spPoint(frac, r){

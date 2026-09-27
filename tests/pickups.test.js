@@ -41,7 +41,7 @@ ok(C.fish.every((f) => f.x > 150), "6: no fish on the ramp");
 {
   const st = PK.newRun();
   const f = C.fish[0];
-  const S = { x: f.x - 1, y: f.y, vx: 30, vy: 0, speed: 30 };
+  const S = { x: f.x - 1, y: f.y - PK.BODY_Y, vx: 30, vy: 0, speed: 30 };
   let ev = PK.step(st, S, f.x - 2, 1 / 60);
   const first = ev.fish;
   ev = PK.step(st, S, f.x - 2, 1 / 60);
@@ -52,13 +52,13 @@ ok(C.fish.every((f) => f.x > 150), "6: no fish on the ramp");
 {
   const st = PK.newRun();
   const R = C.rings[0];
-  const S = { x: R.x + 0.2, y: R.y, vx: 24, vy: -7, speed: 25 };
+  const S = { x: R.x + 0.2, y: R.y - PK.BODY_Y, vx: 24, vy: -7, speed: 25 };
   const sp0 = Math.hypot(S.vx, S.vy), ang0 = Math.atan2(S.vy, S.vx);
   const ev = PK.step(st, S, R.x - 0.3, 1 / 60);
   const sp1 = Math.hypot(S.vx, S.vy), ang1 = Math.atan2(S.vy, S.vx);
   ok(ev.ring && Math.abs(sp1 - sp0 - PK.RING_KICK) < 1e-9 && Math.abs(ang1 - ang0) < 1e-9,
     "8: ring kick is +RING_KICK along the path", `+${(sp1 - sp0).toFixed(2)} m/s`);
-  const again = PK.step(st, { x: R.x + 0.2, y: R.y, vx: 24, vy: -7 }, R.x - 0.3, 1 / 60);
+  const again = PK.step(st, { x: R.x + 0.2, y: R.y - PK.BODY_Y, vx: 24, vy: -7 }, R.x - 0.3, 1 / 60);
   ok(!again.ring, "9: a ring pays once per flight");
 }
 
@@ -66,7 +66,7 @@ ok(C.fish.every((f) => f.x > 150), "6: no fish on the ramp");
 {
   const st = PK.newRun();
   const R = C.rings[1];
-  const S = { x: R.x + 0.2, y: R.y + PK.RING_HALF + 3, vx: 30, vy: 0 };
+  const S = { x: R.x + 0.2, y: R.y - PK.BODY_Y + PK.RING_HALF + 3, vx: 30, vy: 0 };
   ok(!PK.step(st, S, R.x - 0.3, 1 / 60).ring, "10: flying over a ring does not trigger it");
 }
 

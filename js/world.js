@@ -283,8 +283,10 @@ function drawScene(g, W, H, cam, zoom, S, opts){
   var PK = window.DA.Pickups;
   if(opts.pickups && PK){ try{ PK.drawBack(g, SX, SY, zoom, opts.pickups, W, H); }catch(e){} }
 
-  // Dennis — drawn in screen px at his own decoupled scale
+  // Dennis — drawn in screen px at his own decoupled scale, standing on the
+  // contact point (his sled runners are exactly where collisions happen)
   var ps = opts.playerScale || zoom;
+  opts.anchorFeet = true;
   drawDodo(g, SX(S.x), SY(S.y), S, ps, opts);
   if(opts.pickups && PK){ try{ PK.drawFront(g, SX, SY, zoom, opts.pickups, W); }catch(e){} }
 }
@@ -917,6 +919,7 @@ function drawRamp(g, SX, SY, zoom){
    body, big bare-faced head, bulbous hooked beak, curly tail plume, stubby
    wing, sturdy yellow legs. The red scarf is Dennis's signature. */
 var DODO_INK = "#1f2235";
+var DODO_FOOT = 21; // sled runner bottom, in Dennis's unit space
 function dodoBodyPath(g){
   g.beginPath();
   g.moveTo(12, -8);
@@ -963,7 +966,9 @@ function drawDodo(g, x, y, S, zoom, opts){
   var gid = S.glider||0;
   var T = Date.now();
   g.save();
-  g.translate(x, y);
+  // anchorFeet: (x,y) is the sled contact point, so lift the sprite by the
+  // runner depth (21 units) before rotating about the body centre
+  g.translate(x, y - (opts.anchorFeet ? DODO_FOOT * zoom : 0));
   g.rotate(-(S.pitch || 0));
   var sq = Math.min(0.08, speed*0.0014);            // squash & stretch with speed
   g.scale(1+sq, 1-sq*0.8);
