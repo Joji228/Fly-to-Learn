@@ -135,7 +135,7 @@ function switchMode(){
 }
 function exportSave(){
   try{
-    var blob = new Blob([window.DA.Save.exportJSON()], { type: "application/json" });
+    var blob = new Blob([window.DA.Save.exportJSON(save)], { type: "application/json" });
     var a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "dodo-airways-" + window.DA.Save.getMode() + ".json";
@@ -302,6 +302,13 @@ function setText(id, v){
   var el = $(id);
   if(el) el.textContent = v;
 }
+// same cache for per-frame SVG attributes (speedo needle + progress arc)
+function setAttr(el, key, attr, v){
+  var k = key + "@" + attr;
+  if(_hudCache[k] === v) return;
+  _hudCache[k] = v;
+  el.setAttribute(attr, v);
+}
 function updateHUD(){
   var G = window.DA.Game;
   if(!G.S) return;
@@ -467,7 +474,7 @@ function updateSpeedo(G){
   var spdKmh = Math.round((G.S.speed||0)*3.6);
   var num = $("sp-number");
   if(num){
-    num.textContent = String(spdKmh);
+    setText("sp-number", String(spdKmh));
     // punch the number on rapid gains (dopamine for diving/boosting)
     if(G._lastSpd !== undefined && spdKmh - G._lastSpd > 6 && G.phase === "fly"){
       num.classList.remove("punch"); void num.offsetWidth; num.classList.add("punch");
@@ -484,10 +491,10 @@ function updateSpeedo(G){
   if(needle && needle.setAttribute){
     var deg = -135 + 270 * frac;
     if(boosting && disp > 40) deg += (Math.random()-0.5) * 2.4; // faint boost tremble
-    needle.setAttribute("transform", "rotate(" + deg.toFixed(1) + " 90 90)");
+    setAttr(needle, "sp-needle", "transform", "rotate(" + deg.toFixed(1) + " 90 90)");
   }
   var prog = $("sp-prog");
-  if(prog && prog.setAttribute) prog.setAttribute("stroke-dasharray", (frac*100).toFixed(1) + " 100");
+  if(prog && prog.setAttribute) setAttr(prog, "sp-prog", "stroke-dasharray", (frac*100).toFixed(1) + " 100");
   // redline zone follows the equipped glider (rebuilt only when it changes).
   // comfort/top are m/s; the gauge face is km/h, so convert (was unit bug).
   if(G.P){

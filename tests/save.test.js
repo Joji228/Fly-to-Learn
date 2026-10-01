@@ -112,5 +112,26 @@ function clear() { for (const k in store) delete store[k]; }
   global.localStorage.setItem = realSet;
 }
 
+// 9. export/import still work when the browser refuses storage (the boot
+//    toast sends exactly these players to Export): export serializes the
+//    live save, import sanitizes straight from the file
+{
+  clear();
+  DA.Save.setMode("campaign");
+  const realGet = global.localStorage.getItem, realSet = global.localStorage.setItem;
+  global.localStorage.getItem = () => { throw new Error("denied"); };
+  global.localStorage.setItem = () => { throw new Error("denied"); };
+  const live = DA.Save.load();
+  live.money = 4321; live.flights = 9; live.glider.owned[1] = true; live.glider.equipped = 1;
+  const out = JSON.parse(DA.Save.exportJSON(live));
+  ok(out.money === 4321 && out.flights === 9 && out.version === 2, "9a: export writes the live save without storage");
+  const back = DA.Save.importJSON(JSON.stringify(out));
+  ok(back.money === 4321 && back.flights === 9 && back.glider.equipped === 1,
+    "9b: import loads the file without storage", `$${back.money}`);
+  const junk = DA.Save.importJSON(JSON.stringify({ version: 2, money: 1e15, objectivesDone: ["d250", "<img>"] }));
+  ok(junk.money === 999999999 && junk.objectivesDone.join() === "d250", "9c: storage-free import still sanitizes");
+  global.localStorage.getItem = realGet; global.localStorage.setItem = realSet;
+}
+
 console.log(`\nSAVE TESTS: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

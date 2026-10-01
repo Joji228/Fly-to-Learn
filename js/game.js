@@ -35,6 +35,7 @@ function reducedMotion(){
    so the readout starts at 0 at launch and milestones, landing and the
    HUD all share the same origin. */
 var LAUNCH_X = 140;
+var RECORD_MIN = 50; // records ignore trivial hops (in flight AND on the results screen)
 function flightDist(){ return Game.S ? Math.max(0, Game.S.x - LAUNCH_X) : 0; }
 
 /* Ramp ride profile: cubic position fraction f(k), k = ride progress 0..1.
@@ -118,9 +119,29 @@ function uiOverlayOpen(){
 // reach for up/down first, so both layouts steer).
 function isUpKey(c){ return c==="ArrowLeft"||c==="KeyA"||c==="ArrowUp"||c==="KeyW"; }
 function isDownKey(c){ return c==="ArrowRight"||c==="KeyD"||c==="ArrowDown"||c==="KeyS"; }
+// Keyboard menus: a focused control keeps its own Enter/Space outside live
+// flight (menus, shop, pause). Enter used to launch a flight from ANY focused
+// menu button (Tab to Stats + Enter = takeoff), and Space could never tick a
+// settings checkbox or press a button. Live flight still owns both keys.
+function nativeKey(e){
+  if(!(e.code==="Space"||e.code==="Enter")) return false;
+  if((Game.phase==="ramp"||Game.phase==="fly"||Game.phase==="crashed") && !Game.paused) return false;
+  var t = e.target;
+  return !!(t && t.closest && t.closest("button, input, select, textarea, a[href]"));
+}
 function bindInput(){
   window.addEventListener("keydown", function(e){
-    if(e.repeat){ if(capturesKey(e.code)) e.preventDefault(); return; }
+    if(nativeKey(e)){ window.DA.Audio.ensure(); return; }
+    if(e.repeat){
+      // a key still held after pause/resume, blur or a fresh launch had its
+      // input cleared: auto-repeat re-arms it instead of leaving it dead
+      // until re-pressed (P/ESC/Enter repeats stay ignored)
+      if(isUpKey(e.code)) Game.input.up = true;
+      else if(isDownKey(e.code)) Game.input.down = true;
+      else if(e.code==="Space") Game.input.boost = true;
+      if(capturesKey(e.code)) e.preventDefault();
+      return;
+    }
     if(isUpKey(e.code)) Game.input.up = true;
     else if(isDownKey(e.code)) Game.input.down = true;
     else if(e.code==="Space"){ Game.input.boost = true; e.preventDefault(); }
@@ -335,8 +356,9 @@ function update(dt){
       }
     }
 
-    // record?
-    if(!Game.bestBeaten && st.dist > Game.save.best.dist && Game.save.best.dist>0){
+    // record? (same >RECORD_MIN gate as the results screen, so a short
+    // bare-dodo hop never cheers NEW RECORD in flight and then isn't one)
+    if(!Game.bestBeaten && st.dist > RECORD_MIN && st.dist > Game.save.best.dist && Game.save.best.dist>0){
       Game.bestBeaten = true;
       if(window.DA.UI) window.DA.UI.onRecord();
     }
@@ -649,7 +671,7 @@ function finishRun(){
   Game.save.totalEarned += rw.total;
   Game.save.flights += 1;
   // records ignore trivial hops (best still tracks them via max below)
-  var isRecord = st.dist > 50 && st.dist > Game.save.best.dist;
+  var isRecord = st.dist > RECORD_MIN && st.dist > Game.save.best.dist;
   Game.save.best.dist = Math.max(Game.save.best.dist, st.dist);
   Game.save.best.alt = Math.max(Game.save.best.alt, st.maxAlt);
   Game.save.best.speedKmh = Math.max(Game.save.best.speedKmh, st.maxSpeedKmh);
@@ -674,7 +696,7 @@ function finishRun(){
    always advances in exact STEP slices, no matter the display refresh rate.
    Inputs are sampled once per slice, so identical input schedules produce
    identical flights at 20/30/60/120 FPS. Rendering/HUD still run every rAF.
-   Backlog beyond 5 slices in one frame is dropped (spiral-of-death guard
+   Backlog beyond MAX_STEPS slices in one frame is dropped (spiral-of-death guard
    for heavy hitches — the sim slows instead of freezing). */
 var STEP = 1/60;
 var MAX_STEPS = 10;

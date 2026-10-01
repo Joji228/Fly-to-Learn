@@ -109,6 +109,7 @@ Plain HTML, CSS and JavaScript on a `<canvas>`. There are no frameworks, no buil
 
 ## Changelog
 
+- **1.0.1:** Audit fixes: keyboard menus work (Enter on a focused button no longer launches a flight instead; Space ticks checkboxes and presses buttons), Export/Import work in browsers that block saving, no burst of queued music notes on the first click, the in-flight NEW RECORD cheer matches the results screen, a key held through pause/resume keeps steering, and the speedometer skips redundant per-frame writes.
 - **1.0:** Flight model overhaul after a physics audit. Piloting now matters: every glider has a best-glide speed shown as a green band, and holding the nose high "mushes". Finer tap steering, ground effect, and a gentle nose settle after launch. Dennis now stands on the collision point (no more sinking into the ramp or snow), and rollouts stop at the waterline. New islands (Seal Rock, Puffin Key, Kelp Cay, Dodo Island), flaps for the first wingless flight, and a retuned economy.
 - **0.11:** Audit fixes: resume/menu/shop entry drops button focus (stale Space/Enter can no longer re-fire pause buttons mid-flight), results grid blowout guard, dead CSS classes removed, focus regression tests.
 - **0.10:** Audit fixes: readable results screen (longer beat before the shop, no Enter double-launch), boost-audio node cleanup, HUD write savings, save-import hardening (objective allowlist, wallet caps), stale speedo needle reset.

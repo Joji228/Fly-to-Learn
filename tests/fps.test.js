@@ -138,6 +138,47 @@ console.log(`FPS part 1 done: ${pass} passed, ${fail} failed`);
   ok(Game.input.boost === true, "K5: Space arms booster");
   ku(key("Space"));
   ok(Game.input.boost === false, "K6: release clears booster (no stuck input)");
+
+  // keyboard menus: a focused control keeps its own Enter/Space outside
+  // live flight (Enter on a focused Stats button used to launch a flight;
+  // Space could never tick a settings checkbox)
+  let enters = 0;
+  const realEnter = DA.UI.enterPressed;
+  DA.UI.enterPressed = () => { enters++; };
+  const onBtn = (code) => {
+    const e = { code, repeat: false, prevented: false, preventDefault() { this.prevented = true; },
+      target: { closest: (sel) => (/button/.test(sel) ? {} : null) } };
+    return e;
+  };
+  Game.phase = "menu"; Game.paused = false; Game.input.boost = false;
+  let ev = onBtn("Enter"); kd(ev);
+  ok(enters === 0 && !ev.prevented, "K7: Enter on a focused menu button stays that button's click");
+  ev = onBtn("Space"); kd(ev);
+  ok(!ev.prevented && Game.input.boost === false, "K8: Space on a focused menu control is not swallowed");
+  kd(key("Enter"));
+  ok(enters === 1, "K9: Enter with nothing focused still launches from the menu");
+  Game.phase = "fly";
+  ev = onBtn("Space"); kd(ev);
+  ok(ev.prevented && Game.input.boost === true, "K10: live flight still owns Space even if a button kept focus");
+  ku(key("Space"));
+  Game.paused = true;
+  ev = onBtn("Space"); kd(ev);
+  ok(!ev.prevented && Game.input.boost === false, "K11: paused, Space presses the focused pause-menu button");
+  Game.paused = false;
+  DA.UI.enterPressed = realEnter;
+
+  // a key held through pause/resume re-arms on auto-repeat instead of
+  // staying dead until re-pressed
+  Game.phase = "fly"; Game.paused = false;
+  kd(key("KeyW"));
+  ok(Game.input.up === true, "K12: W lifts the nose");
+  kd(key("KeyP")); kd(key("KeyP")); // pause clears inputs, resume
+  ok(Game.input.up === false, "K13: pause released the held key");
+  kd({ code: "KeyW", repeat: true, preventDefault() {} });
+  ok(Game.input.up === true, "K14: auto-repeat of the still-held W re-arms it");
+  ku(key("KeyW"));
+  kd({ code: "KeyP", repeat: true, preventDefault() {} });
+  ok(Game.paused === false, "K15: a held P never toggles pause on repeat");
 }
 
 console.log(`\nFPS TESTS: ${pass} passed, ${fail} failed`);

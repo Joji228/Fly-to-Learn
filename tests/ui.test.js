@@ -148,5 +148,28 @@ DA.Game.phase = "results";
 DA.UI.showShop();
 ok(blurs === 2 && DA.Game.phase === "shop", "8b: showShop blurs the focused control");
 
+// 9. speedometer writes only when a value changes (it runs every rAF)
+{
+  let attrWrites = 0;
+  ["sp-needle", "sp-prog"].forEach((id) => {
+    els[id] = els[id] || wire(mkEl(id));
+    els[id].setAttribute = () => { attrWrites++; };
+  });
+  let textWrites = 0, txt = "";
+  const num = els["sp-number"] = wire(mkEl("sp-number"));
+  Object.defineProperty(num, "textContent", { get: () => txt, set: (v) => { textWrites++; txt = v; } });
+  const G = { phase: "fly", S: { x: 400, y: 20, speed: 30, pitch: 0, boosting: false, fuel: 0, fuelMax: 0 },
+    P: { comfort: 30, top: 50, thrust: 0 }, runStats: { fish: 0 } };
+  DA.Game = Object.assign(DA.Game, G);
+  for (let i = 0; i < 40; i++) DA.UI.updateHUD(); // needle settles on a steady speed
+  const a0 = attrWrites, t0 = textWrites;
+  for (let i = 0; i < 20; i++) DA.UI.updateHUD();
+  ok(attrWrites === a0 && textWrites === t0, "9a: steady speed rewrites nothing",
+    `attr+${attrWrites - a0} text+${textWrites - t0}`);
+  DA.Game.S.speed = 45;
+  DA.UI.updateHUD();
+  ok(attrWrites > a0 && txt === "162", "9b: a speed change still updates the gauge", `text=${txt}`);
+}
+
 console.log(`\nUI TESTS: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
