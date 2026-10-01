@@ -49,27 +49,21 @@ function rampProfile(k, S){
   return (a*k + b)*k*k;
 }
 
-function derivedParams(up, gliderId, rocketId){
-  var DA = window.DA;
-  var G = (DA.GLIDERS && DA.GLIDERS[gliderId]) || DA.GLIDERS[0] ||
-    { control:1.5, drag:0.06, turnK:0.12, comfort:28, top:45, stall:11 };
-  var R = (DA.ROCKETS && rocketId >= 0) ? DA.ROCKETS[rocketId] : null;
-  var aero = up.aero || 0;
-  return {
-    bare: gliderId === 0, // NO GLIDER = NO GLIDING (falling-body flight mode)
-    sinkBias: G.sink || 0, // mandatory glide sink: nose-level never means path-level
-    control: G.control,
-    drag: G.drag * (1 - 0.055 * aero), // aero shaves body drag, honestly stacked
-    turnK: G.turnK,
-    comfort: G.comfort + aero * 1.5,
-    top: G.top + aero * 2,
-    stall: G.stall,
-    thrust: R ? R.thrust * DA.thrustMult(up.nitro || 0) : 0, // nitro: every rocket punches harder
-    fuelMax: R ? R.burn * DA.fuelMult(up.fuel || 0) : 0, // tank upgrade stretches every rocket
-    launchSpeed: DA.launchSpeed(up.ramp, up.sled),
-    launchAngle: DA.launchAngleDeg(up.ramp) * Math.PI/180
-  };
+/* S.x/S.y is Dennis's CONTACT point (the sled runners): collisions, the
+   ramp ride and rollout all use it, and the sprite is drawn standing on it.
+   The sled rides on the deck, then the kicker lifts it into the release
+   height over the last stretch of the ramp, so the launch height is
+   unchanged and continuous. BODY_Y is his body centre above the runners
+   (pickups and exhaust come from the body, not the sled). */
+var RIDE_Y = 2, LAUNCH_Y = 3, BODY_Y = 4.5; // the deck is drawn 2 m above the track line
+function rideLift(k){
+  var u = Math.max(0, Math.min(1, (k - 0.85) / 0.15));
+  return RIDE_Y + (LAUNCH_Y - RIDE_Y) * u*u*(3 - 2*u);
 }
+
+// derivedParams (glider + rocket + upgrades -> flight params) lives in
+// gliders.js so the tuning sims share the exact same numbers.
+var derivedParams = function(up, gid, rid){ return window.DA.derivedParams(up, gid, rid); };
 
 function init(canvas, save, particles){
   Game.canvas = canvas; Game.g = canvas.getContext("2d");
@@ -203,7 +197,7 @@ function startRun(){
   Game.rampLvl = up.ramp;
   window.DA.World.setRampLevel(up.ramp);
   Game.S = {
-    x: -60, y: window.DA.World.rampY(-60)+2,
+    x: -60, y: window.DA.World.rampY(-60)+rideLift(0),
     vx: 0, vy: 0, pitch: Math.atan(window.DA.World.rampSlopeY(-60)), pitchVel: 0, speed: 0,
     fuel: Game.P.fuelMax, fuelMax: Game.P.fuelMax,
     airTime: 0, hoverHeat: 0, // saturated-trim heater memory (physics-owned, per-flight)
@@ -288,7 +282,7 @@ function update(dt){
     var send = Game.P.launchSpeed * Math.cos(exitA) * Game.rampDur / RAMP_TRACK_LEN;
     var f = rampProfile(k, send);
     Game.S.x = -60 + RAMP_TRACK_LEN*f;
-    Game.S.y = DA.World.rampY(Game.S.x)+2;
+    Game.S.y = DA.World.rampY(Game.S.x)+rideLift(k);
     var slope = DA.World.rampSlopeY(Game.S.x);
     Game.S.pitch = Math.atan(slope);
     Game.S.pitchVel = 0;
@@ -315,7 +309,7 @@ function update(dt){
       Game.S.pitch = exit;
       Game.S.pitchVel = 0;
       Game.S.speed = Game.P.launchSpeed;
-      Game.S.y = DA.World.rampY(Game.S.x)+3;
+      Game.S.y = DA.World.rampY(Game.S.x)+LAUNCH_Y;
       Game.shake = Game.save.settings.shake ? 0.3 : 0;
       if(!reducedMotion()) Game.zoomPunch = 1; // brief FOV kick as the sled leaves the lip
       if(window.DA.UI) window.DA.UI.onLaunch();
@@ -323,8 +317,18 @@ function update(dt){
   }
   else if(Game.phase === "fly"){
     var prevX = Game.S.x;
+    // ground effect needs height above the surface; the launch settle eases
+    // the nose to a glide attitude until the pilot first touches pitch
+    Game.S.agl = Game.S.y - Math.max(0, DA.World.groundY(Game.S.x));
+    DA.Physics.launchSettle(Game.S, Game.input, dt);
     var res = DA.Physics.stepFlight(Game.S, Game.input, Game.P, dt);
     Game.S.boosting = res.boosting;
+    Game.S.mushing = res.mushing && !res.stalled;
+    if(res.flapped){
+      DA.Audio.SFX.flap();
+      if(Game.save.settings.particles)
+        Game.particles.burst(Game.S.x - 1, Game.S.y + BODY_Y - 1, 6, {speed:10, life:0.7, size:2.2, colors:["#8d9dc3","#b9c6e2","#ffffff"], grav:12, vy:-4});
+    }
     if(Game.pk && DA.Pickups) collectPickups(prevX, dt);
     Game.S.stalled = res.stalled;
     if(res.stalled && !Game.stallWarned){ Game.stallWarned = true; DA.Audio.SFX.stall(); }
@@ -385,7 +389,7 @@ function update(dt){
     // exhaust + trail: emitted from the tail (4m behind the nose), backwards
     // along it. (S.pitch is authoritative: the same angle thrust uses.)
     var nx = Math.cos(Game.S.pitch), ny = Math.sin(Game.S.pitch);
-    var tailX = Game.S.x - nx*4, tailY = Game.S.y - ny*4;
+    var tailX = Game.S.x - nx*4, tailY = Game.S.y + BODY_Y - ny*4;
     if(res.boosting && Game.save.settings.particles){
       for(var i=0;i<3;i++)
         Game.particles.spawn({x:tailX, y:tailY,
@@ -431,11 +435,19 @@ function update(dt){
     var ci = Game.crashedInfo || {};
     if(!ci.water){
       // snow: roll/slide out with friction; rollout distance still counts!
-      // ...but only on land: a touchdown near the shoreline or an island's
-      // far beach used to slide straight out across the sea surface.
-      var rollX = Game.S.x + Game.S.vx*dt;
-      if(DA.World.isWater(rollX)) Game.S.vx = 0;
-      else Game.S.x = rollX;
+      // The slide ends at the waterline (island end or the shoreline) with
+      // a splash, instead of skating out across the sea.
+      var nextX = Game.S.x + Game.S.vx*dt;
+      if(Game.S.vx > 0 && DA.World.isWater(nextX) && !DA.World.isWater(Game.S.x)){
+        Game.S.vx = 0;
+        if(!ci.wet){
+          ci.wet = true;
+          DA.Audio.SFX.splash(0);
+          if(Game.save.settings.particles)
+            Game.particles.burst(Game.S.x + 1, DA.World.groundY(Game.S.x) + 0.5, 14,
+              {speed:16, life:0.7, size:3, colors:["#caf0f8","#90e0ef","#ffffff"], grav:55, vy:10});
+        }
+      } else Game.S.x = nextX;
       Game.S.vx *= Math.max(0, 1-(Game.rollFriction||2.2)*dt);
       Game.S.y = DA.World.groundY(Game.S.x);
       Game.runStats.dist = Math.max(Game.runStats.dist, flightDist());
@@ -521,7 +533,7 @@ function collectPickups(prevX, dt){
     if(!reducedMotion()) Game.zoomPunch = Math.max(Game.zoomPunch, 0.8);
     if(Game.save.settings.shake) Game.shake = Math.max(Game.shake, 0.15);
     if(Game.save.settings.particles)
-      Game.particles.burst(Game.S.x, Game.S.y, 16, {speed:26, life:0.55, size:2.6, colors:["#3df2d6","#ffffff","#b8fff4"]});
+      Game.particles.burst(Game.S.x, Game.S.y + BODY_Y, 16, {speed:26, life:0.55, size:2.6, colors:["#3df2d6","#ffffff","#b8fff4"]});
     if(DA.UI) DA.UI.floatText("💨 GUST! +" + DA.Pickups.RING_KICK + " m/s", "#3df2d6");
   }
 }
@@ -529,6 +541,7 @@ function collectPickups(prevX, dt){
 function crash(gy){
   var DA = window.DA;
   Game.S.y = gy;
+  Game.runStats.touchDist = flightDist(); // where the wheels met the ground (rollout adds to dist)
   clearInputs(); // a held SPACE must not stick into the results screen
   var impactVy = -Game.S.vy; // positive = downward
   var speed = Game.S.speed;
@@ -686,7 +699,7 @@ function finishRun(){
    Backlog beyond MAX_STEPS slices in one frame is dropped (spiral-of-death guard
    for heavy hitches — the sim slows instead of freezing). */
 var STEP = 1/60;
-var MAX_STEPS = 6;
+var MAX_STEPS = 10;
 // Game speed: the sim runs a touch faster than the wall clock, so dives,
 // arcs and glides read snappy instead of floaty. Distances, fuel and
 // economy are unchanged (they live in sim time); only pacing speeds up.
@@ -757,10 +770,15 @@ function render(){
     }
   }
   // stall warning
-  if(S && S.stalled && Game.phase==="fly"){
-    g.fillStyle = "rgba(230,57,70,0.9)";
-    g.font = "bold 22px sans-serif"; g.textAlign="center";
-    g.fillText("⚠ STALL — NOSE DOWN! ⚠", W/2, 90);
+  if(S && (S.stalled || S.mushing) && Game.phase==="fly"){
+    // below the HUD row (it used to sit on the loadout pill)
+    var wy = Math.max(130, H*0.2);
+    g.font = "900 22px Nunito, 'Segoe UI', sans-serif"; g.textAlign = "center";
+    g.lineWidth = 5; g.strokeStyle = "rgba(10,20,40,0.55)";
+    var wt = S.stalled ? "STALL: NOSE DOWN!" : "MUSHING: NOSE DOWN FOR SPEED";
+    g.strokeText(wt, W/2, wy);
+    g.fillStyle = S.stalled ? "#ff5d6c" : "#ffc23a";
+    g.fillText(wt, W/2, wy);
   }
   g.restore();
   // speed vignette (element cached: this runs every rAF of every flight)
@@ -823,7 +841,6 @@ window.DA.gameInit = init;
 window.DA.startRun = startRun;
 window.DA.pauseGame = pause;
 window.DA.abandonRun = abandon;
-window.DA.derivedParams = derivedParams;
 window.DA.gameLoop = loop;
 window.DA.flightDist = flightDist; // lip-relative distance (HUD/milestones/landing share it)
 window.DA.LAUNCH_X = LAUNCH_X;

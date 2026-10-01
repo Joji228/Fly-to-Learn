@@ -32,7 +32,7 @@ load("game.js");
 const DA = global.window.DA, Game = DA.Game;
 DA.Audio = {
   ensure() {}, startWind() {}, stopWind() {}, stopBoost() {}, startBoost() {}, setWind() {},
-  SFX: { launch() {}, stall() {}, milestone() {}, splash() {}, smooth() {}, impact() {}, record() {}, fuelEmpty() {}, recover() {}, coin() {} }
+  SFX: { launch() {}, stall() {}, milestone() {}, splash() {}, smooth() {}, impact() {}, record() {}, fuelEmpty() {}, recover() {}, coin() {}, flap() {} }
 };
 let lastRes = null, recordCalls = 0;
 DA.UI = {
@@ -132,14 +132,21 @@ ok(r3.newObj.length === 0 && r3.banked < r2.banked, "5b: no double-dip on object
 }
 
 // 7. the in-flight NEW RECORD cheer agrees with the results screen: a
-//    bare-dodo hop past a tiny best is not a record in either place
+//    short hop past a tiny best is not a record in either place
 {
   Game.save = DA.Save.load();
-  Game.save.best.dist = 10; DA.Save.save(Game.save);
+  Game.save.best.dist = 10;
+  Game.acc = 0; Game.lastT = 0;
   recordCalls = 0;
-  const r = flyOnce(0, -1);
-  ok(r.dist > 10 && r.dist <= 50, "7a: bare hop beats the tiny best but stays under the record floor", `dist=${r.dist.toFixed(0)}m`);
-  ok((recordCalls > 0) === lastRes.isRecord, "7b: in-flight record matches the results screen",
+  DA.startRun();
+  const S = Game.S;
+  Game.phase = "fly";
+  S.x = 170; S.y = DA.World.groundY(170) + 0.5; S.vx = 18; S.vy = -3; S.pitch = Math.atan2(-3, 18);
+  let t = 0;
+  for (let i = 0; i < 60 * 10 && Game.phase !== "results"; i++) { t += 1000 / 60; DA.gameLoop(t); }
+  const d = lastRes.stats.dist;
+  ok(d > 10 && d <= 50, "7a: hop beats the tiny best but stays under the record floor", `dist=${d.toFixed(0)}m`);
+  ok(recordCalls === 0 && lastRes.isRecord === false, "7b: in-flight record matches the results screen",
     `cheers=${recordCalls} isRecord=${lastRes.isRecord}`);
 }
 

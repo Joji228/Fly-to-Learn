@@ -102,6 +102,10 @@ var SFX = {
     for(var i=0;i<n.length;i++) tone(n[i], 0.16, "triangle", 0.22, null, i*0.1);
   },
   milestone: function(){ tone(880, 0.1, "triangle", 0.14, 1318); },
+  flap: function(){ // wingless flap: a soft feathery whump
+    noiseHit(0.16, 0.22, "bandpass", 700, 1.2, 260, 0, 31);
+    tone(220, 0.1, "triangle", 0.09, 330);
+  },
   fish: function(n){ // fish pickup: bright blip that climbs with the chain
     var k = Math.min(8, Math.max(0, (n|0) - 1));
     tone(988 * Math.pow(1.06, k), 0.06, "triangle", 0.10, 1480 * Math.pow(1.06, k));

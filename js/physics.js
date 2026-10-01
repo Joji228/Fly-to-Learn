@@ -9,6 +9,8 @@
      NOSE UP   -> path arcs up, speed converts into altitude
      TOO STEEP -> speed collapses, you stall and fall (lower nose to recover)
      BOOST     -> rapid acceleration EXACTLY where the nose points
+     SPEED     -> glide best at ~21-25 m/s: slower and the wing "mushes"
+                  (nose up, path sagging) and bleeds energy fast
 
    How it works: the glider nudges its velocity vector toward the pitch
    with small capped rotations, so gravity's fall PERSISTS instead of being
@@ -28,6 +30,8 @@
 var GRAVITY = 30.0;          // m/s^2 — fast falls, fast dives, fast arcs
 var PITCH_RATE = 3.2;        // rad/s — 0 to ±30deg in ~0.2s, arcade snap
 var PITCH_SMOOTH = 28;       // higher = snappier settle, no trailing drift
+var PITCH_TAP = 0.25;        // fraction of PITCH_RATE at the first instant of a press
+var PITCH_RAMP_T = 0.35;     // seconds of holding to reach full PITCH_RATE
 var MAX_PITCH = 1.15;        // ~66 deg
 var MIN_PITCH = -1.15;
 var STEER_GAIN = 3.0;        // global trajectory responsiveness (glider ladder untouched)
@@ -39,7 +43,25 @@ var STEER_GAIN = 3.0;        // global trajectory responsiveness (glider ladder 
 // always decays. Dive entries stay snappy (gravity is 30 m/s^2).
 var OVER_TOP_K = 1.25;       // extra drag past redline top: firm, brief overshoot OK
 var BARE_SINK = 12.0;        // extra fall for the glider-less: no free gliding
+var BARE_FLAPS = 3;          // flaps per wingless flight
+var FLAP_VY = 13;            // m/s upward kick per flap
+var FLAP_VX = 2.5;           // m/s forward kick per flap
 var REDLINE_K = 0.25;        // shared redline drag strength (soft top speed)
+var AOA_K = 40;             // drag per rad^2 of unmet nose-up request (mush drag)
+var AOA_FREE = 0.05;        // small unmet requests (~3 deg) ride free
+var AOA_MAX = 0.8;          // cap on the counted AoA error (rad)
+var AOA_VREF = 22;          // speed (m/s) at which AOA_K applies; scales with v^2
+// Best-glide band (m/s). With mush drag, every glider's best distance comes
+// from holding ~21-25 m/s: slower mushes and collapses, faster pays drag.
+// The speedometer draws this band; the sims' pilot flies it.
+var BEST_GLIDE = [21, 25];
+// After leaving the ramp, until the pilot first touches the pitch keys, the
+// nose eases to this gentle glide attitude, so pressing nothing flies a
+// clean (if not optimal) glide instead of mushing at the steep exit angle.
+var LAUNCH_TRIM = 3 * Math.PI / 180;
+var LAUNCH_TRIM_RATE = 0.8;  // rad/s
+var GE_H = 6;                // ground-effect height (m above the surface)
+var GE_K = 0.3;              // drag reduction at the surface (fades to 0 at GE_H)
 var DEG = 180 / Math.PI;
 
 function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
@@ -65,10 +87,18 @@ function stepFlight(s, input, p, dt){
   if(!(s.fuel >= 0)) s.fuel = 0;
 
   // --- pitch: fast arcade rotation, settles the instant you let go ---
+  // Hold ramp: a key press starts at PITCH_TAP of full rate and reaches
+  // full rate after PITCH_RAMP_T of holding, so a quick tap trims a few
+  // degrees (flares, speed-band corrections) while a held key still
+  // sweeps the full range quickly.
   var dir = 0;
   if(input.up && !input.down) dir = 1;
   else if(input.down && !input.up) dir = -1;
-  var targetRate = dir * PITCH_RATE;
+  if(dir !== 0 && dir === s.pitchDir) s.pitchHold = (s.pitchHold || 0) + dt;
+  else s.pitchHold = 0;
+  s.pitchDir = dir;
+  var hk = Math.min(1, s.pitchHold / PITCH_RAMP_T);
+  var targetRate = dir * PITCH_RATE * (PITCH_TAP + (1 - PITCH_TAP) * hk*hk*(3 - 2*hk));
   s.pitchVel += (targetRate - s.pitchVel) * Math.min(1, PITCH_SMOOTH * dt);
   s.pitch += s.pitchVel * dt;
   if(s.pitch > MAX_PITCH){ s.pitch = MAX_PITCH; if(s.pitchVel > 0) s.pitchVel = 0; }
@@ -103,6 +133,21 @@ function stepFlight(s, input, p, dt){
   // (Gliders rely on steering to fight this; bare steering is ~15%.)
   var bare = !!p.bare;
   if(bare) s.vy -= BARE_SINK * dt;
+  // Bare Dennis can't glide, but he can FLAP: each fresh nose-up press
+  // spends one of BARE_FLAPS desperate flaps (an upward + forward kick).
+  // It makes the first, wingless flight something you play instead of
+  // watch, and a last flap just before touchdown softens the landing.
+  var flapped = false;
+  if(bare){
+    if(typeof s.flaps !== "number") s.flaps = BARE_FLAPS;
+    var upNow = !!input.up && !input.down;
+    if(upNow && !s.upHeld && s.flaps > 0){
+      s.flaps--; flapped = true;
+      s.vy = Math.max(s.vy + FLAP_VY, FLAP_VY * 0.45);
+      s.vx += FLAP_VX;
+    }
+    s.upHeld = upNow;
+  }
 
   // NOTE: no fall-assist pump — gravity alone powers every fall, so each
   // descent must be repaid on the climb back. Free descent energy turns
@@ -192,6 +237,23 @@ function stepFlight(s, input, p, dt){
     if(speed > p.top) red += OVER_TOP_K;
   }
   var dragF = (0.5 * speed * speed * 0.15 * p.drag) + (speed * speed * 0.004 * red);
+  // --- mush drag: asking the nose for more climb than the wing can
+  // deliver (the steering error left over after this step's turn) is a
+  // high angle of attack, and high AoA is draggy. Clean flight where the
+  // path follows the nose pays nothing; holding the nose way up while the
+  // glider sags ("mushing") pays a lot. This is what stops "nose high and
+  // wait" from being the best possible glide.
+  var resid = diff - turn, mushing = false;
+  if(!bare && resid > AOA_FREE){
+    mushing = resid > AOA_FREE + 0.08;
+    // induced drag scales with airspeed^2 (like lift), so a slow or falling
+    // glider is never braked to a hover; AOA_K is its strength at AOA_VREF
+    var ra = Math.min(AOA_MAX, resid - AOA_FREE), vr = speed / AOA_VREF;
+    dragF += (typeof p.aoaK === "number" ? p.aoaK : AOA_K) * ra * ra * vr * vr;
+  }
+  if(typeof s.agl === "number" && s.agl < GE_H && s.agl > -1){
+    dragF *= 1 - GE_K * (1 - Math.max(0, s.agl) / GE_H);
+  }
   // --- upper-air turbulence: a dodo does not belong up here. Above ~150 m
   // the ride shakes and bleeds speed, so banked boost altitude spends
   // itself instead of floating forever. Low flight (where every stock
@@ -219,7 +281,17 @@ function stepFlight(s, input, p, dt){
   if(s.x < 0){ s.x = 0; if(s.vx < 0) s.vx = 0; }
   s.airTime += dt;
   s.speed = Math.sqrt(s.vx*s.vx + s.vy*s.vy);
-  return { stalled:stalled, boosting:boosting, turb:turb };
+  return { stalled:stalled, boosting:boosting, turb:turb, mushing:mushing, flapped:flapped };
+}
+
+/* Launch settle: call once per step before stepFlight. Returns true while
+   the settle is active (the pilot hasn't touched pitch since launch). */
+function launchSettle(s, input, dt){
+  if(input.up || input.down) s.touched = true;
+  if(s.touched) return false;
+  var d = LAUNCH_TRIM - s.pitch, m = LAUNCH_TRIM_RATE * dt;
+  s.pitch += d > m ? m : (d < -m ? -m : d);
+  return true;
 }
 
 function econReward(stat){
@@ -238,8 +310,9 @@ function fmtDist(m){
 }
 
 var api = { GRAVITY:GRAVITY, PITCH_RATE:PITCH_RATE, MAX_PITCH:MAX_PITCH, MIN_PITCH:MIN_PITCH,
+  BARE_FLAPS:BARE_FLAPS, AOA_K:AOA_K, AOA_FREE:AOA_FREE, GE_H:GE_H, GE_K:GE_K, BEST_GLIDE:BEST_GLIDE, LAUNCH_TRIM:LAUNCH_TRIM,
   DIVE_K:0, clamp:clamp, wrapAngle:wrapAngle, // DIVE_K retired (was an energy pump); kept as 0 for API compat
-  stepFlight:stepFlight, econReward:econReward, fmtDist:fmtDist };
+  stepFlight:stepFlight, launchSettle:launchSettle, econReward:econReward, fmtDist:fmtDist };
 
 // browser + node compatibility
 if(typeof window !== "undefined"){ window.DA = window.DA || {}; window.DA.Physics = api; }

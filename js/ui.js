@@ -279,7 +279,9 @@ function showFlight(){
       var coarse = false;
       try{ coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches; }catch(e){}
       if(!coarse && window.innerWidth>700){
-        ph.textContent = hasBooster() ? "A/W nose up • D/S nose down • SPACE = boost" : "A/W nose up • D/S nose down • buy a rocket to unlock BOOST";
+        ph.textContent = (save.glider.equipped === 0)
+          ? "No wings yet! Tap W / ▲ to FLAP (3 per flight) • save one to soften the landing"
+          : "W/S steer • keep the speed in the GREEN band for the longest glide" + (hasBooster() ? " • SPACE boost" : "");
         ph.classList.remove("hidden");
       } else {
         ph.classList.add("hidden");
@@ -327,7 +329,11 @@ function updateHUD(){
   setText("hud-alt", Math.max(0,G.S.y).toFixed(0)+" m");
   updateSpeedo(G);
   var hasBooster = !!(G.P && G.P.thrust > 0);
-  var f = (G.S.fuelMax>0 && hasBooster) ? G.S.fuel/G.S.fuelMax : 0;
+  // wingless Dennis shows his flaps in the fuel slot instead of "no booster"
+  var flapMode = !!(G.P && G.P.bare && !hasBooster);
+  var FL = (window.DA.Physics && window.DA.Physics.BARE_FLAPS) || 3;
+  var flapsLeft = (typeof G.S.flaps === "number") ? G.S.flaps : FL;
+  var f = flapMode ? flapsLeft / FL : ((G.S.fuelMax>0 && hasBooster) ? G.S.fuel/G.S.fuelMax : 0);
   var fill = $("fuel-fill");
   // width string only changes as fuel burns: don't rewrite style every rAF
   var fw = (f*100).toFixed(1)+"%";
@@ -335,15 +341,15 @@ function updateHUD(){
     _hudCache["fuel-w"] = fw;
     fill.style.width = fw;
   }
-  fill.className = (!hasBooster || f<0.25) ? "low" : "";
-  setText("fuel-label", hasBooster ? "FUEL" : "NO BOOSTER");
+  fill.className = flapMode ? (flapsLeft ? "" : "low") : ((!hasBooster || f<0.25) ? "low" : "");
+  setText("fuel-label", flapMode ? ("FLAPS " + flapsLeft) : (hasBooster ? "FUEL" : "NO BOOSTER"));
   var fb = $("fuel-bar");
   if(fb){
     fb.classList.toggle("burning", !!G.S.boosting && hasBooster);
     fb.classList.toggle("empty", hasBooster && G.S.fuelMax>0 && G.S.fuel<=0);
     // rocket-less flights stare at a red "low" bar all flight: dim the stat
     var fstat = fb.parentNode;
-    if(fstat && fstat.classList) fstat.classList.toggle("nobooster", !hasBooster);
+    if(fstat && fstat.classList) fstat.classList.toggle("nobooster", !hasBooster && !flapMode);
   }
   // once the record falls, BEST tracks the live distance (it no longer lags
   // behind the NEW RECORD banner until the results screen)
@@ -369,9 +375,9 @@ function updateHUD(){
   var crashed = (G.phase === "crashed" && G.crashedInfo);
   var sevTxt = crashed ? { smooth:"🛬 SMOOTH", rough:"⛷️ ROUGH", crash:"💥 CRASH", mega:"☄️ MEGA" }[G.crashedInfo.severity] : null;
   var phaseTxt = G.phase==="ramp" ? "🛷 RAMP!" : sevTxt ? sevTxt
-    : (G.S.boosting?"🔥 BOOST!":(G.S.stalled?"⚠ STALL":"🕊️ FLY"));
+    : (G.S.boosting?"🔥 BOOST!":(G.S.stalled?"⚠ STALL":(G.S.mushing?"⚠ MUSH • NOSE DOWN":"🕊️ FLY")));
   setText("phase-label", phaseTxt);
-  var phaseCol = sevTxt ? "#fff" : (G.S.boosting ? "#ffb703" : "#fff");
+  var phaseCol = sevTxt ? "#fff" : (G.S.boosting || G.S.mushing ? "#ffb703" : "#fff");
   if(_hudCache["phase-color"] !== phaseCol){
     _hudCache["phase-color"] = phaseCol;
     var phel = $("phase-label");
@@ -411,7 +417,7 @@ function onRecord(){
 }
 
 /* ---------- SPEEDOMETER (bottom-right arcade gauge) ---------- */
-var SP_MAX = 400; // gauge face range; numbers never clamp, needle pins instead
+var SP_MAX = 500; // gauge face range (top-tier redline is ~454 km/h); numbers never clamp, needle pins instead
 var spBuilt = false, spRedKey = "";
 function spAngle(frac){ return (135 + 270 * Math.max(0, Math.min(1, frac))) * Math.PI / 180; }
 function spPoint(frac, r){
@@ -457,6 +463,9 @@ function buildSpeedo(){
   }
   var track = $("sp-track"), prog = $("sp-prog");
   if(track && track.setAttribute) track.setAttribute("d", spArcD(0, 1, 64));
+  // best-glide band (green): the speed every glider glides farthest at
+  var best = $("sp-best"), BG = (window.DA.Physics && window.DA.Physics.BEST_GLIDE) || [21, 25];
+  if(best && best.setAttribute) best.setAttribute("d", spArcD(BG[0]*3.6/SP_MAX, BG[1]*3.6/SP_MAX, 64));
   if(prog && prog.setAttribute) prog.setAttribute("d", spArcD(0, 1, 64));
 }
 function updateSpeedo(G){
@@ -504,10 +513,13 @@ function updateSpeedo(G){
   box.classList.toggle("redline", overTop);
   box.classList.toggle("extreme", overMax);
   box.classList.toggle("boosting", boosting);
-  var numCol = overTop ? "#ff5d5d" : fast ? "#ffb703" : "#fff";
-  if(num && _hudCache["sp-color"] !== numCol){
-    _hudCache["sp-color"] = numCol;
-    num.style.color = numCol;
+  var BG = (window.DA.Physics && window.DA.Physics.BEST_GLIDE) || [21, 25];
+  var sp = G.S.speed || 0, flying = G.phase === "fly";
+  var inBand = flying && sp >= BG[0] && sp <= BG[1] + 0.5;
+  box.classList.toggle("inband", inBand);
+  if(num){
+    var col = overTop ? "#ff5d5d" : (G.S.mushing ? "#ffb703" : (inBand ? "#6ee7a0" : (fast ? "#ffb703" : "#fff")));
+    if(_hudCache["sp-color"] !== col){ _hudCache["sp-color"] = col; num.style.color = col; }
   }
 }
 // launch moment: punchy whoosh (the ramp sound already played at release)

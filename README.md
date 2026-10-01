@@ -20,14 +20,15 @@ Every flight starts on the launch ramp. Once you leave the lip, you steer by til
 
 - **Dive** to build speed.
 - **Pull up** to trade that speed for height.
-- **Level out** to glide as far as possible.
+- **Hold the green band.** Every glider flies farthest at about 80 km/h, the green arc on the speedometer. Hold the nose too high and the wing "mushes": you slow down and sink fast. Tap the keys for small corrections.
 
-Climb too steeply and you stall. Flare just before touchdown for a smooth landing. Farther, higher, faster and longer flights all pay more.
+Climb too steeply and you stall. Skim low over the water and ground effect stretches your glide. Flare just before touchdown for a smooth landing. Farther, higher, faster and longer flights all pay more.
 
 | Action | Keyboard | Touch |
 |---|---|---|
 | Nose up | `W` `A` `↑` `←` | ▲ button |
 | Nose down | `S` `D` `↓` `→` | ▼ button |
+| Flap (no glider yet, 3 per flight) | tap `W` / `↑` | ▲ button |
 | Booster (once you own a rocket) | `Space` | 🔥 button |
 | Pause | `P` or `Esc` | ⏸ button |
 
@@ -35,29 +36,29 @@ Climb too steeply and you stall. Flare just before touchdown for a smooth landin
 
 **Golden fish and gust rings.** Fish are worth $4 each and chime higher when you grab them in a row. Flying through a gust ring adds 7 m/s. They sit in the same places every flight, so you can learn the route.
 
-**Landing islands.** Past the shoreline, Palm Isle, Floe Berg, Gull Rock and City Isle are the only dry land. A smooth landing pays more the farther out it is, and landing smoothly several times in a row builds a streak bonus.
+**Landing islands.** Past the shoreline, eight islands are the only dry land: Seal Rock and Puffin Key close in for your first gliders, then Palm Isle, Kelp Cay, Floe Berg, Gull Rock and City Isle, and far out at 5 km the legendary Dodo Island. A smooth landing pays more the farther out it is, and landing smoothly several times in a row builds a streak bonus.
 
-**Gliders.** Dennis starts with no wings at all and falls like a rock. Each glider in the hangar flies noticeably better than the last:
+**Gliders.** Dennis starts with no wings at all: he falls like a rock and can only flap three times. Each glider in the hangar flies noticeably better than the last:
 
 <img src="docs/screenshots/gliders.png" alt="The five gliders: Paper Dart, Rainbow Kite Rig, The Compromise, Needlefish and Black Swan X-1" width="880">
 
 | Glider | Price | Rocket | Price |
 |---|---|---|---|
 | Paper Dart | $200 | Puddle-Jumper | $350 |
-| Rainbow Kite Rig | $700 | Twin Sardine Rig | $2,800 |
-| The Compromise | $1,900 | Dodo-Star Engine | $12,000 |
-| Needlefish | $5,500 | | |
-| Black Swan X-1 | $17,000 | | |
+| Rainbow Kite Rig | $700 | Twin Sardine Rig | $4,200 |
+| The Compromise | $2,850 | Dodo-Star Engine | $18,000 |
+| Needlefish | $8,250 | | |
+| Black Swan X-1 | $25,500 | | |
 
 **Workshop upgrades.** Five permanent upgrades:
 
 - **Launch Ramp:** higher and faster launches.
 - **Waddle Sled:** a shorter ride down the ramp and extra launch speed.
-- **Aerodynamics:** less drag and a higher top speed.
+- **Aerodynamics:** less drag and a higher top speed. The best upgrade for long rocket flights.
 - **Rocket Fuel:** longer burns.
 - **Nitro Mix:** harder thrust.
 
-**Objectives.** 25 bonus goals cover distance, altitude, speed, airtime, landings and islands. Finish every one to turn Dennis golden.
+**Objectives.** 30 bonus goals cover distance, altitude, speed, airtime, landings and islands. Finish every one to turn Dennis golden.
 
 **Two save slots.** Campaign is the normal progression. Sandbox unlocks everything so you can experiment, and it never touches your Campaign progress. You can export or import saves from Settings.
 
@@ -81,7 +82,7 @@ Then open <http://localhost:8000>. Opening `index.html` directly also works, but
 node scripts/run-all.js
 ```
 
-This runs every test suite in `tests/` plus an exploit check that makes sure even fully upgraded gear can't keep Dennis in the air forever. It needs Node and nothing else. The tuning simulations in `scripts/` (`balance.js`, `economy.js`, `skill-ceiling.js`) print how far each glider flies and how many flights it takes to buy everything.
+This runs every test suite in `tests/` (including checks that good piloting beats pressing nothing, that holding the nose high never pays, and that a glider can never hover) plus an exploit check that makes sure even fully upgraded gear can't keep Dennis in the air forever. It needs Node and nothing else. The tuning simulations in `scripts/` (`balance.js`, `economy.js`, `skill-ceiling.js`) print how far each glider flies and how many flights it takes to buy everything. They share one sim pilot (`scripts/pilot.js`) that flies like a competent player.
 
 ## Project layout
 
@@ -108,7 +109,8 @@ Plain HTML, CSS and JavaScript on a `<canvas>`. There are no frameworks, no buil
 
 ## Changelog
 
-- **0.12:** Audit fixes: keyboard menus work (Enter on a focused button no longer launches a flight instead; Space ticks checkboxes and presses buttons), Export/Import work in browsers that block saving, no burst of queued music notes on the first click, landings near the shore or an island edge no longer slide out across the sea, the in-flight NEW RECORD cheer matches the results screen, a key held through pause/resume keeps steering, and the speedometer skips redundant per-frame writes.
+- **1.0.1:** Audit fixes: keyboard menus work (Enter on a focused button no longer launches a flight instead; Space ticks checkboxes and presses buttons), Export/Import work in browsers that block saving, no burst of queued music notes on the first click, the in-flight NEW RECORD cheer matches the results screen, a key held through pause/resume keeps steering, and the speedometer skips redundant per-frame writes.
+- **1.0:** Flight model overhaul after a physics audit. Piloting now matters: every glider has a best-glide speed shown as a green band, and holding the nose high "mushes". Finer tap steering, ground effect, and a gentle nose settle after launch. Dennis now stands on the collision point (no more sinking into the ramp or snow), and rollouts stop at the waterline. New islands (Seal Rock, Puffin Key, Kelp Cay, Dodo Island), flaps for the first wingless flight, and a retuned economy.
 - **0.11:** Audit fixes: resume/menu/shop entry drops button focus (stale Space/Enter can no longer re-fire pause buttons mid-flight), results grid blowout guard, dead CSS classes removed, focus regression tests.
 - **0.10:** Audit fixes: readable results screen (longer beat before the shop, no Enter double-launch), boost-audio node cleanup, HUD write savings, save-import hardening (objective allowlist, wallet caps), stale speedo needle reset.
 - **0.9:** Rebuilt shop with Gliders, Rockets and Workshop tabs, a next-purchase goal bar and cleaner cards. New Nitro Mix artwork. Map fixes: the shoreline is now a snow bank, islands rise out of the sea, waves follow the water, and boats, buoys and the city sit in the right places. Milestones are readable signboards.

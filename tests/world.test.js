@@ -50,7 +50,7 @@ function ok(c, m, extra) {
     info.push(`${isl.x0}-${isl.x1}:h=${h.toFixed(1)}`);
     if (!dryMid || !wetOut || !isl.name) good = false;
   }
-  ok(good && W.ISLANDS.length === 4, "2: four named isles with dry hearts, wet doorsteps", info.join(" | "));
+  ok(good && W.ISLANDS.length === 8, "2: eight named isles with dry hearts, wet doorsteps", info.join(" | "));
 }
 
 // 3. island slopes stay gentle (a flared touchdown can grease them).
@@ -87,13 +87,13 @@ function ok(c, m, extra) {
   let good = true;
   try {
     const g = anyProxy();
-    for (const cx of [300, 1250, 2075, 3875]) {
+    for (const cx of [300, 650, 1250, 2075, 3875, 5450]) {
       W.drawScene(g, 1280, 800, { x: cx - 200, y: 0 }, 1,
         { x: cx, y: 30, vx: 20, vy: 0, pitch: 0, glider: 2, rocket: 0 },
         { particles: { list: [] }, playerScale: 1 });
     }
   } catch (e) { good = false; console.log("   draw error: " + (e && e.message)); }
-  ok(good, "6: drawScene survives surf/isle/city-isle passes");
+  ok(good, "6: drawScene survives surf/isle/city-isle/dodo-island passes");
 }
 
 console.log(`\nWORLD TESTS: ${pass} passed, ${fail} failed`);

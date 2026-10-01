@@ -14,7 +14,8 @@ var FISH_VALUE = 4;
 var RING_KICK = 7;      // m/s added along the velocity vector
 var RING_HALF = 6.5;    // hoop half-height (m): generous, readable
 var FISH_R = 3.4;       // pickup radius (m)
-var COURSE_END = 4300;
+var COURSE_END = 5700;
+var BODY_Y = 4.5;       // S.y is the sled; Dennis's body sits this far above it
 
 function hash(n){ var x = Math.sin(n*91.7+13.3)*43758.5453; return x - Math.floor(x); }
 function ground(x){
@@ -68,7 +69,7 @@ function step(st, S, prevX, dt){
   for(var i=0;i<c.fish.length;i++){
     var f = c.fish[i];
     if(f.x < lo || f.x > hi || st.fishGot[i]) continue;
-    if(Math.abs(f.y - S.y) <= FISH_R){
+    if(Math.abs(f.y - (S.y + BODY_Y)) <= FISH_R){
       st.fishGot[i] = true; st.fish++; ev.fish++;
       st.chain++; st.chainT = 0.9;
       ev.fx = f.x; ev.fy = f.y;
@@ -77,7 +78,7 @@ function step(st, S, prevX, dt){
   for(var r=0;r<c.rings.length;r++){
     var R = c.rings[r];
     if(st.ringGot[r]) continue;
-    if(prevX < R.x && S.x >= R.x && Math.abs(S.y - R.y) <= RING_HALF){
+    if(prevX < R.x && S.x >= R.x && Math.abs(S.y + BODY_Y - R.y) <= RING_HALF){
       st.ringGot[r] = true; st.rings++; ev.ring = true;
       var sp = Math.sqrt(S.vx*S.vx + S.vy*S.vy);
       if(sp > 0.5){ var k2 = (sp + RING_KICK) / sp; S.vx *= k2; S.vy *= k2; S.speed = sp + RING_KICK; }
@@ -184,7 +185,7 @@ function drawFront(g, SX, SY, zoom, st, W){
 }
 
 window.DA = window.DA || {};
-window.DA.Pickups = { FISH_VALUE: FISH_VALUE, RING_KICK: RING_KICK, RING_HALF: RING_HALF,
+window.DA.Pickups = { FISH_VALUE: FISH_VALUE, RING_KICK: RING_KICK, RING_HALF: RING_HALF, BODY_Y: BODY_Y,
   getCourse: getCourse, newRun: newRun, step: step, nextRing: nextRing,
   drawBack: drawBack, drawFront: drawFront, drawFish: drawFish };
 })();

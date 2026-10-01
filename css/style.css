@@ -97,6 +97,8 @@ button:focus-visible{outline:3px solid var(--teal);outline-offset:3px;}
 .sp-dial{fill:rgba(10,18,38,.84);stroke:rgba(255,255,255,.16);stroke-width:2;}
 .sp-track{fill:none;stroke:rgba(255,255,255,.1);stroke-width:10;stroke-linecap:round;}
 .sp-red{fill:none;stroke:var(--amber-2);stroke-width:10;stroke-linecap:butt;opacity:.75;}
+.sp-best{fill:none;stroke:var(--good);stroke-width:14;stroke-linecap:butt;opacity:.55;}
+#speedometer.inband .sp-best{opacity:1;filter:drop-shadow(0 0 6px rgba(110,231,160,.9));}
 .sp-prog{fill:none;stroke:#5aa9ff;stroke-width:10;stroke-linecap:round;filter:drop-shadow(0 0 5px rgba(90,169,255,.8));transition:stroke .2s;}
 .sp-tick{stroke:rgba(255,255,255,.35);stroke-width:2;}
 .sp-tick.major{stroke:#fff;stroke-width:3;}
